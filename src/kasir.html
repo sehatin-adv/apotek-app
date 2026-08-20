@@ -635,6 +635,8 @@
     // ============================================================
     // STOK OVERLAY
     // ============================================================
+    let stokOverlayData = [];
+    
     window.lihatStokKasir = async function() {
         const overlay = document.getElementById('stokOverlay');
         const body = document.getElementById('stokOverlayBody');
@@ -693,6 +695,8 @@
     // ============================================================
     // CEK SHIFT
     // ============================================================
+    let shiftAktif = null;
+    
     function cekShiftAktif() {
         const savedShift = localStorage.getItem('shift_aktif');
         if (savedShift) {
@@ -708,6 +712,8 @@
     // ============================================================
     // LOAD MASTER
     // ============================================================
+    let obatMasterKasir = [];
+    
     async function loadMasterKasir() {
         try {
             const { data, error } = await getObat();
@@ -724,7 +730,7 @@
     }
     
     // ============================================================
-    // CARI OBAT KASIR
+    // CARI OBAT KASIR - FIX: PASTIKAN ONCLICK BERFUNGSI
     // ============================================================
     window.cariObatKasir = function(e) {
         const keyword = document.getElementById('searchKasir').value.toLowerCase();
@@ -764,7 +770,7 @@
         
         saran.style.display = 'block';
         saran.innerHTML = hasil.map(o => `
-            <div class="item" onclick="pilihObatKasir(${o.id})">
+            <div class="item" onclick="pilihObatKasir('${o.id}')">
                 <span><span class="kode">${o.kode_obat}</span> - ${o.nama_obat}</span>
                 <span class="stok">Stok: ${o.stok || 0}</span>
             </div>
@@ -787,6 +793,9 @@
     // ============================================================
     // TAMBAH ITEM KASIR
     // ============================================================
+    let itemsKasir = [];
+    let itemCounterKasir = 0;
+    
     function tambahItemKasir(obat) {
         if (obat.stok <= 0) {
             showToastKasir('⚠️ Stok ' + obat.nama_obat + ' habis!', true);
@@ -1020,7 +1029,6 @@
         const shift = shiftAktif.shift;
         const kasir = document.getElementById('userKasir').value || 'admin';
         
-        // TAMBAHKAN JAM
         const now = new Date();
         const jam = now.toTimeString().slice(0,5);
         
@@ -1059,7 +1067,6 @@
             cash = nominalPembayaran;
         }
         
-        // Data header
         const header = {
             no_faktur: noFaktur,
             tanggal: tanggal,
@@ -1076,7 +1083,6 @@
             status: 'Selesai'
         };
         
-        // Detail items
         const details = itemsKasir.map(item => ({
             obat_id: item.obat_id || null,
             kode_obat: item.kode_obat,
@@ -1087,9 +1093,7 @@
             subtotal: item.subtotal
         }));
         
-        // ============================================================
         // SIMPAN KE SUPABASE - update stok otomatis di database.js
-        // ============================================================
         const { data, error } = await savePenjualan(header, details);
         
         if (error) {
@@ -1245,12 +1249,6 @@
     // ============================================================
     // UTILITY
     // ============================================================
-    let itemsKasir = [];
-    let obatMasterKasir = [];
-    let itemCounterKasir = 0;
-    let shiftAktif = null;
-    let stokOverlayData = [];
-    
     function formatRupiahKasir(value) {
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
