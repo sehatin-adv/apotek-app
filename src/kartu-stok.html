@@ -378,13 +378,38 @@
         const tbody = document.getElementById('kartuBody');
         const tfoot = document.getElementById('kartuFooter');
         if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi</td></tr>'; tfoot.style.display = 'none'; return; }
+        
+        // Stok Awal Periode dihitung mundur dari mutasi pertama (yang sisa_stok-nya
+        // sudah tercatat aktual di database saat transaksi terjadi) - jadi tetap
+        // konsisten/akurat terhadap Stok Saat Ini (Master).
+        const first = data[0];
+        let stokAwal = (Number(first.sisa) || 0) - (Number(first.masuk) || 0) + (Number(first.keluar) || 0);
+        if (stokAwal < 0) stokAwal = 0;
+        let statusAwalClass = 'badge-success', statusAwalText = 'Aman';
+        if (stokAwal === 0) { statusAwalClass = 'badge-danger'; statusAwalText = 'Habis'; }
+        else if (stokAwal < 10) { statusAwalClass = 'badge-warning'; statusAwalText = 'Menipis'; }
+        
+        let rowsHtml = `<tr style="background:#f7f9fc;">
+            <td>-</td>
+            <td>${formatTanggal(document.getElementById('tglAwal').value)}</td>
+            <td>-</td>
+            <td><strong>-</strong></td>
+            <td><strong>Stok Awal Periode</strong></td>
+            <td style="text-align:right;">-</td>
+            <td style="text-align:right;">-</td>
+            <td style="text-align:right;font-weight:700;">${stokAwal}</td>
+            <td><span class="badge ${statusAwalClass}">${statusAwalText}</span></td>
+        </tr>`;
+        
         let totalMasuk = 0, totalKeluar = 0, sisaAkhir = 0;
-        tbody.innerHTML = data.map((d, i) => {
+        rowsHtml += data.map((d, i) => {
             totalMasuk += d.masuk || 0; totalKeluar += d.keluar || 0; sisaAkhir = d.sisa || 0;
             let statusClass = 'badge-success', statusText = d.status || 'Aman';
             if (d.sisa === 0) { statusClass = 'badge-danger'; statusText = 'Habis'; } else if (d.sisa < 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
             return `<tr><td>${d.no || i + 1}</td><td>${formatTanggal(d.tanggal)}</td><td>${d.jam || '00:00'}</td><td><strong>${d.no_bukti || '-'}</strong></td><td>${d.keterangan || '-'}</td><td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td><td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td><td style="text-align:right;font-weight:700;">${d.sisa}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
         }).join('');
+        
+        tbody.innerHTML = rowsHtml;
         document.getElementById('totalMasuk').textContent = totalMasuk;
         document.getElementById('totalKeluar').textContent = totalKeluar;
         document.getElementById('totalSisa').textContent = sisaAkhir;
@@ -423,7 +448,11 @@
 
     window.downloadCSV = function() {
         if (!kartuData || kartuData.length === 0) { alert('Tidak ada data untuk di-download'); return; }
+        const first = kartuData[0];
+        let stokAwal = (Number(first.sisa) || 0) - (Number(first.masuk) || 0) + (Number(first.keluar) || 0);
+        if (stokAwal < 0) stokAwal = 0;
         let csv = 'No,Tanggal,Jam,No. Bukti,Keterangan,Masuk,Keluar,Sisa Stok,Status\n';
+        csv += `-,${document.getElementById('tglAwal').value},-,-,"Stok Awal Periode",0,0,${stokAwal},Aman\n`;
         kartuData.forEach(d => { csv += `${d.no || '-'},${d.tanggal},${d.jam || '00:00'},${d.no_bukti || '-'},"${d.keterangan || '-'}",${d.masuk || 0},${d.keluar || 0},${d.sisa || 0},${d.status || 'Aman'}\n`; });
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
