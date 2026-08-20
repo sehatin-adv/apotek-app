@@ -353,7 +353,9 @@
         
         const { data: returData } = await getAllRetur();
         if (returData && returData.length > 0) {
-            returnHistory = returData;
+            // Supabase join balik key 'retur_detail', normalisasi ke 'items'
+            // supaya konsisten dengan bentuk data fallback localStorage.
+            returnHistory = returData.map(r => ({ ...r, items: r.retur_detail || r.items || [] }));
         } else {
             returnHistory = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
         }
@@ -412,7 +414,7 @@
                 </div>
                 <div>
                     <span style="font-weight:700; color:#2d6a9f;">${formatRupiah(p.total)}</span>
-                    <span style="margin-left:16px; font-size:12px; color:#7a8a9e;">${p.items ? p.items.length : 0} item</span>
+                    ${p.items ? `<span style="margin-left:16px; font-size:12px; color:#7a8a9e;">${p.items.length} item</span>` : ''}
                 </div>
             </div>
         `).join('');
@@ -423,10 +425,30 @@
     // ============================================================
     // PILIH TRANSAKSI
     // ============================================================
-    window.pilihTransaksi = function(index) {
+    window.pilihTransaksi = async function(index) {
         const results = window._searchResults || [];
         if (index < 0 || index >= results.length) return;
-        const trans = results[index];
+        let trans = results[index];
+        
+        // Transaksi dari Supabase (getPenjualan) tidak membawa item detail
+        // (cuma dari tabel penjualan_header). Ambil detailnya di sini via
+        // getPenjualanByNoFaktur, yang join dengan penjualan_detail.
+        if (!trans.items && trans.no_faktur) {
+            const tbodyLoading = document.getElementById('detailItemsBody');
+            document.getElementById('detailCard').style.display = 'block';
+            document.getElementById('detailFooter').style.display = 'none';
+            tbodyLoading.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#7a8a9e;"><i class="fas fa-spinner fa-spin"></i> Memuat item...</td></tr>';
+            
+            const { data: fullTrans, error } = await getPenjualanByNoFaktur(trans.no_faktur);
+            if (error || !fullTrans) {
+                tbodyLoading.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#dc3545;">❌ Gagal memuat item transaksi</td></tr>';
+                return;
+            }
+            // Supabase join balik key 'penjualan_detail', normalisasi ke 'items'
+            trans = { ...trans, ...fullTrans, items: fullTrans.penjualan_detail || [] };
+            results[index] = trans;
+        }
+        
         selectedTransaction = trans;
 
         const returns = returnHistory.filter(r => r.no_faktur === trans.no_faktur);
@@ -690,8 +712,7 @@
     // LOAD RIWAYAT RETUR
     // ============================================================
     async function loadRiwayat() {
-        const { data: returData } = await getAllRetur();
-        let history = returData || JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
+        let history = returnHistory;
         const tbody = document.getElementById('riwayatBody');
         if (!history || history.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#7a8a9e;">Belum ada riwayat retur</td></tr>';
@@ -713,8 +734,7 @@
     }
 
     window.lihatDetailRetur = function(id) {
-        const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-        const retur = history.find(r => r.id === id);
+        const retur = returnHistory.find(r => r.id === id);
         if (!retur) return;
 
         let msg = `ID: ${retur.id}\n`;

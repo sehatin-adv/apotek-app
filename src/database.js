@@ -318,7 +318,7 @@ export async function getAllRetur() {
     try {
         const { data, error } = await supabase
             .from('retur_penjualan')
-            .select('*')
+            .select('*, retur_detail(*)')
             .order('tanggal_retur', { ascending: false });
         if (error) throw error;
         return { data, error: null };
