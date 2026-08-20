@@ -67,6 +67,7 @@
         .shift-summary .item .value { font-weight:700; font-size:14px; }
         .shift-summary .item .value.positive { color:#28a745; }
         .shift-summary .item .value.negative { color:#dc3545; }
+        .shift-summary .item input { width:150px; padding:4px 8px; border:2px solid #e8edf3; border-radius:6px; font-size:13px; text-align:right; font-weight:700; }
         .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
         .toast.error { background:#dc3545; }
         .toast.warning { background:#ffc107; color:#212529; }
@@ -76,6 +77,9 @@
         .badge-danger { background:#f8d7da; color:#721c24; }
         .badge-warning { background:#fff3cd; color:#856404; }
         .note-box { margin-top:12px; padding:12px; background:#fff3cd; border-radius:8px; border-left:4px solid #ffc107; font-size:13px; color:#856404; }
+        .loading { display:flex; justify-content:center; align-items:center; padding:20px; color:#7a8a9e; gap:8px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
         @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:12px; } .form-grid-2 { grid-template-columns:1fr; } .shift-summary { grid-template-columns:1fr; } .header h2 { font-size:17px; } }
     </style>
 </head>
@@ -130,7 +134,7 @@
             </div>
         </div>
         <div class="user-info">
-            <i class="fas fa-user-circle"></i> <strong>admin</strong><br>
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
             <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
     </div>
@@ -177,6 +181,7 @@
 
         <div class="card" id="tutupShiftCard" style="display:none;">
             <div class="card-title"><i class="fas fa-stop-circle"></i> Tutup Shift</div>
+            
             <div class="shift-summary" id="shiftSummary">
                 <div class="item"><span class="label">Saldo Awal</span><span class="value" id="summarySaldoAwal">Rp 0</span></div>
                 <div class="item"><span class="label">Penjualan Cash</span><span class="value positive" id="summaryCash">Rp 0</span></div>
@@ -186,15 +191,21 @@
                 <div class="item"><span class="label" style="font-weight:700;">Total Pengeluaran</span><span class="value negative" id="summaryTotalPengeluaran" style="font-weight:700;">Rp 0</span></div>
                 <div class="item"><span class="label" style="font-weight:700;">Saldo Akhir</span><span class="value positive" id="summarySaldoAkhir" style="font-weight:700;font-size:16px;">Rp 0</span></div>
             </div>
+            
             <div class="form-group">
                 <label>Diserahkan Kepada</label>
                 <input type="text" id="diserahkanKepada" placeholder="Nama penerima">
             </div>
-            <div class="note-box"><i class="fas fa-info-circle"></i> Apabila ada selisih saldo shift, silakan isi kolom catatan untuk memberi penjelasan ke Owner.</div>
+            
+            <div class="note-box">
+                <i class="fas fa-info-circle"></i> Apabila ada selisih saldo shift, silakan isi kolom catatan untuk memberi penjelasan ke Owner.
+            </div>
+            
             <div class="form-group" style="margin-top:12px;">
                 <label>Catatan</label>
                 <textarea id="catatanShift" rows="2" placeholder="Isi catatan jika ada selisih..." style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;font-family:inherit;"></textarea>
             </div>
+            
             <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
                 <button class="btn btn-danger" onclick="tutupShift()"><i class="fas fa-stop"></i> Tutup Shift</button>
                 <button class="btn btn-outline" onclick="refreshShift()"><i class="fas fa-sync"></i> Refresh</button>
@@ -206,15 +217,42 @@
 <div class="toast" id="toastShift"></div>
 
 <script type="module">
-    import { supabase, getCurrentUser } from './supabase.js';
+    import { supabase } from './supabase.js';
     import { getShiftAktif, bukaShift, tutupShift, getPenjualan, getAllRetur } from './database.js';
     
-    let shiftAktif = null;
-    let penjualanShift = [];
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
 
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -225,6 +263,9 @@
         }
     };
 
+    // ============================================================
+    // UTILITY
+    // ============================================================
     function getNumberFromRupiah(text) {
         return Number(String(text).replace(/\./g, '').replace(/[^0-9]/g, '')) || 0;
     }
@@ -242,6 +283,9 @@
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
 
+    // ============================================================
+    // RESET UI
+    // ============================================================
     function resetAllShiftData() {
         document.getElementById('summarySaldoAwal').textContent = 'Rp 0';
         document.getElementById('summaryCash').textContent = 'Rp 0';
@@ -252,8 +296,6 @@
         document.getElementById('summarySaldoAkhir').textContent = 'Rp 0';
         document.getElementById('diserahkanKepada').value = '';
         document.getElementById('catatanShift').value = '';
-        penjualanShift = [];
-        shiftAktif = null;
         document.getElementById('statusBadge').textContent = 'Belum Dibuka';
         document.getElementById('statusBadge').className = 'badge badge-danger';
         document.getElementById('shiftInfo').textContent = 'Belum ada shift yang aktif';
@@ -261,20 +303,25 @@
         document.getElementById('tutupShiftCard').style.display = 'none';
     }
 
+    // ============================================================
+    // LOAD SHIFT STATUS - DIPERBAIKI
+    // ============================================================
+    let shiftAktif = null;
+
     async function loadShiftStatus() {
         const { data, error } = await getShiftAktif();
+        
         if (data) {
             shiftAktif = data;
             const statusBadge = document.getElementById('statusBadge');
             statusBadge.textContent = 'Shift ' + shiftAktif.shift + ' - Aktif';
             statusBadge.className = 'badge badge-success';
-            document.getElementById('shiftInfo').textContent = 'Shift ' + shiftAktif.shift + ' dibuka pada ' + shiftAktif.tanggal + ' oleh ' + shiftAktif.user;
+            document.getElementById('shiftInfo').textContent = 'Shift ' + shiftAktif.shift + ' dibuka pada ' + shiftAktif.tanggal + ' oleh ' + shiftAktif.username;
             document.getElementById('bukaShiftCard').style.display = 'none';
             document.getElementById('tutupShiftCard').style.display = 'block';
             
-            const { data: penjualanData } = await getPenjualan(shiftAktif.tanggal, shiftAktif.tanggal);
-            penjualanShift = penjualanData ? penjualanData.filter(p => p.shift === shiftAktif.shift && !p.closed_shift_id) : [];
-            hitungTutupShift();
+            // HITUNG ULANG TUTUP SHIFT - PAKAI DATA DARI SUPABASE
+            await hitungTutupShift();
         } else {
             // Fallback ke localStorage
             const savedShift = localStorage.getItem('shift_aktif');
@@ -283,19 +330,132 @@
                 const statusBadge = document.getElementById('statusBadge');
                 statusBadge.textContent = 'Shift ' + shiftAktif.shift + ' - Aktif';
                 statusBadge.className = 'badge badge-success';
-                document.getElementById('shiftInfo').textContent = 'Shift ' + shiftAktif.shift + ' dibuka pada ' + shiftAktif.tanggal + ' oleh ' + shiftAktif.user;
+                document.getElementById('shiftInfo').textContent = 'Shift ' + shiftAktif.shift + ' dibuka pada ' + shiftAktif.tanggal + ' oleh ' + shiftAktif.username;
                 document.getElementById('bukaShiftCard').style.display = 'none';
                 document.getElementById('tutupShiftCard').style.display = 'block';
                 
-                const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-                penjualanShift = allPenjualan.filter(p => p.shift === shiftAktif.shift && p.tanggal === shiftAktif.tanggal && !p.closed_shift_id);
-                hitungTutupShift();
+                // Hitung dari localStorage
+                hitungTutupShiftLocal();
             } else {
                 resetAllShiftData();
             }
         }
     }
 
+    // ============================================================
+    // HITUNG TUTUP SHIFT - DARI SUPABASE (DENGAN SHIFT_ID)
+    // ============================================================
+    async function hitungTutupShift() {
+        if (!shiftAktif) {
+            return;
+        }
+
+        try {
+            // AMBIL PENJUALAN YANG TERKAIT DENGAN SHIFT INI (shift_id = shiftAktif.id)
+            const { data: penjualanData, error: penjualanError } = await supabase
+                .from('penjualan_header')
+                .select('total, metode_pembayaran')
+                .eq('shift_id', shiftAktif.id);
+
+            if (penjualanError) throw penjualanError;
+
+            let totalCash = 0;
+            let totalTransfer = 0;
+            let totalPenjualan = 0;
+
+            if (penjualanData && penjualanData.length > 0) {
+                penjualanData.forEach(p => {
+                    totalPenjualan += (p.total || 0);
+                    if (p.metode_pembayaran === 'Cash') {
+                        totalCash += (p.total || 0);
+                    } else {
+                        totalTransfer += (p.total || 0);
+                    }
+                });
+            }
+
+            // AMBIL RETUR YANG TERKAIT DENGAN SHIFT INI (shift_id = shiftAktif.id)
+            const { data: returData, error: returError } = await supabase
+                .from('retur_penjualan')
+                .select('total_retur')
+                .eq('shift_id', shiftAktif.id);
+
+            if (returError) throw returError;
+
+            let totalRetur = 0;
+            if (returData && returData.length > 0) {
+                returData.forEach(r => {
+                    totalRetur += (r.total_retur || 0);
+                });
+            }
+
+            const saldoAwal = Number(shiftAktif.saldo_awal) || 0;
+            const totalPendapatan = totalCash + totalTransfer;
+            const saldoAkhir = saldoAwal + totalPendapatan - totalRetur;
+
+            // UPDATE UI
+            document.getElementById('summarySaldoAwal').textContent = formatRupiahShift(saldoAwal);
+            document.getElementById('summaryCash').textContent = formatRupiahShift(totalCash);
+            document.getElementById('summaryTransfer').textContent = formatRupiahShift(totalTransfer);
+            document.getElementById('summaryTotalPendapatan').textContent = formatRupiahShift(totalPendapatan);
+            document.getElementById('summaryRetur').textContent = formatRupiahShift(totalRetur);
+            document.getElementById('summaryTotalPengeluaran').textContent = formatRupiahShift(totalRetur);
+            document.getElementById('summarySaldoAkhir').textContent = formatRupiahShift(saldoAkhir);
+
+        } catch(e) {
+            console.error('Error hitungTutupShift:', e);
+            // Fallback ke localStorage
+            hitungTutupShiftLocal();
+        }
+    }
+
+    // ============================================================
+    // HITUNG TUTUP SHIFT - DARI LOCALSTORAGE (FALLBACK)
+    // ============================================================
+    function hitungTutupShiftLocal() {
+        if (!shiftAktif) return;
+
+        const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
+        const allRetur = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
+
+        let totalCash = 0;
+        let totalTransfer = 0;
+        let totalPenjualan = 0;
+
+        // Filter transaksi berdasarkan shift_id
+        const penjualanFiltered = allPenjualan.filter(p => p.shift_id === shiftAktif.id);
+        
+        penjualanFiltered.forEach(p => {
+            totalPenjualan += (p.total || 0);
+            if (p.metode_pembayaran === 'Cash') {
+                totalCash += (p.total || 0);
+            } else {
+                totalTransfer += (p.total || 0);
+            }
+        });
+
+        const returFiltered = allRetur.filter(r => r.shift_id === shiftAktif.id);
+        let totalRetur = 0;
+        returFiltered.forEach(r => {
+            totalRetur += (r.total_retur || 0);
+        });
+
+        const saldoAwal = Number(shiftAktif.saldo_awal) || 0;
+        const totalPendapatan = totalCash + totalTransfer;
+        const saldoAkhir = saldoAwal + totalPendapatan - totalRetur;
+
+        document.getElementById('summarySaldoAwal').textContent = formatRupiahShift(saldoAwal);
+        document.getElementById('summaryCash').textContent = formatRupiahShift(totalCash);
+        document.getElementById('summaryTransfer').textContent = formatRupiahShift(totalTransfer);
+        document.getElementById('summaryTotalPendapatan').textContent = formatRupiahShift(totalPendapatan);
+        document.getElementById('summaryRetur').textContent = formatRupiahShift(totalRetur);
+        document.getElementById('summaryTotalPengeluaran').textContent = formatRupiahShift(totalRetur);
+        document.getElementById('summarySaldoAkhir').textContent = formatRupiahShift(saldoAkhir);
+    }
+
+    // ============================================================
+    // BUKA SHIFT
+    // ============================================================
     window.bukaShift = async function() {
         const shift = document.getElementById('pilihShift').value;
         const saldoAwal = getNumberFromRupiah(document.getElementById('saldoAwal').value);
@@ -306,67 +466,27 @@
             return;
         }
 
-        const data = { shift, tanggal: getToday(), user, saldo_awal: saldoAwal };
+        const data = { 
+            shift: shift, 
+            tanggal: getToday(), 
+            user: user, 
+            saldo_awal: saldoAwal 
+        };
         
         const { data: result, error } = await bukaShift(data);
+        
         if (error) {
-            // Fallback ke localStorage
-            const fallbackData = { ...data, id: Date.now(), status: 'Buka', waktu_buka: new Date().toISOString() };
-            localStorage.setItem('shift_aktif', JSON.stringify(fallbackData));
-            showToastShift('✅ Shift ' + shift + ' berhasil dibuka (offline)!');
-        } else {
-            showToastShift('✅ Shift ' + shift + ' berhasil dibuka!');
+            showToastShift('⚠️ ' + error.message, true);
+            return;
         }
-        loadShiftStatus();
+        
+        showToastShift('✅ Shift ' + shift + ' berhasil dibuka!');
+        await loadShiftStatus();
     };
 
-    function hitungTutupShift() {
-        if (!shiftAktif) return;
-
-        let totalCash = 0;
-        let totalTransfer = 0;
-        let totalRetur = 0;
-
-        penjualanShift.forEach(item => {
-            if (item.metode_pembayaran === 'Cash') {
-                totalCash += Number(item.total) || 0;
-            } else if (item.metode_pembayaran === 'Transfer') {
-                totalTransfer += Number(item.total) || 0;
-            } else {
-                totalCash += Number(item.total) || 0;
-            }
-        });
-
-        const returHistory = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-        returHistory.forEach(r => {
-            if (r.shift === shiftAktif.shift && r.tanggal === shiftAktif.tanggal && !r.closed_shift_id) {
-                totalRetur += Number(r.total_retur) || 0;
-            }
-        });
-
-        const saldoAwal = Number(shiftAktif.saldo_awal) || 0;
-        const totalPendapatan = totalCash + totalTransfer;
-        const totalPengeluaranShift = totalRetur;
-        const saldoAkhir = saldoAwal + totalPendapatan - totalPengeluaranShift;
-
-        document.getElementById('summarySaldoAwal').textContent = formatRupiahShift(saldoAwal);
-        document.getElementById('summaryCash').textContent = formatRupiahShift(totalCash);
-        document.getElementById('summaryTransfer').textContent = formatRupiahShift(totalTransfer);
-        document.getElementById('summaryTotalPendapatan').textContent = formatRupiahShift(totalPendapatan);
-        document.getElementById('summaryRetur').textContent = formatRupiahShift(totalRetur);
-        document.getElementById('summaryTotalPengeluaran').textContent = formatRupiahShift(totalPengeluaranShift);
-        document.getElementById('summarySaldoAkhir').textContent = formatRupiahShift(saldoAkhir);
-    }
-
-    window.refreshShift = function() {
-        if (shiftAktif) {
-            const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-            penjualanShift = allPenjualan.filter(p => p.shift === shiftAktif.shift && p.tanggal === shiftAktif.tanggal && !p.closed_shift_id);
-            hitungTutupShift();
-        }
-        showToastShift('🔄 Data diperbarui');
-    };
-
+    // ============================================================
+    // TUTUP SHIFT
+    // ============================================================
     window.tutupShift = async function() {
         if (!shiftAktif) {
             showToastShift('⚠️ Tidak ada shift yang aktif!', true);
@@ -389,60 +509,47 @@
             shift: shiftAktif.shift,
             tanggal: shiftAktif.tanggal,
             saldo_awal: shiftAktif.saldo_awal,
-            saldo_akhir: 0,
             diserahkan_kepada: diserahkan,
             catatan: catatan
         };
 
-        const { error } = await tutupShift(data);
+        const { data: result, error } = await tutupShift(data);
         
         if (error) {
-            // Fallback ke localStorage
-            let allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-            allPenjualan = allPenjualan.map(p => {
-                if (p.shift === shiftAktif.shift && p.tanggal === shiftAktif.tanggal && !p.closed_shift_id) {
-                    return { ...p, closed_shift_id: shiftAktif.id };
-                }
-                return p;
-            });
-            localStorage.setItem('penjualan_history', JSON.stringify(allPenjualan));
-
-            let allRetur = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-            allRetur = allRetur.map(r => {
-                if (r.shift === shiftAktif.shift && r.tanggal === shiftAktif.tanggal && !r.closed_shift_id) {
-                    return { ...r, closed_shift_id: shiftAktif.id };
-                }
-                return r;
-            });
-            localStorage.setItem('retur_penjualan', JSON.stringify(allRetur));
-
-            const shiftHistory = JSON.parse(localStorage.getItem('shift_history') || '[]');
-            const historyData = {
-                ...shiftAktif,
-                status: 'Tutup',
-                diserahkan_kepada: diserahkan,
-                catatan: catatan,
-                waktu_tutup: new Date().toISOString()
-            };
-            shiftHistory.push(historyData);
-            localStorage.setItem('shift_history', JSON.stringify(shiftHistory));
-            localStorage.removeItem('shift_aktif');
-
-            showToastShift('✅ Shift berhasil ditutup (offline)!');
-        } else {
-            showToastShift('✅ Shift berhasil ditutup!');
+            showToastShift('⚠️ Gagal menutup shift: ' + error.message, true);
+            return;
         }
 
+        showToastShift('✅ Shift berhasil ditutup!');
         resetAllShiftData();
-        loadShiftStatus();
+        await loadShiftStatus();
     };
 
+    // ============================================================
+    // REFRESH SHIFT
+    // ============================================================
+    window.refreshShift = async function() {
+        if (shiftAktif) {
+            await hitungTutupShift();
+            showToastShift('🔄 Data diperbarui');
+        } else {
+            await loadShiftStatus();
+            showToastShift('🔄 Data diperbarui');
+        }
+    };
+
+    // ============================================================
+    // RESET SHIFT
+    // ============================================================
     window.resetShift = function() {
         document.getElementById('pilihShift').value = 'PAGI';
         document.getElementById('saldoAwal').value = '0';
         showToastShift('🔄 Form direset');
     };
 
+    // ============================================================
+    // INIT
+    // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         loadShiftStatus();
     });

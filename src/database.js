@@ -1,4 +1,4 @@
-// src/database.js
+\// src/database.js
 import { supabase } from './supabase.js';
 
 // ============================================================
@@ -170,7 +170,7 @@ export async function deleteApoteker(id) {
 }
 
 // ============================================================
-// PENJUALAN
+// PENJUALAN - DENGAN SHIFT_ID
 // ============================================================
 export async function getPenjualan(tanggalMulai, tanggalAkhir) {
     try {
@@ -216,35 +216,65 @@ export async function getPenjualanByNoFaktur(noFaktur) {
 
 export async function savePenjualan(header, details) {
     try {
-        // 1. Cek duplikat no_faktur
+        // ============================================================
+        // 1. AMBIL SHIFT AKTIF
+        // ============================================================
+        const { data: shiftAktif, error: shiftError } = await getShiftAktif();
+        if (shiftError) throw shiftError;
+        
+        if (!shiftAktif) {
+            return { 
+                data: null, 
+                error: { message: 'Shift belum dibuka! Silakan buka shift terlebih dahulu.' }
+            };
+        }
+
+        // ============================================================
+        // 2. CEK DUPLIKAT NO FAKTUR
+        // ============================================================
         const { data: existing } = await supabase
             .from('penjualan_header')
             .select('id')
             .eq('no_faktur', header.no_faktur)
             .maybeSingle();
+            
         if (existing) {
             console.warn('⚠️ No faktur sudah ada:', header.no_faktur);
             return { data: existing, error: null };
         }
 
-        // 2. Insert header
+        // ============================================================
+        // 3. INSERT HEADER DENGAN SHIFT_ID
+        // ============================================================
+        const headerWithShift = {
+            ...header,
+            shift_id: shiftAktif.id
+        };
+
         const { data: headerData, error: headerError } = await supabase
             .from('penjualan_header')
-            .insert(header)
+            .insert(headerWithShift)
             .select();
+
         if (headerError) throw headerError;
 
-        // 3. Insert detail
+        // ============================================================
+        // 4. INSERT DETAIL
+        // ============================================================
         const detailsWithId = details.map(d => ({
             ...d,
             penjualan_id: headerData[0].id
         }));
+
         const { error: detailError } = await supabase
             .from('penjualan_detail')
             .insert(detailsWithId);
+
         if (detailError) throw detailError;
 
-        // 4. Update stok & kartu stok
+        // ============================================================
+        // 5. UPDATE STOK & KARTU STOK
+        // ============================================================
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -252,6 +282,7 @@ export async function savePenjualan(header, details) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
+
                 if (!obatError && obatData) {
                     const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
                     await supabase
@@ -275,9 +306,11 @@ export async function savePenjualan(header, details) {
             }
         }
 
-        // Backup ke localStorage
+        // ============================================================
+        // 6. BACKUP KE LOCALSTORAGE
+        // ============================================================
         const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-        const data = { ...header, id: headerData[0].id, items: details };
+        const data = { ...header, id: headerData[0].id, shift_id: shiftAktif.id, items: details };
         history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
 
@@ -293,24 +326,12 @@ export async function savePenjualan(header, details) {
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
-        const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-        const data = { ...header, id: Date.now(), items: details, saved_offline: true };
-        history.push(data);
-        localStorage.setItem('penjualan_history', JSON.stringify(history));
-        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
-        details.forEach(item => {
-            const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
-            if (obat) {
-                obat.stok = Math.max(0, (obat.stok || 0) - (item.jumlah || 0));
-            }
-        });
-        localStorage.setItem('obat', JSON.stringify(obatLocal));
-        return { data: { id: data.id, saved_offline: true }, error: e };
+        return { data: null, error: e };
     }
 }
 
 // ============================================================
-// RETUR PENJUALAN
+// RETUR PENJUALAN - DENGAN SHIFT_ID
 // ============================================================
 export async function getAllRetur() {
     try {
@@ -346,35 +367,79 @@ export async function getReturByNoFaktur(noFaktur) {
 
 export async function saveRetur(returData, detailRetur) {
     try {
+        // ============================================================
+        // 1. AMBIL SHIFT AKTIF
+        // ============================================================
+        const { data: shiftAktif, error: shiftError } = await getShiftAktif();
+        if (shiftError) throw shiftError;
+        
+        if (!shiftAktif) {
+            return { 
+                data: null, 
+                error: { message: 'Shift belum dibuka! Silakan buka shift terlebih dahulu.' }
+            };
+        }
+
+        // ============================================================
+        // 2. CEK BATAS RETUR 3 HARI
+        // ============================================================
         const { data: transaksi, error: transError } = await supabase
             .from('penjualan_header')
             .select('tanggal, jam, shift')
             .eq('no_faktur', returData.no_faktur)
             .single();
+
         if (transError) throw transError;
 
         const tglTransaksi = new Date(transaksi.tanggal);
         const tglRetur = new Date(returData.tanggal_retur);
         const selisihHari = Math.floor((tglRetur - tglTransaksi) / (1000 * 60 * 60 * 24));
+
         if (selisihHari > 3) {
             return {
                 data: null,
-                error: { message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.', code: 'RETUR_EXPIRED' }
+                error: {
+                    message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.',
+                    code: 'RETUR_EXPIRED'
+                }
             };
         }
 
+        // ============================================================
+        // 3. INSERT RETUR DENGAN SHIFT_ID
+        // ============================================================
+        const returWithShift = {
+            ...returData,
+            shift_id: shiftAktif.id,
+            shift_asal: transaksi.shift,
+            tanggal_asal: transaksi.tanggal,
+            jam_asal: transaksi.jam
+        };
+
         const { data: returHeader, error: headerError } = await supabase
             .from('retur_penjualan')
-            .insert({ ...returData, shift_asal: transaksi.shift, tanggal_asal: transaksi.tanggal, jam_asal: transaksi.jam })
+            .insert(returWithShift)
             .select();
+
         if (headerError) throw headerError;
 
-        const detailsWithId = detailRetur.map(d => ({ ...d, retur_id: returHeader[0].id }));
+        // ============================================================
+        // 4. INSERT DETAIL RETUR
+        // ============================================================
+        const detailsWithId = detailRetur.map(d => ({
+            ...d,
+            retur_id: returHeader[0].id
+        }));
+
         const { error: detailError } = await supabase
             .from('retur_detail')
             .insert(detailsWithId);
+
         if (detailError) throw detailError;
 
+        // ============================================================
+        // 5. UPDATE STOK & KARTU STOK
+        // ============================================================
         for (const item of detailRetur) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -382,6 +447,7 @@ export async function saveRetur(returData, detailRetur) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
+
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah_retur || 0);
                     await supabase
@@ -405,9 +471,13 @@ export async function saveRetur(returData, detailRetur) {
             }
         }
 
+        // ============================================================
+        // 6. BACKUP KE LOCALSTORAGE
+        // ============================================================
         const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-        history.push({ ...returData, id: returHeader[0].id, items: detailRetur });
+        history.push({ ...returData, id: returHeader[0].id, shift_id: shiftAktif.id, items: detailRetur });
         localStorage.setItem('retur_penjualan', JSON.stringify(history));
+
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         detailRetur.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -448,7 +518,7 @@ export async function getKartuStok(obatId, tglAwal, tglAkhir) {
 }
 
 // ============================================================
-// SHIFT
+// SHIFT - DIPERBAIKI
 // ============================================================
 export async function getShiftAktif() {
     try {
@@ -458,8 +528,19 @@ export async function getShiftAktif() {
             .eq('status', 'Buka')
             .order('waktu_buka', { ascending: false })
             .limit(1);
+
         if (error) throw error;
-        return { data: data && data.length > 0 ? data[0] : null, error: null };
+        
+        if (!data || data.length === 0) {
+            const local = localStorage.getItem('shift_aktif');
+            if (local) {
+                return { data: JSON.parse(local), error: null };
+            }
+            return { data: null, error: null };
+        }
+
+        localStorage.setItem('shift_aktif', JSON.stringify(data[0]));
+        return { data: data[0], error: null };
     } catch(e) {
         console.error('Error getShiftAktif:', e);
         const local = localStorage.getItem('shift_aktif');
@@ -472,61 +553,178 @@ export async function getShiftAktif() {
 
 export async function bukaShift(data) {
     try {
+        // Cek apakah ada shift yang masih buka
+        const { data: existing, error: checkError } = await supabase
+            .from('shift_history')
+            .select('id')
+            .eq('status', 'Buka')
+            .limit(1);
+
+        if (checkError) throw checkError;
+        
+        if (existing && existing.length > 0) {
+            return { 
+                data: null, 
+                error: { message: 'Masih ada shift yang aktif! Tutup shift terlebih dahulu.' }
+            };
+        }
+
+        const now = new Date();
+        const shiftData = {
+            shift: data.shift,
+            tanggal: data.tanggal || now.toISOString().split('T')[0],
+            username: data.user,
+            saldo_awal: data.saldo_awal || 0,
+            saldo_akhir: 0,
+            total_penjualan: 0,
+            total_cash: 0,
+            total_transfer: 0,
+            total_retur: 0,
+            status: 'Buka',
+            waktu_buka: now.toISOString(),
+            waktu_tutup: null
+        };
+
         const { data: result, error } = await supabase
             .from('shift_history')
-            .insert({
-                shift: data.shift,
-                tanggal: data.tanggal,
-                username: data.user,
-                saldo_awal: data.saldo_awal,
-                status: 'Buka',
-                waktu_buka: new Date().toISOString()
-            })
+            .insert(shiftData)
             .select();
+
         if (error) throw error;
-        const shiftData = result && result.length > 0 ? result[0] : null;
-        localStorage.setItem('shift_aktif', JSON.stringify(shiftData));
-        return { data: shiftData, error: null };
+
+        const shiftResult = result && result.length > 0 ? result[0] : null;
+        
+        if (shiftResult) {
+            localStorage.setItem('shift_aktif', JSON.stringify(shiftResult));
+        }
+        
+        return { data: shiftResult, error: null };
     } catch(e) {
         console.error('Error bukaShift:', e);
-        const shiftData = { ...data, id: Date.now(), status: 'Buka', waktu_buka: new Date().toISOString() };
-        localStorage.setItem('shift_aktif', JSON.stringify(shiftData));
-        return { data: shiftData, error: null };
+        const fallbackData = { 
+            ...data, 
+            id: 'shift-' + Date.now(), 
+            status: 'Buka', 
+            waktu_buka: new Date().toISOString(),
+            total_penjualan: 0,
+            total_cash: 0,
+            total_transfer: 0,
+            total_retur: 0
+        };
+        localStorage.setItem('shift_aktif', JSON.stringify(fallbackData));
+        return { data: fallbackData, error: null };
     }
 }
 
 export async function tutupShift(data) {
     try {
-        const { error } = await supabase
+        // 1. Dapatkan shift yang akan ditutup
+        const { data: shiftData, error: shiftError } = await supabase
+            .from('shift_history')
+            .select('*')
+            .eq('id', data.id)
+            .single();
+
+        if (shiftError) throw shiftError;
+        if (!shiftData) {
+            return { data: null, error: { message: 'Shift tidak ditemukan' } };
+        }
+
+        // 2. Hitung transaksi yang TERKAIT DENGAN SHIFT INI (shift_id = data.id)
+        const { data: penjualanData, error: penjualanError } = await supabase
+            .from('penjualan_header')
+            .select('total, metode_pembayaran')
+            .eq('shift_id', data.id);
+
+        if (penjualanError) throw penjualanError;
+
+        let totalPenjualan = 0;
+        let totalCash = 0;
+        let totalTransfer = 0;
+
+        if (penjualanData && penjualanData.length > 0) {
+            penjualanData.forEach(p => {
+                totalPenjualan += (p.total || 0);
+                if (p.metode_pembayaran === 'Cash') {
+                    totalCash += (p.total || 0);
+                } else {
+                    totalTransfer += (p.total || 0);
+                }
+            });
+        }
+
+        // 3. Hitung retur yang TERKAIT DENGAN SHIFT INI
+        const { data: returData, error: returError } = await supabase
+            .from('retur_penjualan')
+            .select('total_retur')
+            .eq('shift_id', data.id);
+
+        if (returError) throw returError;
+
+        let totalRetur = 0;
+        if (returData && returData.length > 0) {
+            returData.forEach(r => {
+                totalRetur += (r.total_retur || 0);
+            });
+        }
+
+        // 4. Hitung saldo akhir
+        const saldoAkhir = (shiftData.saldo_awal || 0) + totalPenjualan - totalRetur;
+
+        // 5. Update shift history
+        const { error: updateError } = await supabase
             .from('shift_history')
             .update({
                 status: 'Tutup',
-                saldo_akhir: data.saldo_akhir,
-                total_penjualan: data.total_penjualan || 0,
-                total_cash: data.total_cash || 0,
-                total_transfer: data.total_transfer || 0,
-                total_retur: data.total_retur || 0,
-                diserahkan_kepada: data.diserahkan_kepada,
-                catatan: data.catatan,
+                saldo_akhir: saldoAkhir,
+                total_penjualan: totalPenjualan,
+                total_cash: totalCash,
+                total_transfer: totalTransfer,
+                total_retur: totalRetur,
+                diserahkan_kepada: data.diserahkan_kepada || '',
+                catatan: data.catatan || '',
                 waktu_tutup: new Date().toISOString()
             })
             .eq('id', data.id);
-        if (error) throw error;
+
+        if (updateError) throw updateError;
+
+        // 6. Tandai transaksi dengan closed_shift_id
+        await supabase
+            .from('penjualan_header')
+            .update({ closed_shift_id: data.id })
+            .eq('shift_id', data.id);
+
+        await supabase
+            .from('retur_penjualan')
+            .update({ closed_shift_id: data.id })
+            .eq('shift_id', data.id);
+
         localStorage.removeItem('shift_aktif');
-        return { error: null };
+
+        return { 
+            data: {
+                id: data.id,
+                total_penjualan: totalPenjualan,
+                total_cash: totalCash,
+                total_transfer: totalTransfer,
+                total_retur: totalRetur,
+                saldo_akhir: saldoAkhir
+            }, 
+            error: null 
+        };
     } catch(e) {
         console.error('Error tutupShift:', e);
         localStorage.removeItem('shift_aktif');
-        return { error: null };
+        return { data: null, error: e };
     }
 }
 
 // ============================================================
-// STOK OPNAME - PERBAIKAN (LENGKAP)
+// STOK OPNAME
 // ============================================================
 export async function getStokOpname() {
     try {
-        // Ambil semua data stok opname
         const { data, error } = await supabase
             .from('stok_opname')
             .select('*')
@@ -535,7 +733,6 @@ export async function getStokOpname() {
 
         if (error) throw error;
 
-        // Jika data kosong, cek localStorage
         if (!data || data.length === 0) {
             const local = localStorage.getItem('opname_history');
             if (local) {
@@ -568,7 +765,6 @@ export async function getStokOpname() {
             return { data: [], error: null };
         }
 
-        // Kelompokkan berdasarkan sesi_id
         const sessions = {};
         data.forEach(row => {
             const sesiId = row.sesi_id || 'LEGACY-' + row.id;
@@ -598,10 +794,7 @@ export async function getStokOpname() {
             sessions[sesiId].jumlah_item += 1;
         });
 
-        // Konversi ke array
         const result = Object.values(sessions);
-
-        // Backup ke localStorage
         localStorage.setItem('opname_history', JSON.stringify(result));
 
         return { data: result, error: null };
@@ -617,19 +810,16 @@ export async function getStokOpname() {
 
 export async function saveStokOpname(opnameData) {
     try {
-        // Ambil data dari parameter
         const { items, sesi_id, tanggal_selesai, total_selisih, keterangan } = opnameData;
         
         if (!items || items.length === 0) {
             return { data: null, error: new Error('Tidak ada item untuk disimpan') };
         }
 
-        // Buat sesi_id jika belum ada
         const sesiId = sesi_id || 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4);
         const tanggal = tanggal_selesai ? tanggal_selesai.split('T')[0] : new Date().toISOString().split('T')[0];
         const jam = new Date().toTimeString().slice(0, 5);
 
-        // Siapkan batch insert (1 baris per obat)
         const batch = items.map(item => ({
             sesi_id: sesiId,
             obat_id: item.id || item.obat_id,
@@ -646,7 +836,6 @@ export async function saveStokOpname(opnameData) {
             created_at: new Date().toISOString()
         }));
 
-        // Insert ke Supabase
         const { data, error } = await supabase
             .from('stok_opname')
             .insert(batch)
@@ -654,9 +843,6 @@ export async function saveStokOpname(opnameData) {
 
         if (error) throw error;
 
-        // ============================================================
-        // UPDATE STOK OBAT (1 baris per obat)
-        // ============================================================
         for (const item of items) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -690,9 +876,6 @@ export async function saveStokOpname(opnameData) {
             }
         }
 
-        // ============================================================
-        // UPDATE LOCALSTORAGE
-        // ============================================================
         const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
         const record = {
             id: sesiId,
@@ -716,7 +899,6 @@ export async function saveStokOpname(opnameData) {
         history.push(record);
         localStorage.setItem('opname_history', JSON.stringify(history));
 
-        // Update localStorage obat
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         items.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -730,7 +912,6 @@ export async function saveStokOpname(opnameData) {
     } catch(e) {
         console.error('Error saveStokOpname:', e);
         
-        // Fallback: simpan ke localStorage
         const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
         const sesiId = opnameData.sesi_id || 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4);
         const record = {
@@ -746,7 +927,6 @@ export async function saveStokOpname(opnameData) {
         history.push(record);
         localStorage.setItem('opname_history', JSON.stringify(history));
 
-        // Update stok lokal
         if (opnameData.items) {
             const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
             opnameData.items.forEach(item => {
@@ -785,21 +965,18 @@ export async function getPembelian() {
 
 export async function savePembelian(header, details) {
     try {
-        // 1. Insert header
         const { data: headerData, error: headerError } = await supabase
             .from('pembelian_header')
             .insert(header)
             .select();
         if (headerError) throw headerError;
 
-        // 2. Insert details
         const detailsWithId = details.map(d => ({ ...d, pembelian_id: headerData[0].id }));
         const { error: detailError } = await supabase
             .from('pembelian_detail')
             .insert(detailsWithId);
         if (detailError) throw detailError;
 
-        // 3. Update stok & kartu stok
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -830,7 +1007,6 @@ export async function savePembelian(header, details) {
             }
         }
 
-        // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
         const data = { ...header, id: headerData[0].id, items: details };
         history.push(data);
@@ -909,7 +1085,6 @@ export async function getLaporanPenjualanPerObat(obatId, tglAwal, tglAkhir) {
         }
         const { data, error } = await query;
         if (error) throw error;
-        // Filter duplikat
         const uniqueMap = new Map();
         const uniqueData = [];
         data.forEach(item => {
