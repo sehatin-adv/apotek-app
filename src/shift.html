@@ -213,8 +213,8 @@
     let penjualanShift = [];
 
     window.navigate = function(page) { window.location.href = page; };
-    window.logout = function() { localStorage.removeItem('loggedIn'); window.location.href = '/'; };
-    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');

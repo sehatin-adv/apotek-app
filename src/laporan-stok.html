@@ -85,8 +85,8 @@ table td { padding:10px 12px; border-bottom:1px solid #eef2f7; }
 </div>
 <script>
     function navigate(page) { window.location.href = page; }
-    function logout() { localStorage.removeItem('loggedIn'); window.location.href = '/'; }
-    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+    function logout() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; }
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
     
     // Load data
     async function loadData() {
