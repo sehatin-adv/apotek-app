@@ -1201,16 +1201,18 @@ export async function getUserById(id) {
     }
 }
 
-// CREATE USER
+// CREATE USER - MENGGUNAKAN SERVICE ROLE KEY
 export async function createUser(userData) {
     try {
-        // 1. Buat user di Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email: userData.email,
-            password: userData.password,
-            email_confirm: true,
-            user_metadata: { full_name: userData.nama }
-        });
+        // 1. Buat user di Supabase Auth menggunakan Service Role Key
+        const { data: authData, error: authError } = await adminCreateUser(
+            userData.email,
+            userData.password,
+            { 
+                full_name: userData.nama,
+                role: userData.role || 'staff'
+            }
+        );
         
         if (authError) throw authError;
         
@@ -1254,6 +1256,7 @@ export async function createUser(userData) {
         return { data: null, error: e };
     }
 }
+
 
 // UPDATE USER
 export async function updateUser(id, userData) {
@@ -1305,7 +1308,7 @@ export async function updateUser(id, userData) {
     }
 }
 
-// DELETE USER
+// DELETE USER - MENGGUNAKAN SERVICE ROLE KEY
 export async function deleteUser(id) {
     try {
         // Get auth_user_id
@@ -1325,8 +1328,13 @@ export async function deleteUser(id) {
         
         if (error) throw error;
         
-        // Delete from auth (optional - hati-hati)
-        // await supabase.auth.admin.deleteUser(userData.auth_user_id);
+        // Delete from auth menggunakan Service Role Key
+        if (userData.auth_user_id) {
+            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
+                userData.auth_user_id
+            );
+            if (authError) console.warn('Gagal menghapus dari auth:', authError);
+        }
         
         return { error: null };
     } catch(e) {

@@ -3,8 +3,10 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const supabaseUrl = 'https://plkdxqwmltoxifzsvkho.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDY4NjAsImV4cCI6MjEwMjc4Mjg2MH0.gYbKMv9c5VvY0wzBxlaobh6xkJ7QIhxQ5SWBHsk3NJc';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzIwNjg2MCwiZXhwIjoyMTAyNzgyODYwfQ.dDj_uE_1vdHQkw4cV5khnGWOhOeSbOHGJruM1SW2soY';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================
 // AUTHENTICATION
@@ -52,15 +54,41 @@ export async function signOut() {
 }
 
 // ============================================================
-// REQUIRED AUTH - Perbaikan agar tidak redirect loop
+// ADMIN FUNCTIONS - Menggunakan Service Role Key
 // ============================================================
+export async function adminCreateUser(email, password, userMetadata) {
+    try {
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+            email: email,
+            password: password,
+            email_confirm: true,
+            user_metadata: userMetadata || {}
+        });
+        
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error adminCreateUser:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function adminDeleteUser(userId) {
+    try {
+        const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error adminDeleteUser:', e);
+        return { data: null, error: e };
+    }
+}
+
 export async function requireAuth() {
-    // Cek session dari localStorage dulu
     const savedSession = localStorage.getItem('supabaseSession');
     if (savedSession) {
         try {
             const session = JSON.parse(savedSession);
-            // Cek apakah session masih valid
             const { data, error } = await supabase.auth.getSession();
             if (!error && data?.session) {
                 return data.session;
@@ -70,26 +98,20 @@ export async function requireAuth() {
         }
     }
     
-    // Coba ambil session dari Supabase
     const session = await getSession();
     if (session) {
         localStorage.setItem('supabaseSession', JSON.stringify(session));
         return session;
     }
     
-    // Jika tidak ada session, redirect ke login
     console.log('No session found, redirecting to login');
     window.location.href = '/';
     return null;
 }
 
-// ============================================================
-// CHECK AUTH UNTUK SETIAP HALAMAN
-// ============================================================
 export async function checkAuth() {
     const session = localStorage.getItem('supabaseSession');
     if (!session) {
-        // Coba ambil dari Supabase
         const supabaseSession = await getSession();
         if (supabaseSession) {
             localStorage.setItem('supabaseSession', JSON.stringify(supabaseSession));
