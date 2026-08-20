@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stok Terkini - Apotek Mendidoha Farma</title>
+    <title>Pembelian Obat - Apotek Mendidoha Farma</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
@@ -17,72 +17,193 @@
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#f0f2f7; }
         .app-layout { display:flex; min-height:100vh; }
+        
         .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
         .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
         .logo i { color:#4fc3f7; margin-right:10px; }
+        
         .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
         .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
         .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
         .menu-item i { width:20px; text-align:center; }
+        
         .menu-group { margin-bottom:4px; }
         .menu-group .menu-item { cursor:pointer; }
-        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
-        .sub-menu.open { max-height:500px; }
-        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
-        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
-        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
-        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
-        .menu-item .chevron.open { transform:rotate(180deg); }
+        .sub-menu { 
+            max-height: 0; 
+            overflow: hidden; 
+            transition: max-height 0.3s ease;
+            background: rgba(255,255,255,0.03);
+        }
+        .sub-menu.open { max-height: 500px; }
+        .sub-menu .menu-item { 
+            padding-left: 58px; 
+            font-size: 13px;
+            border-left: 3px solid transparent;
+        }
+        .sub-menu .menu-item.active {
+            background: rgba(255,255,255,0.05);
+            border-left-color: #4fc3f7;
+            color: white;
+        }
+        .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform: rotate(180deg); }
+        
         .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
         .user-info strong { color:white; }
         .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
         .btn-logout:hover { background:rgba(255,255,255,0.2); }
-        .main-content { margin-left:250px; flex:1; padding:16px 20px; min-height:100vh; }
-        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
-        .header h2 { font-size:20px; color:#0f1e2e; }
-        .user-badge { background:white; padding:6px 14px; border-radius:30px; font-size:12px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
-        .card { background:white; border-radius:16px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:16px; }
-        .card-title { font-size:15px; font-weight:700; color:#0f1e2e; margin-bottom:12px; }
-        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
-        .btn { padding:6px 14px; border:none; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+        
+        .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+        .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .form-group { margin-bottom:12px; }
+        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
+        .form-group input, .form-group select { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; background:white; }
+        .form-group input:focus, .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
         .btn-primary { background:#2d6a9f; color:white; }
         .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
         .btn-outline { background:transparent; border:2px solid #e8edf3; }
         .btn-outline:hover { background:#f0f2f7; }
-        .btn-sm { padding:3px 10px; font-size:11px; }
-        .table-wrap { overflow-x:auto; margin-top:10px; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        
+        .table-wrap { overflow-x:auto; margin-top:16px; }
         table { width:100%; border-collapse:collapse; font-size:12px; }
         table th { text-align:left; padding:8px 6px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; white-space:nowrap; font-size:11px; }
-        table td { padding:8px 6px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
-        table tr:hover { background:#f8fafc; }
-        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:600; }
-        .badge-success { background:#d4edda; color:#155724; }
-        .badge-danger { background:#f8d7da; color:#721c24; }
-        .badge-warning { background:#fff3cd; color:#856404; }
-        .search-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-        .search-bar input { flex:1; min-width:150px; padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
-        .search-bar input:focus { border-color:#2d6a9f; outline:none; }
-        .search-bar select { padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; background:white; }
-        .grid-4 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
-        .stat-card { background:white; border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #2d6a9f; }
-        .stat-card .label { font-size:11px; color:#7a8a9e; text-transform:uppercase; letter-spacing:0.5px; }
-        .stat-card .value { font-size:22px; font-weight:800; color:#0f1e2e; margin-top:2px; }
-        .stat-card .sub { font-size:11px; color:#7a8a9e; margin-top:2px; }
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        table td { padding:4px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
+        table td input, table td select { 
+            width:100%; 
+            padding:6px 8px; 
+            border:1px solid #e8edf3; 
+            border-radius:6px; 
+            font-size:13px; 
+            background:white;
+            min-width:60px;
+            transition:0.15s;
+        }
+        table td input[type="number"] { 
+            width:80px;
+            -moz-appearance:textfield;
+        }
+        table td input[type="number"]::-webkit-inner-spin-button,
+        table td input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance:none;
+            margin:0;
+        }
+        table td input:focus, table td select:focus { border-color:#2d6a9f; outline:none; box-shadow:0 0 0 3px rgba(45,106,159,0.1); }
+        table td input:disabled { background:#f0f2f7; }
+        table td .btn-remove { background:#dc3545; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px; }
+        table td .btn-remove:hover { background:#bd2130; }
+        
+        .sum-row { background:#f8fafc; font-weight:700; }
+        .sum-row td { padding:10px 6px; border-top:2px solid #2d6a9f; }
+        
+        .search-item { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+        .search-item input { flex:1; min-width:200px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; }
+        .search-item input:focus { border-color:#2d6a9f; outline:none; }
+        
+        .suggestion-box {
+            display:none;
+            background:white;
+            border:2px solid #2d6a9f;
+            border-radius:10px;
+            max-height:200px;
+            overflow-y:auto;
+            position:absolute;
+            z-index:100;
+            width:calc(100% - 48px);
+            box-shadow:0 10px 40px rgba(0,0,0,0.1);
+        }
+        .suggestion-box .item {
+            padding:10px 14px;
+            cursor:pointer;
+            border-bottom:1px solid #e8edf3;
+            display:flex;
+            justify-content:space-between;
+        }
+        .suggestion-box .item:hover { background:#f0f2f7; }
+        .suggestion-box .item .kode { font-weight:600; }
+        .suggestion-box .item .stok { color:#7a8a9e; font-size:12px; }
+        
+        .total-detail { display:flex; justify-content:flex-end; gap:30px; margin-top:8px; font-size:13px; color:#7a8a9e; flex-wrap:wrap; }
+        .total-detail .item { text-align:right; }
+        .total-detail .item .label { font-size:12px; }
+        .total-detail .item .value { font-weight:700; color:#0f1e2e; }
+        
+        .toast { position:fixed; bottom:30px; right:30px; background:#28a745; color:white; padding:16px 24px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:400px; }
         .toast.error { background:#dc3545; }
+        .toast.warning { background:#ffc107; color:#212529; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999; justify-content:center; align-items:center; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:32px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; }
+        .modal-close { float:right; background:none; border:none; font-size:24px; cursor:pointer; color:#7a8a9e; }
+        .modal-box h3 { margin-bottom:16px; }
+        
+        .success-overlay {
+            display:none;
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,0.5);
+            z-index:1000;
+            justify-content:center;
+            align-items:center;
+        }
+        .success-overlay.active { display:flex; }
+        .success-box {
+            background:white;
+            border-radius:24px;
+            padding:48px 56px;
+            max-width:450px;
+            width:100%;
+            text-align:center;
+            animation: popIn 0.4s ease;
+        }
+        @keyframes popIn { from { transform:scale(0.8); opacity:0; } to { transform:scale(1); opacity:1; } }
+        .success-box .icon { font-size:64px; color:#28a745; margin-bottom:16px; }
+        .success-box h2 { font-size:24px; color:#0f1e2e; margin-bottom:8px; }
+        .success-box p { color:#7a8a9e; margin-bottom:20px; }
+        .success-box .btn { padding:12px 32px; }
+        
         .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
         .loading i { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
-        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:12px; } .header h2 { font-size:17px; } .table-wrap { font-size:11px; } .grid-4 { grid-template-columns:1fr 1fr; } }
-        @media (max-width:480px) { .card { padding:12px; } table td { padding:4px; } .btn { font-size:11px; padding:4px 10px; } .grid-4 { grid-template-columns:1fr; } }
+        
+        @media (max-width:768px) { 
+            .sidebar { width:100%; position:static; height:auto; } 
+            .main-content { margin-left:0; padding:16px; } 
+            .form-grid-3, .form-grid-2 { grid-template-columns:1fr; }
+            .total-detail { flex-direction:column; align-items:flex-end; gap:8px; }
+            .success-box { padding:32px 24px; }
+        }
     </style>
 </head>
 <body>
 <div class="app-layout">
     <div class="sidebar">
         <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
-        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        
+        <div class="menu-item" onclick="navigate('dashboard.html')">
+            <i class="fas fa-th-large"></i> Dashboard
+        </div>
+        
+        <!-- MASTER DATA -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-database"></i> MASTER DATA
@@ -94,18 +215,26 @@
                 <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
             </div>
         </div>
-        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        
+        <!-- PEMBELIAN - AKTIF -->
+        <div class="menu-item active" onclick="navigate('pembelian.html')">
+            <i class="fas fa-shopping-cart"></i> Pembelian
+        </div>
+        
+        <!-- STOK -->
         <div class="menu-group">
-            <div class="menu-item active" onclick="toggleDropdown(this)">
+            <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
-                <i class="fas fa-chevron-down chevron open"></i>
+                <i class="fas fa-chevron-down chevron"></i>
             </div>
-            <div class="sub-menu open">
+            <div class="sub-menu">
                 <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
-                <div class="menu-item active" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
                 <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
             </div>
         </div>
+        
+        <!-- PENJUALAN -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-cash-register"></i> PENJUALAN
@@ -117,6 +246,8 @@
                 <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
             </div>
         </div>
+        
+        <!-- LAPORAN -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-file-alt"></i> LAPORAN
@@ -128,63 +259,261 @@
                 <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
             </div>
         </div>
+        
         <div class="user-info">
-            <i class="fas fa-user-circle"></i> <strong>admin</strong><br>
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
             <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
     </div>
-
+    
     <div class="main-content">
         <div class="header">
-            <h2><i class="fas fa-eye"></i> Stok Terkini</h2>
+            <h2><i class="fas fa-shopping-cart"></i> Pembelian Obat</h2>
             <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
         </div>
-
-        <div class="grid-4">
-            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Obat</div><div class="value" id="totalObat">0</div><div class="sub">Item terdaftar</div></div>
-            <div class="stat-card" style="border-left-color:#28a745;"><div class="label">Total Stok</div><div class="value" id="totalStok">0</div><div class="sub">Unit</div></div>
-            <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Stok Menipis</div><div class="value" id="stokMenipis">0</div><div class="sub">≤ 10 unit</div></div>
-            <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Stok Habis</div><div class="value" id="stokHabis">0</div><div class="sub">0 unit</div></div>
-        </div>
-
+        
         <div class="card">
-            <div class="flex-between">
-                <div class="card-title"><i class="fas fa-list"></i> Daftar Stok Obat</div>
-                <div>
-                    <button class="btn btn-outline btn-sm" onclick="loadStokTerkini()"><i class="fas fa-sync"></i> Refresh</button>
-                    <span id="totalData" style="font-size:12px;color:#7a8a9e;margin-left:8px;"></span>
+            <div class="card-title"><i class="fas fa-file-invoice"></i> Data Faktur Pembelian</div>
+            <div class="form-grid-3">
+                <div class="form-group">
+                    <label>No. Faktur *</label>
+                    <input type="text" id="noFaktur" placeholder="INV-2026-001" required>
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Faktur</label>
+                    <input type="date" id="tanggalFaktur">
+                </div>
+                <div class="form-group">
+                    <label>Supplier *</label>
+                    <select id="pilihSupplier" required>
+                        <option value="">-- Pilih Supplier --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Gudang</label>
+                    <select id="pilihGudang">
+                        <option value="GUDANG UTAMA">GUDANG UTAMA</option>
+                        <option value="GUDANG 1">GUDANG 1</option>
+                        <option value="GUDANG 2">GUDANG 2</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Jenis Pembelian</label>
+                    <select id="jenisPembelian">
+                        <option value="TUNAI">TUNAI</option>
+                        <option value="KREDIT">KREDIT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Kas</label>
+                    <select id="pilihKas">
+                        <option value="Kas Umum">Kas Umum</option>
+                        <option value="Kas Kecil">Kas Kecil</option>
+                        <option value="Bank">Bank</option>
+                    </select>
                 </div>
             </div>
-            <div class="search-bar">
-                <input type="text" id="searchStokTerkini" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterStokTerkini()">
-                <select id="filterStokTerkini" onchange="filterStokTerkini()">
-                    <option value="">Semua</option>
-                    <option value="menipis">Stok Menipis (≤10)</option>
-                    <option value="habis">Stok Habis (0)</option>
-                    <option value="aman">Stok Aman (>10)</option>
-                </select>
+            <div class="form-grid-2" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>No Faktur Pajak</label>
+                    <input type="text" id="noFakturPajak" placeholder="FP-2026-001">
+                </div>
+                <div class="form-group">
+                    <label>PPN (%)</label>
+                    <input type="number" id="ppnPercent" value="11" min="0" max="100" step="0.1" onchange="hitungTotal()" oninput="hitungTotal()">
+                </div>
             </div>
+        </div>
+        
+        <div class="card" style="position:relative;">
+            <div class="card-title"><i class="fas fa-plus-circle"></i> Tambah Item Obat</div>
+            <div class="search-item">
+                <input type="text" id="searchObat" placeholder="Ketik Kode Obat, Nama Obat / Scan Barcode untuk menambah item" onkeyup="cariObat(event)">
+                <button class="btn btn-primary" onclick="tambahItemBaru()"><i class="fas fa-plus"></i> Obat Baru</button>
+                <button class="btn btn-outline" onclick="refreshData()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+            <div class="suggestion-box" id="saranObat"></div>
+        </div>
+        
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><i class="fas fa-list"></i> Daftar Item Pembelian</div>
+                <div>
+                    <button class="btn btn-danger btn-sm" onclick="hapusSemuaItem()"><i class="fas fa-trash"></i> Kosongkan</button>
+                    <span id="totalItem" style="font-size:13px;color:#7a8a9e;margin-left:8px;">0 item</span>
+                </div>
+            </div>
+            
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode Obat</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:60px;">Stok</th><th style="width:80px;">Harga Beli</th><th style="width:80px;">Harga Jual</th><th style="width:70px;">Status Stok</th></tr></thead>
-                    <tbody id="stokTerkiniTableBody"><tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <thead>
+                        <tr>
+                            <th style="width:30px;">No</th>
+                            <th style="width:35px;">Act</th>
+                            <th style="min-width:90px;">Kode Obat</th>
+                            <th style="min-width:130px;">Nama Obat</th>
+                            <th style="width:70px;">Jml</th>
+                            <th style="width:70px;">Satuan</th>
+                            <th style="width:90px;">Harga Beli</th>
+                            <th style="width:90px;">Subtotal</th>
+                            <th style="width:65px;">Disk %</th>
+                            <th style="width:90px;">Disk Rp</th>
+                            <th style="width:90px;">HPP</th>
+                            <th style="width:65px;">Mgn %</th>
+                            <th style="width:90px;">Hrg Jual</th>
+                            <th style="width:65px;">Dj %</th>
+                            <th style="width:110px;">Tgl Exp</th>
+                            <th style="width:75px;">Batch</th>
+                            <th style="width:75px;">Ket Retur</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemTableBody">
+                        <tr id="emptyRow">
+                            <td colspan="17" style="text-align:center;color:#7a8a9e;padding:40px;">
+                                <i class="fas fa-inbox"></i> Tidak ada data yang ditemukan, anda dapat menambahkan dengan memilih obat atau dengan melihat PO
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot id="itemTableFoot" style="display:none;">
+                        <tr class="sum-row">
+                            <td colspan="7" style="text-align:right;font-size:13px;">TOTAL</td>
+                            <td id="sumSubtotal" style="font-size:13px;color:#2d6a9f;">Rp 0</td>
+                            <td colspan="2"></td>
+                            <td id="sumHPP" style="font-size:13px;color:#28a745;">Rp 0</td>
+                            <td colspan="5"></td>
+                            <td id="sumJumlah" style="font-size:13px;color:#0f1e2e;">0 item</td>
+                        </tr>
+                    </tfoot>
                 </table>
+            </div>
+            
+            <div class="total-detail">
+                <div class="item">
+                    <div class="label">Subtotal</div>
+                    <div class="value" id="detailSubtotal">Rp 0</div>
+                </div>
+                <div class="item">
+                    <div class="label">Diskon</div>
+                    <div class="value" id="detailDiskon">Rp 0</div>
+                </div>
+                <div class="item">
+                    <div class="label">PPN (11%)</div>
+                    <div class="value" id="detailPPN">Rp 0</div>
+                </div>
+                <div class="item" style="font-size:16px;color:#0f1e2e;">
+                    <div class="label" style="font-weight:700;">Total Pembelian</div>
+                    <div class="value" id="detailTotal" style="font-size:28px;color:#28a745;">Rp 0</div>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap;">
+                <button class="btn btn-success" onclick="simpanPembelian()"><i class="fas fa-save"></i> Simpan Pembelian</button>
+                <button class="btn btn-outline" onclick="resetForm()"><i class="fas fa-undo"></i> Reset</button>
+                <button class="btn btn-primary" onclick="cetakFaktur()"><i class="fas fa-print"></i> Cetak Faktur</button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="toast" id="toastStokTerkini"></div>
+<div class="modal-overlay" id="modalObatBaru">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3><i class="fas fa-plus-circle"></i> Tambah Obat Baru</h3>
+        <form id="formObatBaru" onsubmit="simpanObatBaru(event)">
+            <div class="form-group">
+                <label>Kode Obat *</label>
+                <input type="text" id="kodeObatBaru" placeholder="OBT001" required>
+            </div>
+            <div class="form-group">
+                <label>Nama Obat *</label>
+                <input type="text" id="namaObatBaru" placeholder="Paracetamol 500mg" required>
+            </div>
+            <div class="form-group">
+                <label>Satuan</label>
+                <select id="satuanObatBaru">
+                    <option value="Tablet">Tablet</option>
+                    <option value="Kapsul">Kapsul</option>
+                    <option value="Sirup">Sirup</option>
+                    <option value="Salep">Salep</option>
+                    <option value="Botol">Botol</option>
+                    <option value="Strip">Strip</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Jenis</label>
+                <select id="jenisObatBaru">
+                    <option value="Generik">Generik</option>
+                    <option value="Patented">Patented</option>
+                    <option value="Herbal">Herbal</option>
+                    <option value="Alat Kesehatan">Alat Kesehatan</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Golongan</label>
+                <select id="golonganObatBaru">
+                    <option value="Bebas">Bebas</option>
+                    <option value="Terbatas">Terbatas</option>
+                    <option value="Keras">Keras</option>
+                    <option value="Narkotika">Narkotika</option>
+                    <option value="Prekursor">Prekursor</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success btn-block"><i class="fas fa-save"></i> Simpan & Gunakan</button>
+        </form>
+    </div>
+</div>
+
+<div class="success-overlay" id="successOverlay">
+    <div class="success-box">
+        <div class="icon"><i class="fas fa-check-circle"></i></div>
+        <h2>✅ Pembelian Berhasil!</h2>
+        <p id="successMessage">Data pembelian telah disimpan dengan sukses.</p>
+        <p style="font-size:12px;color:#7a8a9e;" id="successDetail"></p>
+        <br>
+        <button class="btn btn-success" onclick="tutupSuccess()"><i class="fas fa-check"></i> OK</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script type="module">
-    import { getObat } from './database.js';
+    import { supabase } from './supabase.js';
+    import { getObat, getSupplier, savePembelian } from './database.js';
     
-    let stokTerkiniData = [];
-
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+    
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+    
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
-
+    
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
         const chevron = el.querySelector('.chevron');
@@ -193,90 +522,804 @@
             if (chevron) chevron.classList.toggle('open');
         }
     };
-
-    async function loadStokTerkini() {
-        const tbody = document.getElementById('stokTerkiniTableBody');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
-
+    
+    // ============================================================
+    // GLOBAL
+    // ============================================================
+    let items = [];
+    let obatMaster = [];
+    let supplierMaster = [];
+    let itemCounter = 0;
+    let lastSavedData = null;
+    let historyPembelian = [];
+    
+    // ============================================================
+    // LOAD MASTER DATA
+    // ============================================================
+    async function loadMasterData() {
         try {
-            const { data, error } = await getObat();
-            if (data && data.length > 0) {
-                stokTerkiniData = data;
+            const { data: obatData, error: obatError } = await getObat();
+            if (obatData && obatData.length > 0) {
+                obatMaster = obatData;
             } else {
                 const local = localStorage.getItem('obat');
-                if (local) stokTerkiniData = JSON.parse(local);
+                if (local) obatMaster = JSON.parse(local);
             }
-            renderStokTerkini(stokTerkiniData);
-            updateStats(stokTerkiniData);
-            document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
-        } catch(e) {
-            const local = localStorage.getItem('obat');
-            if (local) {
-                stokTerkiniData = JSON.parse(local);
-                renderStokTerkini(stokTerkiniData);
-                updateStats(stokTerkiniData);
-                document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
+            
+            const { data: supplierData, error: supplierError } = await getSupplier();
+            if (supplierData && supplierData.length > 0) {
+                supplierMaster = supplierData;
             } else {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
+                const local = localStorage.getItem('supplier');
+                if (local) supplierMaster = JSON.parse(local);
             }
+            
+            const historyLocal = localStorage.getItem('pembelian_history');
+            if (historyLocal) {
+                historyPembelian = JSON.parse(historyLocal);
+            }
+            
+            renderSupplierOptions();
+        } catch(e) {
+            console.log('Error load master, pakai localStorage:', e);
+            const localObat = localStorage.getItem('obat');
+            if (localObat) obatMaster = JSON.parse(localObat);
+            const localSupplier = localStorage.getItem('supplier');
+            if (localSupplier) supplierMaster = JSON.parse(localSupplier);
+            const historyLocal = localStorage.getItem('pembelian_history');
+            if (historyLocal) {
+                historyPembelian = JSON.parse(historyLocal);
+            }
+            renderSupplierOptions();
+        }
+        
+        if (!document.getElementById('tanggalFaktur').value) {
+            document.getElementById('tanggalFaktur').value = new Date().toISOString().split('T')[0];
         }
     }
-
-    function renderStokTerkini(data) {
-        const tbody = document.getElementById('stokTerkiniTableBody');
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
+    
+    function renderSupplierOptions() {
+        const select = document.getElementById('pilihSupplier');
+        select.innerHTML = '<option value="">-- Pilih Supplier --</option>';
+        if (supplierMaster && supplierMaster.length > 0) {
+            supplierMaster.forEach(s => {
+                const nama = s.nama_supplier || s.nama || 'Supplier';
+                select.innerHTML += `<option value="${s.id}">${nama}</option>`;
+            });
+        }
+    }
+    
+    window.refreshData = function() {
+        loadMasterData();
+        showToast('🔄 Data master di-refresh');
+    };
+    
+    // ============================================================
+    // CARI OBAT
+    // ============================================================
+    window.cariObat = function(e) {
+        const keyword = document.getElementById('searchObat').value.toLowerCase();
+        const saran = document.getElementById('saranObat');
+        
+        if (e.key === 'Enter' && keyword.length > 0) {
+            const found = obatMaster.find(o => 
+                (o.kode_obat || '').toLowerCase() === keyword || 
+                (o.nama_obat || '').toLowerCase() === keyword
+            );
+            if (found) {
+                tambahItemDariMaster(found);
+                document.getElementById('searchObat').value = '';
+                saran.style.display = 'none';
+                return;
+            }
+        }
+        
+        if (keyword.length < 2) {
+            saran.style.display = 'none';
             return;
         }
-        tbody.innerHTML = data.map((o, i) => {
-            const stok = Number(o.stok) || 0;
-            let statusClass, statusText;
-            if (stok <= 0) { statusClass = 'badge-danger'; statusText = 'Habis'; }
-            else if (stok <= 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
-            else { statusClass = 'badge-success'; statusText = 'Aman'; }
-            return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${stok}</strong></td><td>${formatRupiahStok(o.harga_beli)}</td><td>${formatRupiahStok(o.harga_jual)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
-        }).join('');
-    }
-
-    function updateStats(data) {
-        let totalObat = data.length, totalStok = 0, stokMenipis = 0, stokHabis = 0;
-        data.forEach(o => {
-            const stok = Number(o.stok) || 0;
-            totalStok += stok;
-            if (stok <= 0) stokHabis++;
-            else if (stok <= 10) stokMenipis++;
-        });
-        document.getElementById('totalObat').textContent = totalObat;
-        document.getElementById('totalStok').textContent = totalStok;
-        document.getElementById('stokMenipis').textContent = stokMenipis;
-        document.getElementById('stokHabis').textContent = stokHabis;
-    }
-
-    window.filterStokTerkini = function() {
-        const keyword = document.getElementById('searchStokTerkini').value.toLowerCase();
-        const filter = document.getElementById('filterStokTerkini').value;
-        let filtered = stokTerkiniData;
-        if (keyword) {
-            filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
+        
+        const hasil = obatMaster.filter(o => 
+            (o.kode_obat || '').toLowerCase().includes(keyword) || 
+            (o.nama_obat || '').toLowerCase().includes(keyword)
+        ).slice(0, 10);
+        
+        if (hasil.length === 0) {
+            saran.style.display = 'none';
+            return;
         }
-        if (filter === 'menipis') filtered = filtered.filter(o => Number(o.stok) > 0 && Number(o.stok) <= 10);
-        else if (filter === 'habis') filtered = filtered.filter(o => Number(o.stok) <= 0);
-        else if (filter === 'aman') filtered = filtered.filter(o => Number(o.stok) > 10);
-        renderStokTerkini(filtered);
+        
+        saran.style.display = 'block';
+        saran.innerHTML = hasil.map(o => `
+            <div class="item" onclick="pilihObatSaran('${o.id}')">
+                <span><span class="kode">${o.kode_obat}</span> - ${o.nama_obat}</span>
+                <span class="stok">Stok: ${o.stok || 0}</span>
+            </div>
+        `).join('');
     };
-
-    function formatRupiahStok(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
-
-    function showToastStokTerkini(message, isError = false) {
-        const toast = document.getElementById('toastStokTerkini');
+    
+    window.pilihObatSaran = function(id) {
+        const found = obatMaster.find(o => o.id == id);
+        if (found) {
+            tambahItemDariMaster(found);
+            document.getElementById('searchObat').value = '';
+            document.getElementById('saranObat').style.display = 'none';
+        }
+    };
+    
+    // ============================================================
+    // TAMBAH ITEM
+    // ============================================================
+    function tambahItemDariMaster(obat) {
+        const defaultMargin = 25;
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const hppPerItem = obat.harga_beli + (obat.harga_beli * ppnPercent / 100);
+        const hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
+        
+        const newItem = {
+            id: ++itemCounter,
+            obat_id: obat.id,
+            kode_obat: obat.kode_obat || '',
+            nama_obat: obat.nama_obat || '',
+            satuan: obat.satuan || 'Tablet',
+            jumlah: 1,
+            harga_beli: obat.harga_beli || 0,
+            subtotal: obat.harga_beli || 0,
+            diskon_persen: 0,
+            diskon_nominal: 0,
+            hpp: hppPerItem,
+            margin_persen: defaultMargin,
+            harga_jual: hargaJualDefault,
+            diskon_jual_persen: 0,
+            tanggal_exp: '',
+            no_batch: '',
+            ketentuan_retur: ''
+        };
+        
+        items.push(newItem);
+        renderItems();
+        hitungTotal();
+        showToast('✅ ' + obat.nama_obat + ' ditambahkan! (Margin default 25%)');
+    }
+    
+    window.tambahItemBaru = function() {
+        document.getElementById('modalObatBaru').classList.add('active');
+        document.getElementById('kodeObatBaru').focus();
+        const lastKode = obatMaster.length > 0 ? obatMaster[obatMaster.length-1].kode_obat : 'OBT000';
+        const num = parseInt(lastKode.replace('OBT', '')) || 0;
+        document.getElementById('kodeObatBaru').value = 'OBT' + String(num + 1).padStart(3, '0');
+        document.getElementById('namaObatBaru').value = '';
+    };
+    
+    window.closeModal = function() {
+        document.getElementById('modalObatBaru').classList.remove('active');
+    };
+    
+    window.simpanObatBaru = async function(e) {
+        e.preventDefault();
+        const kode = document.getElementById('kodeObatBaru').value.trim();
+        const nama = document.getElementById('namaObatBaru').value.trim();
+        
+        if (!kode) { showToast('⚠️ Kode Obat wajib diisi!', true); return; }
+        if (!nama) { showToast('⚠️ Nama Obat wajib diisi!', true); return; }
+        if (obatMaster.find(o => o.kode_obat === kode)) {
+            showToast('⚠️ Kode obat "' + kode + '" sudah ada!', true);
+            return;
+        }
+        
+        const data = {
+            kode_obat: kode,
+            nama_obat: nama,
+            satuan: document.getElementById('satuanObatBaru').value,
+            jenis: document.getElementById('jenisObatBaru').value,
+            golongan: document.getElementById('golonganObatBaru').value,
+            harga_beli: 0,
+            harga_jual: 0,
+            stok: 0,
+            status: 'Aktif'
+        };
+        
+        // Simpan ke Supabase
+        const { data: result, error } = await saveObat(data);
+        if (error) {
+            // Fallback ke localStorage
+            data.id = Date.now();
+            obatMaster.push(data);
+            localStorage.setItem('obat', JSON.stringify(obatMaster));
+            closeModal();
+            document.getElementById('formObatBaru').reset();
+            tambahItemDariMaster(data);
+            showToast('✅ Obat baru "' + nama + '" berhasil ditambahkan (offline)!');
+        } else {
+            data.id = result[0].id;
+            obatMaster.push(data);
+            localStorage.setItem('obat', JSON.stringify(obatMaster));
+            closeModal();
+            document.getElementById('formObatBaru').reset();
+            tambahItemDariMaster(data);
+            showToast('✅ Obat baru "' + nama + '" berhasil ditambahkan!');
+        }
+    };
+    
+    // ============================================================
+    // RENDER ITEMS
+    // ============================================================
+    function renderItems() {
+        const tbody = document.getElementById('itemTableBody');
+        const tfoot = document.getElementById('itemTableFoot');
+        
+        if (items.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="17" style="text-align:center;color:#7a8a9e;padding:40px;">
+                        <i class="fas fa-inbox"></i> Tidak ada data yang ditemukan, anda dapat menambahkan dengan memilih obat atau dengan melihat PO
+                    </td>
+                </tr>
+            `;
+            tfoot.style.display = 'none';
+            document.getElementById('totalItem').textContent = '0 item';
+            return;
+        }
+        
+        tfoot.style.display = 'table-footer-group';
+        document.getElementById('totalItem').textContent = items.length + ' item';
+        
+        tbody.innerHTML = items.map((item, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>
+                    <button class="btn-remove" onclick="hapusItem(${index})"><i class="fas fa-trash"></i></button>
+                </td>
+                <td>
+                    <input type="text" class="editable" data-index="${index}" data-field="kode_obat" value="${item.kode_obat || ''}" style="min-width:80px;">
+                </td>
+                <td>
+                    <input type="text" class="editable" data-index="${index}" data-field="nama_obat" value="${item.nama_obat || ''}" style="min-width:120px;">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="jumlah" value="${item.jumlah}" min="0" step="any">
+                </td>
+                <td>
+                    <input type="text" class="editable" data-index="${index}" data-field="satuan" value="${item.satuan || 'Tablet'}" style="width:70px;">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="harga_beli" value="${item.harga_beli}" min="0" step="any">
+                </td>
+                <td>
+                    <input type="text" value="${formatRupiah(item.subtotal)}" disabled style="background:#f0f2f7;font-weight:700;color:#2d6a9f;width:90px;text-align:right;">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="diskon_persen" value="${item.diskon_persen}" min="0" max="100" step="any">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="diskon_nominal" value="${item.diskon_nominal}" min="0" step="any">
+                </td>
+                <td>
+                    <input type="text" value="${formatRupiah(item.hpp)}" disabled style="background:#f0f2f7;font-weight:700;color:#28a745;width:90px;text-align:right;">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="margin_persen" value="${item.margin_persen}" min="0" step="any">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="harga_jual" value="${item.harga_jual}" min="0" step="any">
+                </td>
+                <td>
+                    <input type="number" class="editable" data-index="${index}" data-field="diskon_jual_persen" value="${item.diskon_jual_persen}" min="0" max="100" step="any">
+                </td>
+                <td>
+                    <input type="date" class="editable-date" data-index="${index}" data-field="tanggal_exp" value="${item.tanggal_exp || ''}">
+                </td>
+                <td>
+                    <input type="text" class="editable" data-index="${index}" data-field="no_batch" value="${item.no_batch || ''}" style="width:70px;">
+                </td>
+                <td>
+                    <input type="text" class="editable" data-index="${index}" data-field="ketentuan_retur" value="${item.ketentuan_retur || ''}" style="width:70px;">
+                </td>
+            </tr>
+        `).join('');
+        
+        document.querySelectorAll('.editable').forEach(input => {
+            input.oninput = function() {
+                const idx = parseInt(this.dataset.index);
+                const field = this.dataset.field;
+                let value = this.value;
+                if (this.type === 'number') {
+                    value = Number(value) || 0;
+                }
+                if (idx >= 0 && idx < items.length) {
+                    items[idx][field] = value;
+                    syncFields(idx, field);
+                }
+            };
+            input.onblur = function() {
+                const idx = parseInt(this.dataset.index);
+                const field = this.dataset.field;
+                let value = this.value;
+                if (this.type === 'number') {
+                    value = Number(value) || 0;
+                }
+                if (idx >= 0 && idx < items.length) {
+                    items[idx][field] = value;
+                    recalculateItem(idx);
+                    renderItems();
+                    hitungTotal();
+                }
+            };
+        });
+        
+        document.querySelectorAll('.editable-date').forEach(input => {
+            input.onchange = function() {
+                const idx = parseInt(this.dataset.index);
+                const field = this.dataset.field;
+                if (idx >= 0 && idx < items.length) {
+                    items[idx][field] = this.value;
+                }
+            };
+        });
+        
+        hitungTotal();
+    }
+    
+    function syncFields(index, field) {
+        if (index < 0 || index >= items.length) return;
+        const item = items[index];
+        const subtotal = Number(item.jumlah) * Number(item.harga_beli);
+        
+        if (field === 'diskon_persen' && item.diskon_persen > 0) {
+            item.diskon_nominal = Math.round(subtotal * item.diskon_persen / 100);
+        } else if (field === 'diskon_nominal' && item.diskon_nominal > 0) {
+            if (subtotal > 0) {
+                item.diskon_persen = Math.round((item.diskon_nominal / subtotal) * 100 * 100) / 100;
+            }
+        }
+        
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const hargaBeli = Number(item.harga_beli) || 0;
+        const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
+        
+        if (field === 'margin_persen') {
+            const margin = Number(item.margin_persen) || 0;
+            item.harga_jual = Math.round(hppPerItem + (hppPerItem * margin / 100));
+            if (Number(item.diskon_jual_persen) > 0) {
+                item.harga_jual = Math.round(item.harga_jual - (item.harga_jual * Number(item.diskon_jual_persen) / 100));
+            }
+        } else if (field === 'harga_jual') {
+            const hargaJualBaru = Number(item.harga_jual) || 0;
+            if (hargaJualBaru > 0 && hppPerItem > 0) {
+                const marginBaru = ((hargaJualBaru - hppPerItem) / hppPerItem) * 100;
+                item.margin_persen = Math.round(marginBaru * 100) / 100;
+            }
+        }
+        
+        item.hpp = Math.round(hppPerItem);
+    }
+    
+    function recalculateItem(index) {
+        if (index < 0 || index >= items.length) return;
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const item = items[index];
+        const jumlah = Number(item.jumlah) || 0;
+        const hargaBeli = Number(item.harga_beli) || 0;
+        let diskonPersen = Number(item.diskon_persen) || 0;
+        let diskonNominal = Number(item.diskon_nominal) || 0;
+        let marginPersen = Number(item.margin_persen) || 0;
+        let hargaJual = Number(item.harga_jual) || 0;
+        let diskonJualPersen = Number(item.diskon_jual_persen) || 0;
+        const subtotal = jumlah * hargaBeli;
+        if (diskonNominal > 0) { diskonPersen = 0; } 
+        else if (diskonPersen > 0) { diskonNominal = Math.round(subtotal * diskonPersen / 100); }
+        const diskonRp = diskonNominal || 0;
+        const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
+        let hargaJualFinal = 0;
+        let marginFinal = marginPersen;
+        if (marginPersen > 0) {
+            hargaJualFinal = Math.round(hppPerItem + (hppPerItem * marginPersen / 100));
+            if (diskonJualPersen > 0 && hargaJualFinal > 0) {
+                hargaJualFinal = Math.round(hargaJualFinal - (hargaJualFinal * diskonJualPersen / 100));
+            }
+        } else if (hargaJual > 0 && hppPerItem > 0) {
+            const marginBaru = ((hargaJual - hppPerItem) / hppPerItem) * 100;
+            marginFinal = Math.round(marginBaru * 100) / 100;
+            hargaJualFinal = hargaJual;
+            if (diskonJualPersen > 0 && hargaJualFinal > 0) {
+                hargaJualFinal = Math.round(hargaJualFinal - (hargaJualFinal * diskonJualPersen / 100));
+                const marginBaru2 = ((hargaJualFinal - hppPerItem) / hppPerItem) * 100;
+                marginFinal = Math.round(marginBaru2 * 100) / 100;
+            }
+        } else {
+            marginFinal = 25;
+            hargaJualFinal = Math.round(hppPerItem + (hppPerItem * 25 / 100));
+        }
+        items[index].subtotal = subtotal;
+        items[index].diskon_persen = Math.round(diskonPersen * 100) / 100;
+        items[index].diskon_nominal = diskonRp;
+        items[index].hpp = Math.round(hppPerItem);
+        items[index].harga_jual = hargaJualFinal;
+        items[index].margin_persen = marginFinal;
+    }
+    
+    window.hapusItem = function(index) {
+        if (confirm('Hapus item ini?')) {
+            items.splice(index, 1);
+            renderItems();
+            hitungTotal();
+            showToast('🗑️ Item dihapus');
+        }
+    };
+    
+    window.hapusSemuaItem = function() {
+        if (items.length === 0) return;
+        if (confirm('Hapus semua item?')) {
+            items = [];
+            renderItems();
+            hitungTotal();
+            showToast('🗑️ Semua item dihapus');
+        }
+    };
+    
+    // ============================================================
+    // HITUNG TOTAL
+    // ============================================================
+    function hitungTotal() {
+        let totalSubtotal = 0;
+        let totalDiskon = 0;
+        let totalPPN = 0;
+        let totalHPP = 0;
+        let totalJumlah = 0;
+        
+        items.forEach(item => {
+            totalSubtotal += Number(item.subtotal) || 0;
+            totalDiskon += Number(item.diskon_nominal) || 0;
+            totalPPN += Number(item.hpp - item.harga_beli) || 0;
+            totalHPP += Number(item.hpp) || 0;
+            totalJumlah += Number(item.jumlah) || 0;
+        });
+        
+        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        
+        document.getElementById('sumSubtotal').textContent = formatRupiah(totalSubtotal);
+        document.getElementById('sumHPP').textContent = formatRupiah(totalHPP);
+        document.getElementById('sumJumlah').textContent = totalJumlah + ' item';
+        document.getElementById('detailSubtotal').textContent = formatRupiah(totalSubtotal);
+        document.getElementById('detailDiskon').textContent = formatRupiah(totalDiskon);
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        document.getElementById('detailPPN').innerHTML = formatRupiah(totalPPN) + ' <span style="font-size:11px;color:#7a8a9e;">(' + ppnPercent + '%)</span>';
+        document.getElementById('detailTotal').textContent = formatRupiah(totalPembelian);
+    }
+    
+    // ============================================================
+    // SIMPAN PEMBELIAN
+    // ============================================================
+    window.simpanPembelian = async function() {
+        const noFaktur = document.getElementById('noFaktur').value.trim();
+        const tanggal = document.getElementById('tanggalFaktur').value;
+        const supplierId = document.getElementById('pilihSupplier').value;
+        
+        if (!noFaktur) {
+            showToast('⚠️ No. Faktur wajib diisi!', true);
+            document.getElementById('noFaktur').focus();
+            return;
+        }
+        if (!supplierId) {
+            showToast('⚠️ Supplier wajib dipilih!', true);
+            document.getElementById('pilihSupplier').focus();
+            return;
+        }
+        if (items.length === 0) {
+            showToast('⚠️ Minimal 1 item obat harus diisi!', true);
+            return;
+        }
+        
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (!item.nama_obat) {
+                showToast(`⚠️ Item #${i+1}: Nama Obat wajib diisi!`, true);
+                return;
+            }
+            if (!item.tanggal_exp) {
+                showToast(`⚠️ Item #${i+1}: Tanggal Exp wajib diisi!`, true);
+                return;
+            }
+            if (!item.no_batch) {
+                showToast(`⚠️ Item #${i+1}: No Batch wajib diisi!`, true);
+                return;
+            }
+            if (item.jumlah <= 0) {
+                showToast(`⚠️ Item #${i+1}: Jumlah harus lebih dari 0!`, true);
+                return;
+            }
+        }
+        
+        let totalSubtotal = 0;
+        let totalDiskon = 0;
+        let totalPPN = 0;
+        let totalHPP = 0;
+        items.forEach(item => {
+            totalSubtotal += Number(item.subtotal) || 0;
+            totalDiskon += Number(item.diskon_nominal) || 0;
+            totalPPN += Number(item.hpp - item.harga_beli) || 0;
+            totalHPP += Number(item.hpp) || 0;
+        });
+        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        
+        const data = {
+            no_faktur: noFaktur,
+            tanggal_faktur: tanggal,
+            supplier_id: supplierId,
+            supplier_nama: document.getElementById('pilihSupplier').options[document.getElementById('pilihSupplier').selectedIndex]?.text || '-',
+            gudang: document.getElementById('pilihGudang').value,
+            jenis: document.getElementById('jenisPembelian').value,
+            kas: document.getElementById('pilihKas').value,
+            no_faktur_pajak: document.getElementById('noFakturPajak').value.trim(),
+            subtotal: totalSubtotal,
+            diskon: totalDiskon,
+            ppn: totalPPN,
+            ppn_persen: Number(document.getElementById('ppnPercent').value) || 11,
+            total: totalPembelian,
+            items: JSON.parse(JSON.stringify(items)),
+            keterangan: ''
+        };
+        
+        lastSavedData = data;
+        
+        try {
+            const { data: result, error } = await savePembelian(data, data.items);
+            if (error) throw error;
+            
+            const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
+            data.id = Date.now();
+            data.created_at = new Date().toISOString();
+            history.push(data);
+            localStorage.setItem('pembelian_history', JSON.stringify(history));
+            historyPembelian = history;
+            
+            showSuccess('✅ Pembelian Berhasil!', 
+                'Data pembelian No. ' + noFaktur + ' telah disimpan.',
+                'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
+            );
+            
+            // ============================================================
+            // RELOAD DATA OBAT SETELAH PEMBELIAN
+            // ============================================================
+            await loadMasterData();
+            renderItems();
+            hitungTotal();
+            // ============================================================
+            
+            setTimeout(() => {
+                resetFormSilent();
+            }, 500);
+        } catch(e) {
+            console.log('Error saving to server, saving locally:', e);
+            const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
+            data.id = Date.now();
+            data.created_at = new Date().toISOString();
+            data.saved_offline = true;
+            history.push(data);
+            localStorage.setItem('pembelian_history', JSON.stringify(history));
+            historyPembelian = history;
+            
+            showSuccess('✅ Pembelian Disimpan (Offline)!', 
+                'Data pembelian No. ' + noFaktur + ' telah disimpan secara offline.',
+                'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
+            );
+            
+            setTimeout(() => {
+                resetFormSilent();
+            }, 500);
+        }
+    };
+    
+    function showSuccess(title, message, detail) {
+        document.getElementById('successMessage').textContent = message;
+        document.getElementById('successDetail').textContent = detail || '';
+        document.getElementById('successOverlay').classList.add('active');
+    }
+    
+    window.tutupSuccess = function() {
+        document.getElementById('successOverlay').classList.remove('active');
+    };
+    
+    // ============================================================
+    // RESET FORM
+    // ============================================================
+    window.resetForm = function() {
+        if (items.length > 0 && !confirm('Reset form akan menghapus semua item. Lanjutkan?')) return;
+        resetFormSilent();
+    };
+    
+    function resetFormSilent() {
+        document.getElementById('noFaktur').value = '';
+        document.getElementById('noFakturPajak').value = '';
+        document.getElementById('pilihSupplier').value = '';
+        document.getElementById('pilihGudang').value = 'GUDANG UTAMA';
+        document.getElementById('jenisPembelian').value = 'TUNAI';
+        document.getElementById('pilihKas').value = 'Kas Umum';
+        document.getElementById('ppnPercent').value = '11';
+        document.getElementById('searchObat').value = '';
+        document.getElementById('saranObat').style.display = 'none';
+        items = [];
+        itemCounter = 0;
+        renderItems();
+        hitungTotal();
+        showToast('🔄 Form direset');
+    }
+    
+    // ============================================================
+    // CETAK FAKTUR
+    // ============================================================
+    window.cetakFaktur = function() {
+        let dataToPrint = items;
+        let noFaktur = document.getElementById('noFaktur').value || '-';
+        let tanggal = document.getElementById('tanggalFaktur').value || '-';
+        let supplierText = document.getElementById('pilihSupplier').options[document.getElementById('pilihSupplier').selectedIndex]?.text || '-';
+        
+        if (items.length === 0 && lastSavedData) {
+            dataToPrint = lastSavedData.items || [];
+            noFaktur = lastSavedData.no_faktur || noFaktur;
+            tanggal = lastSavedData.tanggal_faktur || tanggal;
+            supplierText = lastSavedData.supplier_nama || supplierText;
+        }
+        
+        if (dataToPrint.length === 0) {
+            showToast('⚠️ Tidak ada item untuk dicetak!', true);
+            return;
+        }
+        
+        let totalSubtotal = 0;
+        let totalDiskon = 0;
+        let totalPPN = 0;
+        dataToPrint.forEach(item => {
+            totalSubtotal += Number(item.subtotal) || 0;
+            totalDiskon += Number(item.diskon_nominal) || 0;
+            totalPPN += Number(item.hpp - item.harga_beli) || 0;
+        });
+        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        
+        let html = `
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Courier New', monospace; padding: 20px; font-size: 12px; }
+                .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+                .header h1 { font-size: 18px; margin: 0; }
+                .header .sub { font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                table th { background: #f0f0f0; padding: 6px; border: 1px solid #000; font-size: 11px; }
+                table td { padding: 6px; border: 1px solid #000; font-size: 11px; }
+                .right { text-align: right; }
+                .total-row { font-weight: bold; }
+                .total-row td { border-top: 2px solid #000; }
+                .signature { display:flex; justify-content:space-between; margin-top:30px; }
+                .signature div { text-align:center; }
+                .signature .line { border-top:1px solid #000; width:150px; margin:0 auto; }
+                .footer { text-align: center; margin-top: 20px; font-size: 10px; color: #666; }
+                .summary { margin-top:10px; text-align:right; font-size:13px; }
+                .summary .total { font-size:18px; font-weight:bold; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>APOTEK MENDIDOHA FARMA</h1>
+                <div class="sub">FAKTUR PEMBELIAN</div>
+                <div>No: ${noFaktur} | Tgl: ${tanggal}</div>
+                <div>Supplier: ${supplierText}</div>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Kode</th>
+                        <th>Nama Obat</th>
+                        <th style="text-align:right;">Jml</th>
+                        <th>Satuan</th>
+                        <th style="text-align:right;">Harga</th>
+                        <th style="text-align:right;">Subtotal</th>
+                        <th style="text-align:right;">Diskon</th>
+                        <th style="text-align:right;">PPN</th>
+                        <th style="text-align:right;">HPP</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        dataToPrint.forEach((item, i) => {
+            html += `
+                <tr>
+                    <td>${i+1}</td>
+                    <td>${item.kode_obat || '-'}</td>
+                    <td>${item.nama_obat || '-'}</td>
+                    <td style="text-align:right;">${item.jumlah}</td>
+                    <td>${item.satuan || '-'}</td>
+                    <td style="text-align:right;">${formatRupiah(item.harga_beli)}</td>
+                    <td style="text-align:right;">${formatRupiah(item.subtotal)}</td>
+                    <td style="text-align:right;">${formatRupiah(item.diskon_nominal)}</td>
+                    <td style="text-align:right;">${formatRupiah(item.hpp - item.harga_beli)}</td>
+                    <td style="text-align:right;">${formatRupiah(item.hpp)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="9" style="text-align:right;">TOTAL</td>
+                        <td style="text-align:right;">${formatRupiah(totalPembelian)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <div class="summary">
+                <div>Subtotal: ${formatRupiah(totalSubtotal)}</div>
+                <div>Diskon: ${formatRupiah(totalDiskon)}</div>
+                <div>PPN: ${formatRupiah(totalPPN)}</div>
+                <div class="total">Total Pembelian: ${formatRupiah(totalPembelian)}</div>
+            </div>
+            
+            <div class="signature">
+                <div>
+                    <div>Diterima oleh,</div>
+                    <div class="line"></div>
+                    <div>(____________________)</div>
+                </div>
+                <div>
+                    <div>Mengetahui,</div>
+                    <div class="line"></div>
+                    <div>(____________________)</div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                Dicetak: ${new Date().toLocaleString()}
+            </div>
+            
+            <script>
+                window.print();
+                setTimeout(function() { window.close(); }, 2000);
+            <\/script>
+        </body>
+        </html>
+        `;
+        
+        const win = window.open('', '_blank', 'width=800,height=600');
+        if (win) {
+            win.document.write(html);
+            win.document.close();
+        } else {
+            showToast('⚠️ Mohon izinkan popup untuk cetak faktur!', true);
+        }
+    };
+    
+    // ============================================================
+    // UTILITY
+    // ============================================================
+    function formatRupiah(value) {
+        return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+    }
+    
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
         toast.textContent = message;
         toast.className = 'toast' + (isError ? ' error' : '');
         toast.style.display = 'block';
         clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 5000);
     }
-
-    document.addEventListener('DOMContentLoaded', loadStokTerkini);
+    
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadMasterData();
+        
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#searchObat') && !e.target.closest('#saranObat')) {
+                document.getElementById('saranObat').style.display = 'none';
+            }
+        });
+    });
 </script>
 </body>
 </html>

@@ -566,21 +566,42 @@
 <div class="toast" id="toastKasir"></div>
 
 <script type="module">
-    import { supabase, getCurrentUser } from './supabase.js';
+    import { supabase } from './supabase.js';
     import { getObat, savePenjualan } from './database.js';
     
     // ============================================================
-    // GLOBAL
+    // AUTH CHECK
     // ============================================================
-    let itemsKasir = [];
-    let obatMasterKasir = [];
-    let itemCounterKasir = 0;
-    let shiftAktif = null;
-    let stokOverlayData = [];
-
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+    
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+    
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
     
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -590,11 +611,11 @@
             if (chevron) chevron.classList.toggle('open');
         }
     };
-
+    
     window.closeModalShift = function() {
         document.getElementById('modalShiftRequired').classList.remove('active');
     };
-
+    
     // ============================================================
     // TOGGLE METODE PEMBAYARAN
     // ============================================================
@@ -610,7 +631,7 @@
         }
         hitungKembalianKasir();
     };
-
+    
     // ============================================================
     // STOK OVERLAY
     // ============================================================
@@ -632,7 +653,7 @@
             body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#7a8a9e;padding:20px;">Error loading data</td></tr>';
         }
     };
-
+    
     function renderStokOverlay(data) {
         const body = document.getElementById('stokOverlayBody');
         if (!data || data.length === 0) {
@@ -649,7 +670,7 @@
             </tr>
         `).join('');
     }
-
+    
     window.filterStokOverlay = function() {
         const keyword = document.getElementById('searchStokOverlay').value.toLowerCase();
         if (!keyword) {
@@ -662,13 +683,13 @@
         );
         renderStokOverlay(filtered);
     };
-
+    
     window.closeStokOverlay = function() {
         document.getElementById('stokOverlay').classList.remove('active');
         document.getElementById('searchStokOverlay').value = '';
         renderStokOverlay(stokOverlayData);
     };
-
+    
     // ============================================================
     // CEK SHIFT
     // ============================================================
@@ -683,7 +704,7 @@
             return false;
         }
     }
-
+    
     // ============================================================
     // LOAD MASTER
     // ============================================================
@@ -701,7 +722,7 @@
             if (local) obatMasterKasir = JSON.parse(local);
         }
     }
-
+    
     // ============================================================
     // CARI OBAT KASIR
     // ============================================================
@@ -749,7 +770,7 @@
             </div>
         `).join('');
     };
-
+    
     window.pilihObatKasir = function(id) {
         const found = obatMasterKasir.find(o => o.id == id);
         if (found) {
@@ -762,7 +783,7 @@
             document.getElementById('saranKasir').style.display = 'none';
         }
     };
-
+    
     // ============================================================
     // TAMBAH ITEM KASIR
     // ============================================================
@@ -788,7 +809,7 @@
         hitungTotalKasir();
         showToastKasir('✅ ' + obat.nama_obat + ' ditambahkan!');
     }
-
+    
     // ============================================================
     // RENDER KASIR
     // ============================================================
@@ -831,7 +852,7 @@
         
         hitungTotalKasir();
     }
-
+    
     // ============================================================
     // VALIDASI & UPDATE JUMLAH
     // ============================================================
@@ -875,7 +896,7 @@
         hitungTotalKasir();
         renderKasir();
     };
-
+    
     window.hapusItemKasir = function(index) {
         if (confirm('Hapus item ini?')) {
             itemsKasir.splice(index, 1);
@@ -884,7 +905,7 @@
             showToastKasir('🗑️ Item dihapus');
         }
     };
-
+    
     window.hapusSemuaItemKasir = function() {
         if (itemsKasir.length === 0) return;
         if (confirm('Hapus semua item?')) {
@@ -894,7 +915,7 @@
             showToastKasir('🗑️ Semua item dihapus');
         }
     };
-
+    
     // ============================================================
     // HITUNG TOTAL & KEMBALIAN
     // ============================================================
@@ -906,7 +927,7 @@
         document.getElementById('totalKasir').textContent = formatRupiahKasir(total);
         hitungKembalianKasir();
     }
-
+    
     window.hitungKembalianKasir = function() {
         const totalText = document.getElementById('totalKasir').textContent;
         const total = Number(totalText.replace('Rp ', '').replace(/\./g, '')) || 0;
@@ -924,7 +945,7 @@
         kembalianEl.textContent = formatRupiahKasir(selisih > 0 ? selisih : 0);
         kembalianEl.style.color = selisih < 0 ? '#dc3545' : '#28a745';
     };
-
+    
     // ============================================================
     // AUTO FILL CASH / TRANSFER
     // ============================================================
@@ -949,7 +970,7 @@
         }
         hitungKembalianKasir();
     };
-
+    
     window.isiCash50 = function() {
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
@@ -957,7 +978,7 @@
         document.getElementById('cashKasir').value = '50,000';
         hitungKembalianKasir();
     };
-
+    
     window.isiCash100 = function() {
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
@@ -965,7 +986,7 @@
         document.getElementById('cashKasir').value = '100,000';
         hitungKembalianKasir();
     };
-
+    
     window.isiCash200 = function() {
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
@@ -973,7 +994,7 @@
         document.getElementById('cashKasir').value = '200,000';
         hitungKembalianKasir();
     };
-
+    
     // ============================================================
     // FORMAT RUPIAH INPUT
     // ============================================================
@@ -987,9 +1008,9 @@
         document.getElementById('bayarSemua').checked = false;
         hitungKembalianKasir();
     };
-
+    
     // ============================================================
-    // SIMPAN PENJUALAN KASIR - DENGAN JAM
+    // SIMPAN PENJUALAN KASIR - DENGAN UPDATE STOK
     // ============================================================
     window.simpanPenjualanKasir = async function() {
         if (!cekShiftAktif()) return;
@@ -1038,17 +1059,8 @@
             cash = nominalPembayaran;
         }
         
-        // Update stok lokal
-        itemsKasir.forEach(item => {
-            const obat = obatMasterKasir.find(o => o.kode_obat === item.kode_obat);
-            if (obat) {
-                obat.stok = (Number(obat.stok) || 0) - Number(item.jumlah);
-                item.stok_tersedia = obat.stok;
-            }
-        });
-        localStorage.setItem('obat', JSON.stringify(obatMasterKasir));
-        
-        const data = {
+        // Data header
+        const header = {
             no_faktur: noFaktur,
             tanggal: tanggal,
             jam: jam,
@@ -1061,31 +1073,50 @@
             transfer_keterangan: transferKeterangan,
             cash: cash,
             kembalian: kembalian,
-            items: JSON.parse(JSON.stringify(itemsKasir))
+            status: 'Selesai'
         };
         
-        // Simpan ke Supabase
-        const { data: result, error } = await savePenjualan(data, data.items);
+        // Detail items
+        const details = itemsKasir.map(item => ({
+            obat_id: item.obat_id || null,
+            kode_obat: item.kode_obat,
+            nama_obat: item.nama_obat,
+            satuan: item.satuan || 'Tablet',
+            jumlah: item.jumlah,
+            harga_jual: item.harga_jual,
+            subtotal: item.subtotal
+        }));
+        
+        // ============================================================
+        // SIMPAN KE SUPABASE - update stok otomatis di database.js
+        // ============================================================
+        const { data, error } = await savePenjualan(header, details);
         
         if (error) {
-            // Fallback ke localStorage
-            const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-            data.id = Date.now();
-            data.created_at = new Date().toISOString();
-            history.push(data);
-            localStorage.setItem('penjualan_history', JSON.stringify(history));
-            showToastKasir('✅ Penjualan berhasil (offline)! No: ' + noFaktur);
-        } else {
-            showToastKasir('✅ Penjualan berhasil! No: ' + noFaktur + ' | Jam: ' + jam);
+            console.error('Error saving penjualan:', error);
+            showToastKasir('❌ Gagal menyimpan penjualan: ' + error.message, true);
+            return;
         }
         
+        // Update stok lokal (sebagai backup)
+        itemsKasir.forEach(item => {
+            const obat = obatMasterKasir.find(o => o.kode_obat === item.kode_obat);
+            if (obat) {
+                obat.stok = Math.max(0, (Number(obat.stok) || 0) - Number(item.jumlah));
+                item.stok_tersedia = obat.stok;
+            }
+        });
+        localStorage.setItem('obat', JSON.stringify(obatMasterKasir));
+        
+        showToastKasir('✅ Penjualan berhasil! No: ' + noFaktur + ' | Jam: ' + jam);
+        
         setTimeout(() => {
-            cetakStrukKasir(data);
+            cetakStrukKasir({ ...header, items: details });
         }, 500);
         
         resetKasir();
     };
-
+    
     // ============================================================
     // CETAK STRUK
     // ============================================================
@@ -1193,7 +1224,7 @@
             alert('⚠️ Mohon izinkan popup untuk cetak struk!');
         }
     }
-
+    
     // ============================================================
     // RESET KASIR
     // ============================================================
@@ -1210,14 +1241,20 @@
         hitungTotalKasir();
         showToastKasir('🔄 Kasir direset');
     };
-
+    
     // ============================================================
     // UTILITY
     // ============================================================
+    let itemsKasir = [];
+    let obatMasterKasir = [];
+    let itemCounterKasir = 0;
+    let shiftAktif = null;
+    let stokOverlayData = [];
+    
     function formatRupiahKasir(value) {
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
-
+    
     function showToastKasir(message, isError = false) {
         const toast = document.getElementById('toastKasir');
         toast.textContent = message;
@@ -1226,7 +1263,7 @@
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
-
+    
     // ============================================================
     // INIT
     // ============================================================
