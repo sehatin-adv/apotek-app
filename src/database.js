@@ -1,4 +1,4 @@
-\// src/database.js
+// src/database.js
 import { supabase } from './supabase.js';
 
 // ============================================================
