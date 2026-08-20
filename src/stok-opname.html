@@ -1,3 +1,291 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stok Opname - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#eef2f8; }
+        .app-layout { display:flex; min-height:100vh; }
+
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(255,255,255,0.03);
+        }
+        .sub-menu.open { max-height: 500px; }
+        .sub-menu .menu-item {
+            padding-left: 58px;
+            font-size: 13px;
+            border-left: 3px solid transparent;
+        }
+        .sub-menu .menu-item.active {
+            background: rgba(255,255,255,0.05);
+            border-left-color: #4fc3f7;
+            color: white;
+        }
+        .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform: rotate(180deg); }
+
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+        .main-content { margin-left:250px; flex:1; padding:22px 28px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+        .header h2 { font-size:24px; color:#0f1e2e; font-weight:800; display:flex; align-items:center; gap:10px; }
+        .header h2 i { color:#2d6a9f; font-size:22px; }
+        .user-badge { background:white; padding:8px 16px 8px 8px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 10px rgba(15,30,46,0.06); display:flex; align-items:center; gap:8px; color:#0f1e2e; }
+        .user-badge i { width:26px; height:26px; border-radius:50%; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:13px; }
+
+        .card { background:white; border-radius:18px; padding:20px 22px; box-shadow:0 4px 18px rgba(15,30,46,0.05); margin-bottom:18px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+        .card-title .icon-badge { width:32px; height:32px; border-radius:10px; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+
+        .btn { padding:8px 16px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-warning { background:#ffc107; color:#212529; }
+        .btn-warning:hover { background:#e0a800; }
+        .btn-outline { background:white; border:2px solid #e8edf3; color:#34495e; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:5px 12px; font-size:11px; }
+
+        .table-wrap { overflow-x:auto; border:1px solid #eef2f7; border-radius:14px; margin-top:10px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        table th {
+            text-align:left;
+            padding:12px 10px;
+            background:#f8fafc;
+            font-weight:700;
+            color:#5b6b7c;
+            border-bottom:1px solid #eef2f7;
+            white-space:nowrap;
+            font-size:12.5px;
+            text-transform:uppercase;
+            letter-spacing:0.3px;
+        }
+        table td {
+            padding:10px 8px;
+            border-bottom:1px solid #eef2f7;
+            vertical-align:middle;
+            font-weight:500;
+            font-size:14px;
+        }
+        table tbody tr:last-child td { border-bottom:none; }
+        table td input { width:100%; padding:6px 8px; border:1px solid #e8edf3; border-radius:8px; font-size:14px; background:white; }
+        table td input:focus { border-color:#2d6a9f; outline:none; box-shadow:0 0 0 3px rgba(45,106,159,0.1); }
+        table td input[type="number"] { width:80px; font-weight:600; }
+        table td .badge { display:inline-block; padding:4px 10px; border-radius:30px; font-size:11px; font-weight:600; }
+        table td .badge-success { background:#d4edda; color:#155724; }
+        table td .badge-danger { background:#f8d7da; color:#721c24; }
+        table td .badge-warning { background:#fff3cd; color:#856404; }
+        table td .badge-info { background:#d1ecf1; color:#0c5460; }
+
+        .total-row { background:#f8fafc; font-weight:700; border-top:2px solid #2d6a9f; }
+        .total-row td { padding:10px 8px; }
+
+        .search-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+        .search-bar input { flex:1; min-width:150px; padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
+        .search-bar input:focus { border-color:#2d6a9f; outline:none; }
+        .search-bar select { padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; background:white; }
+
+        .status-badge { display:inline-block; padding:4px 14px; border-radius:30px; font-size:12px; font-weight:700; }
+        .status-badge.active { background:#d1ecf1; color:#0c5460; }
+        .status-badge.done { background:#d4edda; color:#155724; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        .toast.warning { background:#ffc107; color:#212529; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999; justify-content:center; align-items:center; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:32px; max-width:850px; width:100%; max-height:85vh; overflow-y:auto; }
+        .modal-close { float:right; background:none; border:none; font-size:24px; cursor:pointer; color:#7a8a9e; }
+        .modal-box h3 { margin-bottom:14px; }
+
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        @media (max-width:768px) {
+            .sidebar { width:100%; position:static; height:auto; }
+            .main-content { margin-left:0; padding:12px; }
+            table { font-size:13px; }
+            table th, table td { padding:8px 6px; }
+            table td input[type="number"] { width:60px; }
+            .modal-box { padding:20px; max-width:100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item active" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-clipboard-list"></i> Stok Opname</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="card" id="sessionCard" style="display:none;">
+            <div class="flex-between">
+                <div class="card-title"><span class="icon-badge"><i class="fas fa-clock"></i></span> Sesi Opname Berjalan</div>
+                <div><span id="sessionStatus" class="status-badge active"><i class="fas fa-spinner fa-pulse"></i> Berlangsung</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div><span style="color:#7a8a9e;">Dimulai:</span> <strong id="sessionStart">-</strong></div>
+                <div><span style="color:#7a8a9e;">Jumlah Obat:</span> <strong id="sessionTotalItem">0</strong></div>
+                <div><span style="color:#7a8a9e;">Progress:</span> <strong id="sessionProgress">0/0</strong></div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-danger" onclick="batalOpname()"><i class="fas fa-times"></i> Batalkan Opname</button>
+                <button class="btn btn-success" onclick="selesaiOpname()"><i class="fas fa-check"></i> Selesaikan & Simpan</button>
+                <button class="btn btn-outline" onclick="refreshOpname()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+        </div>
+
+        <div class="card" id="mulaiCard">
+            <div class="card-title"><span class="icon-badge"><i class="fas fa-play"></i></span> Mulai Stok Opname</div>
+            <p style="color:#5b6b7c;margin-bottom:12px;">Klik tombol di bawah untuk memulai sesi stok opname. Sistem akan mengambil <strong>snapshot stok saat ini</strong> sebagai acuan.</p>
+            <button class="btn btn-primary" onclick="mulaiOpname()"><i class="fas fa-play"></i> Mulai Stok Opname</button>
+        </div>
+
+        <div class="card" id="inputCard" style="display:none;">
+            <div class="flex-between">
+                <div class="card-title"><span class="icon-badge"><i class="fas fa-edit"></i></span> Input Stok Fisik</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="downloadOpnameCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                    <span id="totalItemOpname" style="font-size:13px;color:#7a8a9e;margin-left:8px;">0 item</span>
+                </div>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchOpname" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterOpname()">
+                <select id="filterOpname" onchange="filterOpname()"><option value="">Semua</option><option value="selisih">Ada Selisih</option><option value="aman">Tidak Ada Selisih</option></select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:70px;">Status</th></tr></thead>
+                    <tbody id="opnameTableBody"><tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <tfoot id="opnameTableFoot" style="display:none;">
+                        <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td></tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:12px;">
+                <div><span style="color:#7a8a9e;">Total Selisih: </span><strong id="footerTotalSelisih" style="color:#dc3545;">0</strong> &nbsp;|&nbsp; <span style="color:#7a8a9e;">Jumlah Item Selisih: </span><strong id="footerJumlahSelisih">0</strong></div>
+                <div><button class="btn btn-success btn-sm" onclick="simpanProgress()"><i class="fas fa-save"></i> Simpan Progress</button></div>
+            </div>
+        </div>
+
+        <div class="card" id="riwayatCard">
+            <div class="card-title"><span class="icon-badge"><i class="fas fa-history"></i></span> Riwayat Stok Opname</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>No</th><th>Tanggal Mulai</th><th>Tanggal Selesai</th><th>Total Selisih</th><th>Jumlah Item</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <tbody id="riwayatBody"><tr><td colspan="7" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada riwayat opname</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalDetailOpname">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+        <h3 id="detailTitle">Detail Stok Opname</h3>
+        <div id="detailContent" style="max-height:400px;overflow-y:auto;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button class="btn btn-primary" onclick="cetakDetail()"><i class="fas fa-print"></i> Cetak</button>
+            <button class="btn btn-outline" onclick="closeDetailModal()">Tutup</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script type="module">
     import { supabase } from './supabase.js';
     import { getObat, getStokOpname, saveStokOpname } from './database.js';
@@ -76,204 +364,326 @@
     // MULAI STOK OPNAME
     // ============================================================
     window.mulaiOpname = async function() {
-    const existing = localStorage.getItem('opname_session_active');
-    if (existing) {
-        showToast('⚠️ Masih ada sesi opname yang aktif!', true);
-        return;
-    }
-    await loadMasterObat();
-    if (!obatMaster || obatMaster.length === 0) {
-        showToast('⚠️ Belum ada data obat!', true);
-        return;
-    }
-    if (!confirm('Mulai stok opname? Sistem akan mengambil snapshot stok saat ini.')) return;
-    
-    const now = new Date();
-    const timestamp = now.toISOString();
-    const snapshot = obatMaster.map(o => ({
-        id: o.id,
-        kode_obat: o.kode_obat,
-        nama_obat: o.nama_obat,
-        satuan: o.satuan || 'Tablet',
-        snapshot_stok: Number(o.stok) || 0,
-        harga_jual: o.harga_jual || 0
-    }));
-
-    sessionData = {
-        id: 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4),
-        tanggal_mulai: timestamp,
-        status: 'berlangsung',
-        snapshot: snapshot
+        const existing = localStorage.getItem('opname_session_active');
+        if (existing) {
+            showToast('⚠️ Masih ada sesi opname yang aktif!', true);
+            return;
+        }
+        await loadMasterObat();
+        if (!obatMaster || obatMaster.length === 0) {
+            showToast('⚠️ Belum ada data obat!', true);
+            return;
+        }
+        if (!confirm('Mulai stok opname? Sistem akan mengambil snapshot stok saat ini.')) return;
+        const now = new Date();
+        const timestamp = now.toISOString();
+        const snapshot = obatMaster.map(o => ({
+            id: o.id, kode_obat: o.kode_obat, nama_obat: o.nama_obat,
+            satuan: o.satuan || 'Tablet', snapshot_stok: Number(o.stok) || 0
+        }));
+        sessionData = {
+            id: 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4),
+            tanggal_mulai: timestamp,
+            status: 'berlangsung',
+            snapshot: snapshot
+        };
+        localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
+        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, status: 'Belum diinput' }));
+        renderUI();
+        showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
     };
 
-    localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
-
-    opnameItems = snapshot.map(s => ({
-        ...s,
-        stok_fisik: 0,
-        stok_sistem: s.snapshot_stok,
-        selisih: 0,
-        status: 'Belum diinput'
-    }));
-
-    renderUI();
-    showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
-};
-
     // ============================================================
-    // RENDER TABEL OPNAME
+    // RENDER UI - DIPERBAIKI (TAMBAHKAN PENGECEKAN ELEMEN)
     // ============================================================
-    function renderOpnameTable(data) {
-    const tbody = document.getElementById('opnameTableBody');
-    const tfoot = document.getElementById('opnameTableFoot');
-    
-    if (!tbody) return; // aman jika elemen tidak ada
-    
-    if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
-        if (tfoot) tfoot.style.display = 'none';
-        return;
-    }
-    
-    let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
-    tbody.innerHTML = data.map((item, index) => {
-        const selisih = item.selisih || 0;
-        totalFisik += item.stok_fisik || 0;
-        totalSelisih += selisih;
-        if (selisih !== 0) jumlahSelisih++;
+    function renderUI() {
+        const active = localStorage.getItem('opname_session_active');
         
-        let statusClass = 'badge-info', statusText = 'Belum';
-        if (item.stok_fisik > 0 || (item.stok_fisik === 0 && item.status !== 'Belum diinput')) {
-            if (selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
-            else if (selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + selisih; }
-            else { statusClass = 'badge-danger'; statusText = 'Kurang ' + selisih; }
+        // Ambil elemen dengan aman
+        const sessionCard = document.getElementById('sessionCard');
+        const mulaiCard = document.getElementById('mulaiCard');
+        const inputCard = document.getElementById('inputCard');
+        const sessionStart = document.getElementById('sessionStart');
+        const sessionTotalItem = document.getElementById('sessionTotalItem');
+        const sessionProgress = document.getElementById('sessionProgress');
+        const sessionStatus = document.getElementById('sessionStatus');
+        const totalItemOpname = document.getElementById('totalItemOpname');
+        
+        if (active) {
+            sessionData = JSON.parse(active);
+            
+            if (sessionCard) sessionCard.style.display = 'block';
+            if (mulaiCard) mulaiCard.style.display = 'none';
+            if (inputCard) inputCard.style.display = 'block';
+            
+            if (sessionStart) sessionStart.textContent = new Date(sessionData.tanggal_mulai).toLocaleString();
+            if (sessionTotalItem) sessionTotalItem.textContent = sessionData.snapshot ? sessionData.snapshot.length : 0;
+            
+            if (opnameItems.length === 0 && sessionData.snapshot) {
+                opnameItems = sessionData.snapshot.map(s => ({
+                    ...s,
+                    stok_fisik: 0,
+                    stok_sistem: s.snapshot_stok,
+                    selisih: 0,
+                    status: 'Belum diinput'
+                }));
+            }
+            
+            const saved = localStorage.getItem('opname_progress_' + sessionData.id);
+            if (saved) {
+                const savedData = JSON.parse(saved);
+                savedData.forEach(savedItem => {
+                    const idx = opnameItems.findIndex(item => item.id === savedItem.id);
+                    if (idx !== -1) {
+                        opnameItems[idx].stok_fisik = savedItem.stok_fisik || 0;
+                        opnameItems[idx].selisih = opnameItems[idx].stok_fisik - opnameItems[idx].stok_sistem;
+                        opnameItems[idx].status = opnameItems[idx].selisih === 0 ? 'Aman' : 
+                            (opnameItems[idx].selisih > 0 ? 'Lebih' : 'Kurang');
+                    }
+                });
+            }
+            
+            renderOpnameTable(opnameItems);
+            if (totalItemOpname) totalItemOpname.textContent = opnameItems.length + ' item';
+            
+            const filled = opnameItems.filter(i => i.stok_fisik > 0 || (i.stok_fisik === 0 && i.status !== 'Belum diinput')).length;
+            if (sessionProgress) sessionProgress.textContent = filled + '/' + opnameItems.length;
+            if (sessionStatus) {
+                sessionStatus.textContent = '🔄 Berlangsung';
+                sessionStatus.className = 'status-badge active';
+            }
+        } else {
+            if (sessionCard) sessionCard.style.display = 'none';
+            if (mulaiCard) mulaiCard.style.display = 'block';
+            if (inputCard) inputCard.style.display = 'none';
+            opnameItems = [];
         }
         
-        return `<tr>
-            <td>${index + 1}</td>
-            <td><strong>${item.kode_obat || '-'}</strong></td>
-            <td>${item.nama_obat || '-'}</td>
-            <td>${item.satuan || '-'}</td>
-            <td style="text-align:right;">${item.snapshot_stok}</td>
-            <td style="text-align:right;font-weight:600;">${item.stok_sistem}</td>
-            <td>
-                <input type="number" class="stok-fisik-input" data-index="${index}" 
-                       value="${item.stok_fisik || 0}" min="0" step="any"
-                       oninput="updateStokFisik(${index}, this.value)" 
-                       onblur="updateStokFisik(${index}, this.value)">
-            </td>
-            <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
-            <td><span class="badge ${statusClass}">${statusText}</span></td>
-        </tr>`;
-    }).join('');
-    
-    const totalFisikEl = document.getElementById('totalFisik');
-    const totalSelisihEl = document.getElementById('totalSelisih');
-    const footerTotalSelisih = document.getElementById('footerTotalSelisih');
-    const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
-    
-    if (totalFisikEl) totalFisikEl.textContent = totalFisik;
-    if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
-    if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
-    if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
-    if (tfoot) tfoot.style.display = 'table-footer-group';
-}
+        loadRiwayat();
+    }
 
     // ============================================================
-// SELESAI OPNAME - FINAL FIX
-// ============================================================
-window.selesaiOpname = async function() {
-    if (!sessionData) {
-        showToast('⚠️ Tidak ada sesi opname yang aktif!', true);
-        return;
-    }
-    
-    const unfilled = opnameItems.filter(i => i.stok_fisik === 0);
-    if (unfilled.length > 0 && !confirm(`Masih ada ${unfilled.length} item yang belum diinput stok fisiknya. Lanjutkan?`)) {
-        return;
-    }
-    
-    // Hitung total selisih
-    let totalSelisih = 0;
-    opnameItems.forEach(item => {
-        totalSelisih += (item.selisih || 0);
-    });
-    
-    const now = new Date();
-    const tanggal = now.toISOString().split('T')[0];
-    const jam = now.toTimeString().slice(0, 5);
-    
+    // RENDER TABEL OPNAME - DIPERBAIKI
     // ============================================================
-    // FORMAT DATA UNTUK SAVE STOK OPNAME
-    // ============================================================
-    const record = {
-        sesi_id: sessionData.id,
-        items: opnameItems.map(item => ({
-            id: item.id,
-            kode_obat: item.kode_obat || '',
-            nama_obat: item.nama_obat || '',
-            satuan: item.satuan || 'Tablet',
-            snapshot_stok: item.snapshot_stok || 0,
-            stok_sistem: item.stok_sistem || 0,
-            stok_fisik: item.stok_fisik || 0,
-            selisih: item.selisih || 0
-        })),
-        total_selisih: totalSelisih,
-        jumlah_item: opnameItems.length,
-        tanggal_selesai: now.toISOString(),
-        keterangan: 'Stok Opname selesai'
-    };
-    
-    console.log('📦 Data yang akan disimpan:', record);
-    
-    // ============================================================
-    // SIMPAN KE SUPABASE
-    // ============================================================
-    const { data, error } = await saveStokOpname(record);
-    
-    if (error) {
-        console.error('❌ Error saveStokOpname:', error);
-        showToast('⚠️ Gagal menyimpan: ' + error.message, true);
+    function renderOpnameTable(data) {
+        const tbody = document.getElementById('opnameTableBody');
+        const tfoot = document.getElementById('opnameTableFoot');
         
-        // Fallback: simpan ke localStorage
-        const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
-        history.push({
-            id: sessionData.id,
-            tanggal_mulai: sessionData.tanggal_mulai,
-            tanggal_selesai: now.toISOString(),
+        if (!tbody) return;
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
+            if (tfoot) tfoot.style.display = 'none';
+            return;
+        }
+        
+        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
+        tbody.innerHTML = data.map((item, index) => {
+            const selisih = item.selisih || 0;
+            totalFisik += item.stok_fisik || 0;
+            totalSelisih += selisih;
+            if (selisih !== 0) jumlahSelisih++;
+            
+            let statusClass = 'badge-info', statusText = 'Belum';
+            if (item.stok_fisik > 0 || (item.stok_fisik === 0 && item.status !== 'Belum diinput')) {
+                if (selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
+                else if (selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + selisih; }
+                else { statusClass = 'badge-danger'; statusText = 'Kurang ' + selisih; }
+            }
+            
+            return `<tr>
+                <td>${index + 1}</td>
+                <td><strong>${item.kode_obat || '-'}</strong></td>
+                <td>${item.nama_obat || '-'}</td>
+                <td>${item.satuan || '-'}</td>
+                <td style="text-align:right;">${item.snapshot_stok}</td>
+                <td style="text-align:right;font-weight:600;">${item.stok_sistem}</td>
+                <td>
+                    <input type="number" class="stok-fisik-input" data-index="${index}" 
+                           value="${item.stok_fisik || 0}" min="0" step="any"
+                           oninput="updateStokFisik(${index}, this.value)" 
+                           onblur="updateStokFisik(${index}, this.value)">
+                </td>
+                <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
+                <td><span class="badge ${statusClass}">${statusText}</span></td>
+            </tr>`;
+        }).join('');
+        
+        const totalFisikEl = document.getElementById('totalFisik');
+        const totalSelisihEl = document.getElementById('totalSelisih');
+        const footerTotalSelisih = document.getElementById('footerTotalSelisih');
+        const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
+        
+        if (totalFisikEl) totalFisikEl.textContent = totalFisik;
+        if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
+        if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
+        if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
+        if (tfoot) tfoot.style.display = 'table-footer-group';
+    }
+
+    // ============================================================
+    // UPDATE STOK FISIK
+    // ============================================================
+    window.updateStokFisik = function(index, value) {
+        if (index < 0 || index >= opnameItems.length) return;
+        const stokFisik = Number(value) || 0;
+        const item = opnameItems[index];
+        item.stok_fisik = stokFisik;
+        item.selisih = stokFisik - item.stok_sistem;
+        item.status = item.selisih === 0 ? 'Aman' : (item.selisih > 0 ? 'Lebih' : 'Kurang');
+        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
+        if (row) {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 9) {
+                cells[7].textContent = item.selisih !== 0 ? item.selisih : '-';
+                cells[7].style.color = item.selisih === 0 ? '#28a745' : '#dc3545';
+                let statusClass = 'badge-info', statusText = 'Belum';
+                if (item.stok_fisik > 0 || (item.stok_fisik === 0 && item.status !== 'Belum diinput')) {
+                    if (item.selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
+                    else if (item.selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + item.selisih; }
+                    else { statusClass = 'badge-danger'; statusText = 'Kurang ' + item.selisih; }
+                }
+                cells[8].innerHTML = `<span class="badge ${statusClass}">${statusText}</span>`;
+            }
+        }
+        updateTotalOpname();
+        const filled = opnameItems.filter(i => i.stok_fisik > 0 || (i.stok_fisik === 0 && i.status !== 'Belum diinput')).length;
+        const sessionProgress = document.getElementById('sessionProgress');
+        if (sessionProgress) sessionProgress.textContent = filled + '/' + opnameItems.length;
+        simpanProgress();
+    };
+
+    function updateTotalOpname() {
+        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
+        opnameItems.forEach(item => {
+            totalFisik += item.stok_fisik || 0;
+            totalSelisih += item.selisih || 0;
+            if (item.selisih !== 0) jumlahSelisih++;
+        });
+        const totalFisikEl = document.getElementById('totalFisik');
+        const totalSelisihEl = document.getElementById('totalSelisih');
+        const footerTotalSelisih = document.getElementById('footerTotalSelisih');
+        const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
+        if (totalFisikEl) totalFisikEl.textContent = totalFisik;
+        if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
+        if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
+        if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
+    }
+
+    window.filterOpname = function() {
+        const keyword = document.getElementById('searchOpname').value.toLowerCase();
+        const filter = document.getElementById('filterOpname').value;
+        let filtered = opnameItems;
+        if (keyword) filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
+        if (filter === 'selisih') filtered = filtered.filter(o => o.selisih !== 0);
+        else if (filter === 'aman') filtered = filtered.filter(o => o.selisih === 0);
+        renderOpnameTable(filtered);
+    };
+
+    window.simpanProgress = function() {
+        if (!sessionData) return;
+        localStorage.setItem('opname_progress_' + sessionData.id, JSON.stringify(opnameItems));
+    };
+
+    window.batalOpname = function() {
+        if (!confirm('Batalkan stok opname? Semua data yang sudah diinput akan hilang.')) return;
+        localStorage.removeItem('opname_session_active');
+        if (sessionData) localStorage.removeItem('opname_progress_' + sessionData.id);
+        sessionData = null; opnameItems = [];
+        renderUI();
+        showToast('🔄 Stok opname dibatalkan');
+    };
+
+    // ============================================================
+    // SELESAI OPNAME - DIPERBAIKI
+    // ============================================================
+    window.selesaiOpname = async function() {
+        if (!sessionData) {
+            showToast('⚠️ Tidak ada sesi opname yang aktif!', true);
+            return;
+        }
+        
+        const unfilled = opnameItems.filter(i => i.stok_fisik === 0);
+        if (unfilled.length > 0 && !confirm(`Masih ada ${unfilled.length} item yang belum diinput stok fisiknya. Lanjutkan?`)) {
+            return;
+        }
+        
+        let totalSelisih = 0;
+        opnameItems.forEach(item => {
+            totalSelisih += (item.selisih || 0);
+        });
+        
+        const now = new Date();
+        
+        const record = {
+            sesi_id: sessionData.id,
+            items: opnameItems.map(item => ({
+                id: item.id,
+                kode_obat: item.kode_obat || '',
+                nama_obat: item.nama_obat || '',
+                satuan: item.satuan || 'Tablet',
+                snapshot_stok: item.snapshot_stok || 0,
+                stok_sistem: item.stok_sistem || 0,
+                stok_fisik: item.stok_fisik || 0,
+                selisih: item.selisih || 0
+            })),
             total_selisih: totalSelisih,
             jumlah_item: opnameItems.length,
-            items: JSON.parse(JSON.stringify(opnameItems)),
-            status: 'Selesai'
-        });
-        localStorage.setItem('opname_history', JSON.stringify(history));
+            tanggal_selesai: now.toISOString(),
+            keterangan: 'Stok Opname selesai'
+        };
         
-        // Update stok lokal
-        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
-        opnameItems.forEach(item => {
-            const obat = obatLocal.find(o => o.id === item.id);
-            if (obat) {
-                obat.stok = (Number(obat.stok) || 0) + (item.selisih || 0);
-                if (obat.stok < 0) obat.stok = 0;
-            }
-        });
-        localStorage.setItem('obat', JSON.stringify(obatLocal));
-        showToast('✅ Stok opname selesai (disimpan offline)!');
-    } else {
-        console.log('✅ Stok opname berhasil disimpan:', data);
-        showToast('✅ Stok opname selesai! Data tersimpan di database.');
-    }
-    
-    // Bersihkan session
-    localStorage.removeItem('opname_session_active');
-    localStorage.removeItem('opname_progress_' + sessionData.id);
-    sessionData = null;
-    opnameItems = [];
-    renderUI();
-};
+        const { data, error } = await saveStokOpname(record);
+        
+        if (error) {
+            console.error('❌ Error saveStokOpname:', error);
+            showToast('⚠️ Gagal menyimpan: ' + error.message, true);
+            
+            const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
+            history.push({
+                id: sessionData.id,
+                tanggal_mulai: sessionData.tanggal_mulai,
+                tanggal_selesai: now.toISOString(),
+                total_selisih: totalSelisih,
+                jumlah_item: opnameItems.length,
+                items: JSON.parse(JSON.stringify(opnameItems)),
+                status: 'Selesai'
+            });
+            localStorage.setItem('opname_history', JSON.stringify(history));
+            
+            const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+            opnameItems.forEach(item => {
+                const obat = obatLocal.find(o => o.id === item.id);
+                if (obat) {
+                    obat.stok = (Number(obat.stok) || 0) + (item.selisih || 0);
+                    if (obat.stok < 0) obat.stok = 0;
+                }
+            });
+            localStorage.setItem('obat', JSON.stringify(obatLocal));
+            showToast('✅ Stok opname selesai (disimpan offline)!');
+        } else {
+            showToast('✅ Stok opname selesai! Data tersimpan di database.');
+        }
+        
+        localStorage.removeItem('opname_session_active');
+        localStorage.removeItem('opname_progress_' + sessionData.id);
+        sessionData = null;
+        opnameItems = [];
+        renderUI();
+    };
+
+    window.refreshOpname = function() {
+        if (sessionData) {
+            renderOpnameTable(opnameItems);
+            showToast('🔄 Data diperbarui');
+        } else {
+            loadRiwayat();
+            showToast('🔄 Data diperbarui');
+        }
+    };
 
     // ============================================================
-    // LOAD RIWAYAT OPNAME - DIPERBAIKI
+    // LOAD RIWAYAT OPNAME
     // ============================================================
     async function loadRiwayat() {
         const { data, error } = await getStokOpname();
