@@ -1,2 +1,598 @@
-<!-- Master Obat - Lengkap dengan Supabase -->
-<!DOCTYPE html><html><head><title>Master Obat</title></head><body><h1>Master Obat</h1><p>File lengkap sudah disediakan</p></body></html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Obat - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#eef2f8; }
+        .app-layout { display:flex; min-height:100vh; }
+
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(255,255,255,0.03);
+        }
+        .sub-menu.open { max-height: 500px; }
+        .sub-menu .menu-item {
+            padding-left: 58px;
+            font-size: 13px;
+            border-left: 3px solid transparent;
+        }
+        .sub-menu .menu-item.active {
+            background: rgba(255,255,255,0.05);
+            border-left-color: #4fc3f7;
+            color: white;
+        }
+        .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform: rotate(180deg); }
+
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+        .main-content { margin-left:250px; flex:1; padding:22px 28px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+        .header h2 { font-size:24px; color:#0f1e2e; font-weight:800; display:flex; align-items:center; gap:10px; }
+        .header h2 i { color:#2d6a9f; font-size:22px; }
+        .user-badge { background:white; padding:8px 16px 8px 8px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 10px rgba(15,30,46,0.06); display:flex; align-items:center; gap:8px; color:#0f1e2e; }
+        .user-badge i { width:26px; height:26px; border-radius:50%; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:13px; }
+
+        .card { background:white; border-radius:18px; padding:20px 22px; box-shadow:0 4px 18px rgba(15,30,46,0.05); margin-bottom:18px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+        .card-title .icon-badge { width:32px; height:32px; border-radius:10px; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+
+        .btn { padding:8px 16px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-outline { background:white; border:2px solid #e8edf3; color:#34495e; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:5px 12px; font-size:11px; }
+
+        .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+        .form-group { margin-bottom:0; }
+        .form-group label { display:block; font-weight:600; font-size:12.5px; color:#5b6b7c; margin-bottom:6px; }
+        .form-group input, .form-group select { width:100%; padding:10px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13.5px; transition:0.2s; background:white; font-weight:500; color:#0f1e2e; }
+        .form-group input:focus, .form-group select:focus { border-color:#2d6a9f; outline:none; }
+
+        .table-wrap { overflow-x:auto; border:1px solid #eef2f7; border-radius:14px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        table th {
+            text-align:left;
+            padding:12px 10px;
+            background:#f8fafc;
+            font-weight:700;
+            color:#5b6b7c;
+            border-bottom:1px solid #eef2f7;
+            white-space:nowrap;
+            font-size:12px;
+            text-transform:uppercase;
+            letter-spacing:0.3px;
+        }
+        table td { padding:10px 8px; border-bottom:1px solid #eef2f7; vertical-align:middle; font-weight:500; font-size:14px; }
+        table tbody tr:last-child td { border-bottom:none; }
+        .badge { display:inline-block; padding:4px 10px; border-radius:30px; font-size:11px; font-weight:600; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-danger { background:#f8d7da; color:#721c24; }
+
+        .search-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+        .search-row input { flex:1; min-width:150px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; }
+        .search-row input:focus { border-color:#2d6a9f; outline:none; }
+        .search-row select { padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
+        .search-row select:focus { border-color:#2d6a9f; outline:none; }
+
+        .file-upload-wrap { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+        .file-upload-wrap input[type="file"] { display:none; }
+        .file-upload-label { padding:8px 18px; background:#6c757d; color:white; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px; }
+        .file-upload-label:hover { background:#5a6268; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        @media (max-width:768px) {
+            .sidebar { width:100%; position:static; height:auto; }
+            .main-content { margin-left:0; padding:12px; }
+            .form-grid-3 { grid-template-columns:1fr; }
+            .search-row { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item active" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-capsules"></i> Master Obat</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <!-- FORM TAMBAH / EDIT -->
+        <div class="card">
+            <div class="card-title"><span class="icon-badge"><i class="fas fa-plus-circle"></i></span> Tambah / Edit Obat</div>
+            <form id="obatForm" onsubmit="saveObat(event)">
+                <input type="hidden" id="editIndex" value="">
+                <div class="form-grid-3">
+                    <div class="form-group">
+                        <label>Kode Obat *</label>
+                        <input type="text" id="kodeObat" placeholder="OBT001" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Obat *</label>
+                        <input type="text" id="namaObat" placeholder="Paracetamol" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Satuan</label>
+                        <select id="satuanObat">
+                            <option value="Tablet">Tablet</option>
+                            <option value="Kapsul">Kapsul</option>
+                            <option value="Sirup">Sirup</option>
+                            <option value="Salep">Salep</option>
+                            <option value="Botol">Botol</option>
+                            <option value="Strip">Strip</option>
+                            <option value="Ampul">Ampul</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Beli (Rp)</label>
+                        <input type="number" id="hargaBeli" placeholder="5000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Harga Jual (Rp)</label>
+                        <input type="number" id="hargaJual" placeholder="7500" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Stok Awal</label>
+                        <input type="number" id="stokObat" placeholder="0" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Jenis</label>
+                        <select id="jenisObat">
+                            <option value="Generik">Generik</option>
+                            <option value="Patented">Patented</option>
+                            <option value="Herbal">Herbal</option>
+                            <option value="Alat Kesehatan">Alat Kesehatan</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Golongan</label>
+                        <select id="golonganObat">
+                            <option value="Bebas">Bebas</option>
+                            <option value="Terbatas">Terbatas</option>
+                            <option value="Keras">Keras</option>
+                            <option value="Narkotika">Narkotika</option>
+                            <option value="Prekursor">Prekursor</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="statusObat">
+                            <option value="Aktif">Aktif</option>
+                            <option value="Tidak Aktif">Tidak Aktif</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+                    <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
+                    <button type="reset" class="btn btn-outline" onclick="resetForm()"><i class="fas fa-undo"></i> Reset</button>
+                    <div class="file-upload-wrap">
+                        <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel</label>
+                        <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- TABLE OBAT -->
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><span class="icon-badge"><i class="fas fa-list"></i></span> Daftar Obat</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="loadObat()"><i class="fas fa-sync"></i> Refresh</button>
+                    <span id="totalData" style="font-size:13px;color:#7a8a9e;margin-left:8px;">Total: 0 data</span>
+                </div>
+            </div>
+            <div class="search-row">
+                <input type="text" id="searchObat" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterObat()">
+                <select id="filterStatus" onchange="filterObat()">
+                    <option value="">Semua Status</option>
+                    <option value="Aktif">Aktif</option>
+                    <option value="Tidak Aktif">Tidak Aktif</option>
+                </select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:35px;">No</th>
+                            <th style="min-width:90px;">Kode Obat</th>
+                            <th style="min-width:150px;">Nama Obat</th>
+                            <th style="width:80px;">Satuan</th>
+                            <th style="width:100px;">Harga Beli</th>
+                            <th style="width:100px;">Harga Jual</th>
+                            <th style="width:70px;">Stok</th>
+                            <th style="width:90px;">Jenis</th>
+                            <th style="width:100px;">Golongan</th>
+                            <th style="width:80px;">Status</th>
+                            <th style="width:90px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="obatTableBody">
+                        <tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { getObat, saveObat, deleteObat } from './database.js';
+    
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = function() { localStorage.removeItem('loggedIn'); window.location.href = '/'; };
+    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    // ============================================================
+    // GLOBAL
+    // ============================================================
+    let obatData = [];
+
+    // ============================================================
+    // LOAD OBAT DARI SUPABASE
+    // ============================================================
+    window.loadObat = async function() {
+        const tbody = document.getElementById('obatTableBody');
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+
+        try {
+            const { data, error } = await getObat();
+            if (error) throw error;
+            if (data && data.length > 0) {
+                obatData = data;
+            } else {
+                const local = localStorage.getItem('obat');
+                if (local) {
+                    obatData = JSON.parse(local);
+                } else {
+                    obatData = [];
+                }
+            }
+            renderTable(obatData);
+            updateTotal(obatData.length);
+        } catch(e) {
+            console.error('Error load obat:', e);
+            const local = localStorage.getItem('obat');
+            if (local) {
+                obatData = JSON.parse(local);
+                renderTable(obatData);
+                updateTotal(obatData.length);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">❌ Gagal memuat data</td></tr>';
+            }
+        }
+    };
+
+    function renderTable(data) {
+        const tbody = document.getElementById('obatTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Belum ada data obat</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map((o, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><strong>${o.kode_obat || '-'}</strong></td>
+                <td>${o.nama_obat || '-'}</td>
+                <td>${o.satuan || '-'}</td>
+                <td>Rp ${Number(o.harga_beli || 0).toLocaleString()}</td>
+                <td>Rp ${Number(o.harga_jual || 0).toLocaleString()}</td>
+                <td>${o.stok || 0}</td>
+                <td>${o.jenis || '-'}</td>
+                <td>${o.golongan || '-'}</td>
+                <td><span class="badge ${o.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${o.status || 'Aktif'}</span></td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="editObat('${o.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteObat('${o.id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function updateTotal(total) {
+        document.getElementById('totalData').textContent = `Total: ${total} data`;
+    }
+
+    window.filterObat = function() {
+        const keyword = document.getElementById('searchObat').value.toLowerCase();
+        const status = document.getElementById('filterStatus').value;
+        let filtered = obatData;
+        if (keyword) {
+            filtered = filtered.filter(o => 
+                (o.kode_obat || '').toLowerCase().includes(keyword) ||
+                (o.nama_obat || '').toLowerCase().includes(keyword)
+            );
+        }
+        if (status) {
+            filtered = filtered.filter(o => o.status === status);
+        }
+        renderTable(filtered);
+    };
+
+    // ============================================================
+    // CRUD - SUPABASE
+    // ============================================================
+    window.resetForm = function() {
+        document.getElementById('editIndex').value = '';
+        document.getElementById('obatForm').reset();
+        document.getElementById('kodeObat').focus();
+    };
+
+    window.saveObat = async function(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editIndex').value;
+        const data = {
+            kode_obat: document.getElementById('kodeObat').value.trim(),
+            nama_obat: document.getElementById('namaObat').value.trim(),
+            satuan: document.getElementById('satuanObat').value,
+            harga_beli: Number(document.getElementById('hargaBeli').value) || 0,
+            harga_jual: Number(document.getElementById('hargaJual').value) || 0,
+            stok: Number(document.getElementById('stokObat').value) || 0,
+            jenis: document.getElementById('jenisObat').value,
+            golongan: document.getElementById('golonganObat').value,
+            status: document.getElementById('statusObat').value
+        };
+
+        if (!data.kode_obat || !data.nama_obat) {
+            showToast('⚠️ Kode dan Nama Obat wajib diisi!', true);
+            return;
+        }
+
+        // Cek duplikat
+        const duplicate = obatData.find((o) => o.kode_obat === data.kode_obat && o.id !== editId);
+        if (duplicate) {
+            showToast('⚠️ Kode obat "' + data.kode_obat + '" sudah ada!', true);
+            return;
+        }
+
+        try {
+            if (editId) {
+                data.id = editId;
+                const { error } = await saveObat(data);
+                if (error) throw error;
+                const index = obatData.findIndex(o => o.id === editId);
+                if (index !== -1) obatData[index] = data;
+                showToast('✅ Data obat berhasil diupdate!');
+            } else {
+                const { data: result, error } = await saveObat(data);
+                if (error) throw error;
+                data.id = result[0].id;
+                obatData.push(data);
+                showToast('✅ Data obat berhasil ditambahkan!');
+            }
+
+            localStorage.setItem('obat', JSON.stringify(obatData));
+            renderTable(obatData);
+            updateTotal(obatData.length);
+            resetForm();
+        } catch(e) {
+            showToast('❌ Gagal menyimpan data: ' + e.message, true);
+        }
+    };
+
+    window.editObat = function(id) {
+        const o = obatData.find(item => item.id === id);
+        if (!o) return;
+
+        document.getElementById('editIndex').value = id;
+        document.getElementById('kodeObat').value = o.kode_obat || '';
+        document.getElementById('namaObat').value = o.nama_obat || '';
+        document.getElementById('satuanObat').value = o.satuan || 'Tablet';
+        document.getElementById('hargaBeli').value = o.harga_beli || '';
+        document.getElementById('hargaJual').value = o.harga_jual || '';
+        document.getElementById('stokObat').value = o.stok || 0;
+        document.getElementById('jenisObat').value = o.jenis || 'Generik';
+        document.getElementById('golonganObat').value = o.golongan || 'Bebas';
+        document.getElementById('statusObat').value = o.status || 'Aktif';
+        document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.deleteObat = async function(id) {
+        if (!confirm('Yakin ingin menghapus data ini?')) return;
+        try {
+            const { error } = await deleteObat(id);
+            if (error) throw error;
+            obatData = obatData.filter(o => o.id !== id);
+            localStorage.setItem('obat', JSON.stringify(obatData));
+            renderTable(obatData);
+            updateTotal(obatData.length);
+            showToast('🗑️ Data obat berhasil dihapus!');
+        } catch(e) {
+            showToast('❌ Gagal menghapus data: ' + e.message, true);
+        }
+    };
+
+    // ============================================================
+    // IMPORT EXCEL
+    // ============================================================
+    window.importExcel = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(line => line.trim());
+                let startIndex = 0;
+                const firstLine = lines[0].toLowerCase();
+                if (firstLine.includes('kode') || firstLine.includes('nama') || firstLine.includes('satuan')) {
+                    startIndex = 1;
+                }
+                let imported = 0;
+                const newData = [];
+                for (let i = startIndex; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim());
+                    if (cols.length >= 2) {
+                        const data = {
+                            kode_obat: cols[0] || `OBT${String(obatData.length + 1).padStart(3, '0')}`,
+                            nama_obat: cols[1] || 'Obat Baru',
+                            satuan: cols[2] || 'Tablet',
+                            harga_beli: Number(cols[3]) || 0,
+                            harga_jual: Number(cols[4]) || 0,
+                            stok: Number(cols[5]) || 0,
+                            jenis: cols[6] || 'Generik',
+                            golongan: cols[7] || 'Bebas',
+                            status: cols[8] || 'Aktif'
+                        };
+                        if (!obatData.find(o => o.kode_obat === data.kode_obat)) {
+                            newData.push(data);
+                            imported++;
+                        }
+                    }
+                }
+                if (imported === 0) {
+                    showToast('⚠️ Tidak ada data yang diimport.', true);
+                    return;
+                }
+
+                // Simpan ke Supabase
+                for (const item of newData) {
+                    const { error } = await saveObat(item);
+                    if (error) throw error;
+                    obatData.push(item);
+                }
+                localStorage.setItem('obat', JSON.stringify(obatData));
+                renderTable(obatData);
+                updateTotal(obatData.length);
+                showToast(`✅ Berhasil import ${imported} data obat!`);
+                event.target.value = '';
+            } catch(error) {
+                showToast('❌ Gagal import file. Pastikan format CSV benar!', true);
+                console.error(error);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadObat();
+    });
+</script>
+</body>
+</html>

@@ -2,12 +2,8 @@
 -- APOTEK APP - SUPABASE SCHEMA
 -- ============================================================
 
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ============================================================
--- 1. OBAT
--- ============================================================
 CREATE TABLE obat (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     kode_obat TEXT UNIQUE NOT NULL,
@@ -24,9 +20,6 @@ CREATE TABLE obat (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 2. SUPPLIER
--- ============================================================
 CREATE TABLE supplier (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     kode_supplier TEXT UNIQUE NOT NULL,
@@ -38,9 +31,6 @@ CREATE TABLE supplier (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 3. APOTEKER
--- ============================================================
 CREATE TABLE apoteker (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nama TEXT NOT NULL,
@@ -55,9 +45,6 @@ CREATE TABLE apoteker (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 4. PENJUALAN HEADER
--- ============================================================
 CREATE TABLE penjualan_header (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     no_faktur TEXT UNIQUE NOT NULL,
@@ -77,9 +64,6 @@ CREATE TABLE penjualan_header (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 5. PENJUALAN DETAIL
--- ============================================================
 CREATE TABLE penjualan_detail (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     penjualan_id UUID REFERENCES penjualan_header(id) ON DELETE CASCADE,
@@ -92,9 +76,6 @@ CREATE TABLE penjualan_detail (
     subtotal INTEGER NOT NULL
 );
 
--- ============================================================
--- 6. RETUR PENJUALAN
--- ============================================================
 CREATE TABLE retur_penjualan (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     no_faktur TEXT NOT NULL,
@@ -110,9 +91,6 @@ CREATE TABLE retur_penjualan (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 7. RETUR DETAIL
--- ============================================================
 CREATE TABLE retur_detail (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     retur_id UUID REFERENCES retur_penjualan(id) ON DELETE CASCADE,
@@ -125,9 +103,6 @@ CREATE TABLE retur_detail (
     subtotal_retur INTEGER NOT NULL
 );
 
--- ============================================================
--- 8. KARTU STOK
--- ============================================================
 CREATE TABLE kartu_stok (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     obat_id UUID REFERENCES obat(id),
@@ -143,9 +118,6 @@ CREATE TABLE kartu_stok (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 9. SHIFT HISTORY
--- ============================================================
 CREATE TABLE shift_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     shift TEXT NOT NULL,
@@ -164,9 +136,6 @@ CREATE TABLE shift_history (
     waktu_tutup TIMESTAMPTZ
 );
 
--- ============================================================
--- 10. STOK OPNAME
--- ============================================================
 CREATE TABLE stok_opname (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     obat_id UUID REFERENCES obat(id),
@@ -180,9 +149,6 @@ CREATE TABLE stok_opname (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 11. PEMBELIAN HEADER
--- ============================================================
 CREATE TABLE pembelian_header (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     no_faktur TEXT UNIQUE NOT NULL,
@@ -202,9 +168,6 @@ CREATE TABLE pembelian_header (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- 12. PEMBELIAN DETAIL
--- ============================================================
 CREATE TABLE pembelian_detail (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     pembelian_id UUID REFERENCES pembelian_header(id) ON DELETE CASCADE,
@@ -226,9 +189,7 @@ CREATE TABLE pembelian_detail (
     ketentuan_retur TEXT
 );
 
--- ============================================================
 -- SEED DATA
--- ============================================================
 INSERT INTO supplier (id, kode_supplier, nama_supplier, kota) VALUES 
     (uuid_generate_v4(), 'SUP001', 'PT. Kimia Farma', 'Jakarta'),
     (uuid_generate_v4(), 'SUP002', 'PT. Indofarma', 'Bandung'),
@@ -244,9 +205,7 @@ INSERT INTO obat (id, kode_obat, nama_obat, stok, harga_beli, harga_jual) VALUES
     (uuid_generate_v4(), 'OBT004', 'Omeprazole 20mg', 40, 10000, 15000),
     (uuid_generate_v4(), 'OBT005', 'Vitamin C 1000mg', 200, 2000, 3500);
 
--- ============================================================
--- ROW LEVEL SECURITY
--- ============================================================
+-- RLS
 ALTER TABLE obat ENABLE ROW LEVEL SECURITY;
 ALTER TABLE supplier ENABLE ROW LEVEL SECURITY;
 ALTER TABLE apoteker ENABLE ROW LEVEL SECURITY;
@@ -285,9 +244,7 @@ CREATE POLICY "Allow authenticated users full access" ON pembelian_header
 CREATE POLICY "Allow authenticated users full access" ON pembelian_detail
     FOR ALL USING (auth.role() = 'authenticated');
 
--- ============================================================
--- FUNCTIONS & TRIGGERS
--- ============================================================
+-- FUNCTIONS
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -300,23 +257,3 @@ CREATE TRIGGER trigger_update_obat
 BEFORE UPDATE ON obat
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at();
-
--- Function untuk update stok
-CREATE OR REPLACE FUNCTION update_stok(
-    p_obat_id UUID,
-    p_jumlah INTEGER,
-    p_jenis TEXT
-)
-RETURNS VOID AS $$
-BEGIN
-    IF p_jenis = 'penjualan' THEN
-        UPDATE obat SET stok = stok - p_jumlah WHERE id = p_obat_id;
-    ELSIF p_jenis = 'retur' THEN
-        UPDATE obat SET stok = stok + p_jumlah WHERE id = p_obat_id;
-    ELSIF p_jenis = 'pembelian' THEN
-        UPDATE obat SET stok = stok + p_jumlah WHERE id = p_obat_id;
-    ELSIF p_jenis = 'opname' THEN
-        UPDATE obat SET stok = p_jumlah WHERE id = p_obat_id;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;

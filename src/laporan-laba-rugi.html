@@ -1,2 +1,388 @@
-<!-- Laporan Laba Rugi - Lengkap dengan Supabase -->
-<!DOCTYPE html><html><head><title>Laba Rugi</title></head><body><h1>Laporan Laba Rugi</h1><p>File lengkap sudah disediakan</p></body></html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laporan Laba Rugi - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:500px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .card { background:white; border-radius:16px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+        .filter-row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
+        .filter-row .form-group { margin-bottom:0; }
+        .filter-row .form-group label { display:block; font-weight:600; font-size:12px; color:#5b6b7c; margin-bottom:4px; }
+        .filter-row .form-group select { width:100%; padding:8px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
+        .filter-row .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        .laba-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px; }
+        .laba-card { background:#f8fafc; border-radius:12px; padding:16px 20px; border-left:4px solid #2d6a9f; }
+        .laba-card .label { font-size:12px; color:#7a8a9e; text-transform:uppercase; letter-spacing:0.5px; }
+        .laba-card .value { font-size:22px; font-weight:800; color:#0f1e2e; margin-top:4px; }
+        .laba-card.positive { border-left-color:#28a745; }
+        .laba-card.positive .value { color:#1b5e20; }
+        .laba-card.negative { border-left-color:#dc3545; }
+        .laba-card.negative .value { color:#721c24; }
+        .laba-card.warning { border-left-color:#ffc107; }
+        .laba-card.warning .value { color:#856404; }
+        .detail-table { width:100%; border-collapse:collapse; font-size:14px; }
+        .detail-table tr { border-bottom:1px solid #eef2f7; }
+        .detail-table td { padding:12px 8px; }
+        .detail-table .label { color:#5b6b7c; font-weight:500; }
+        .detail-table .value { font-weight:700; text-align:right; }
+        .detail-table .total-row { font-weight:700; border-top:2px solid #2d6a9f; }
+        .detail-table .total-row td { padding-top:14px; }
+        .detail-table .hijau { color:#28a745; }
+        .detail-table .merah { color:#dc3545; }
+        .detail-table .biru { color:#2d6a9f; }
+        .loading { display:flex; justify-content:center; align-items:center; padding:40px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:16px; } .laba-grid { grid-template-columns:1fr; } .filter-row { flex-direction:column; } }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item active" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong>admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-chart-line"></i> Laporan Laba Rugi</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><i class="fas fa-filter"></i> Filter Periode</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="loadLabaRugi()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>Bulan</label>
+                    <select id="pilihBulan" onchange="loadLabaRugi()">
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8" selected>Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tahun</label>
+                    <select id="pilihTahun" onchange="loadLabaRugi()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="labaContent">
+                <div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { getLaporanLabaRugi } from './database.js';
+    
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = function() { localStorage.removeItem('loggedIn'); window.location.href = '/'; };
+    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    function formatRupiah(value) {
+        return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+    }
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // ============================================================
+    // LOAD LABA RUGI
+    // ============================================================
+    window.loadLabaRugi = async function() {
+        const bulan = document.getElementById('pilihBulan').value;
+        const tahun = document.getElementById('pilihTahun').value;
+
+        const container = document.getElementById('labaContent');
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>';
+
+        try {
+            const data = await getLaporanLabaRugi(parseInt(bulan), parseInt(tahun));
+            renderLabaRugi(data, bulan, tahun);
+        } catch(e) {
+            console.error('Error load laba rugi:', e);
+            // Fallback dari localStorage
+            const data = generateLabaRugiFromLocal(bulan, tahun);
+            renderLabaRugi(data, bulan, tahun);
+        }
+    };
+
+    function generateLabaRugiFromLocal(bulan, tahun) {
+        const startDate = `${tahun}-${String(bulan).padStart(2, '0')}-01`;
+        const lastDay = new Date(parseInt(tahun), parseInt(bulan), 0).getDate();
+        const endDate = `${tahun}-${String(bulan).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
+        const allRetur = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
+        const allObat = JSON.parse(localStorage.getItem('obat') || '[]');
+
+        const penjualanFiltered = allPenjualan.filter(p => {
+            const tgl = p.tanggal || '';
+            return tgl >= startDate && tgl <= endDate;
+        });
+
+        const returFiltered = allRetur.filter(r => {
+            const tgl = r.tanggal_retur || '';
+            return tgl >= startDate && tgl <= endDate;
+        });
+
+        let totalPenjualan = 0;
+        penjualanFiltered.forEach(p => { totalPenjualan += p.total || 0; });
+
+        let totalRetur = 0;
+        returFiltered.forEach(r => { totalRetur += r.total_retur || 0; });
+
+        let totalHPP = 0;
+        const hppMap = {};
+        allObat.forEach(o => { hppMap[o.kode_obat] = o.harga_beli || 0; });
+
+        penjualanFiltered.forEach(p => {
+            if (p.items) {
+                p.items.forEach(item => {
+                    const hpp = hppMap[item.kode_obat] || 0;
+                    totalHPP += (item.jumlah || 0) * hpp;
+                });
+            }
+        });
+
+        const penjualanBersih = totalPenjualan - totalRetur;
+        const labaKotor = penjualanBersih - totalHPP;
+
+        return {
+            total_penjualan: totalPenjualan,
+            total_retur: totalRetur,
+            penjualan_bersih: penjualanBersih,
+            total_hpp: totalHPP,
+            laba_kotor: labaKotor,
+            biaya_operasional: 0,
+            laba_bersih: labaKotor
+        };
+    }
+
+    function renderLabaRugi(data, bulan, tahun) {
+        const namaBulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][parseInt(bulan)-1];
+
+        const labaBersih = data.laba_bersih || 0;
+        const labaKotor = data.laba_kotor || 0;
+        const penjualanBersih = data.penjualan_bersih || 0;
+
+        let labaClass = 'positive';
+        if (labaBersih < 0) labaClass = 'negative';
+        else if (labaBersih === 0) labaClass = 'warning';
+
+        const container = document.getElementById('labaContent');
+        container.innerHTML = `
+            <div style="margin-bottom:16px;">
+                <h3 style="font-size:18px;color:#0f1e2e;">Laporan Laba Rugi - ${namaBulan} ${tahun}</h3>
+            </div>
+
+            <div class="laba-grid">
+                <div class="laba-card">
+                    <div class="label">Total Penjualan</div>
+                    <div class="value">${formatRupiah(data.total_penjualan)}</div>
+                </div>
+                <div class="laba-card negative">
+                    <div class="label">Total Retur</div>
+                    <div class="value">${formatRupiah(data.total_retur)}</div>
+                </div>
+                <div class="laba-card positive">
+                    <div class="label">Penjualan Bersih</div>
+                    <div class="value">${formatRupiah(penjualanBersih)}</div>
+                </div>
+                <div class="laba-card warning">
+                    <div class="label">HPP (Harga Pokok Penjualan)</div>
+                    <div class="value">${formatRupiah(data.total_hpp)}</div>
+                </div>
+                <div class="laba-card positive">
+                    <div class="label">Laba Kotor</div>
+                    <div class="value">${formatRupiah(labaKotor)}</div>
+                </div>
+                <div class="laba-card ${labaClass}">
+                    <div class="label">Laba Bersih</div>
+                    <div class="value">${formatRupiah(labaBersih)}</div>
+                </div>
+            </div>
+
+            <div style="background:#f8fafc;border-radius:10px;padding:16px;">
+                <table class="detail-table">
+                    <tr>
+                        <td class="label">Pendapatan</td>
+                        <td class="value">${formatRupiah(data.total_penjualan)}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">- Retur Penjualan</td>
+                        <td class="value merah">${formatRupiah(data.total_retur)}</td>
+                    </tr>
+                    <tr style="font-weight:600;">
+                        <td class="label">Penjualan Bersih</td>
+                        <td class="value biru">${formatRupiah(penjualanBersih)}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">- HPP</td>
+                        <td class="value merah">${formatRupiah(data.total_hpp)}</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td class="label">Laba Kotor</td>
+                        <td class="value hijau">${formatRupiah(labaKotor)}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">- Biaya Operasional</td>
+                        <td class="value merah">${formatRupiah(data.biaya_operasional || 0)}</td>
+                    </tr>
+                    <tr class="total-row" style="border-top-color:${labaBersih < 0 ? '#dc3545' : '#28a745'};">
+                        <td class="label" style="font-size:16px;">Laba Bersih</td>
+                        <td class="value" style="font-size:18px;color:${labaBersih < 0 ? '#dc3545' : '#28a745'};">${formatRupiah(labaBersih)}</td>
+                    </tr>
+                </table>
+            </div>
+        `;
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const now = new Date();
+        document.getElementById('pilihBulan').value = now.getMonth() + 1;
+        document.getElementById('pilihTahun').value = now.getFullYear();
+        loadLabaRugi();
+    });
+</script>
+</body>
+</html>

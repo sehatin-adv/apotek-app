@@ -1,2 +1,282 @@
-<!-- Pembelian - Lengkap dengan Supabase -->
-<!DOCTYPE html><html><head><title>Pembelian</title></head><body><h1>Pembelian Obat</h1><p>File lengkap sudah disediakan</p></body></html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stok Terkini - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:500px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        .main-content { margin-left:250px; flex:1; padding:16px 20px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+        .header h2 { font-size:20px; color:#0f1e2e; }
+        .user-badge { background:white; padding:6px 14px; border-radius:30px; font-size:12px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .card { background:white; border-radius:16px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:16px; }
+        .card-title { font-size:15px; font-weight:700; color:#0f1e2e; margin-bottom:12px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+        .btn { padding:6px 14px; border:none; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:3px 10px; font-size:11px; }
+        .table-wrap { overflow-x:auto; margin-top:10px; }
+        table { width:100%; border-collapse:collapse; font-size:12px; }
+        table th { text-align:left; padding:8px 6px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; white-space:nowrap; font-size:11px; }
+        table td { padding:8px 6px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
+        table tr:hover { background:#f8fafc; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:600; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-danger { background:#f8d7da; color:#721c24; }
+        .badge-warning { background:#fff3cd; color:#856404; }
+        .search-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+        .search-bar input { flex:1; min-width:150px; padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
+        .search-bar input:focus { border-color:#2d6a9f; outline:none; }
+        .search-bar select { padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; background:white; }
+        .grid-4 { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:16px; }
+        .stat-card { background:white; border-radius:12px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #2d6a9f; }
+        .stat-card .label { font-size:11px; color:#7a8a9e; text-transform:uppercase; letter-spacing:0.5px; }
+        .stat-card .value { font-size:22px; font-weight:800; color:#0f1e2e; margin-top:2px; }
+        .stat-card .sub { font-size:11px; color:#7a8a9e; margin-top:2px; }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:12px; } .header h2 { font-size:17px; } .table-wrap { font-size:11px; } .grid-4 { grid-template-columns:1fr 1fr; } }
+        @media (max-width:480px) { .card { padding:12px; } table td { padding:4px; } .btn { font-size:11px; padding:4px 10px; } .grid-4 { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item active" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong>admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-eye"></i> Stok Terkini</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
+        </div>
+
+        <div class="grid-4">
+            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Obat</div><div class="value" id="totalObat">0</div><div class="sub">Item terdaftar</div></div>
+            <div class="stat-card" style="border-left-color:#28a745;"><div class="label">Total Stok</div><div class="value" id="totalStok">0</div><div class="sub">Unit</div></div>
+            <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Stok Menipis</div><div class="value" id="stokMenipis">0</div><div class="sub">≤ 10 unit</div></div>
+            <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Stok Habis</div><div class="value" id="stokHabis">0</div><div class="sub">0 unit</div></div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><i class="fas fa-list"></i> Daftar Stok Obat</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="loadStokTerkini()"><i class="fas fa-sync"></i> Refresh</button>
+                    <span id="totalData" style="font-size:12px;color:#7a8a9e;margin-left:8px;"></span>
+                </div>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="searchStokTerkini" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterStokTerkini()">
+                <select id="filterStokTerkini" onchange="filterStokTerkini()">
+                    <option value="">Semua</option>
+                    <option value="menipis">Stok Menipis (≤10)</option>
+                    <option value="habis">Stok Habis (0)</option>
+                    <option value="aman">Stok Aman (>10)</option>
+                </select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode Obat</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:60px;">Stok</th><th style="width:80px;">Harga Beli</th><th style="width:80px;">Harga Jual</th><th style="width:70px;">Status Stok</th></tr></thead>
+                    <tbody id="stokTerkiniTableBody"><tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toastStokTerkini"></div>
+
+<script type="module">
+    import { getObat } from './database.js';
+    
+    let stokTerkiniData = [];
+
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = function() { localStorage.removeItem('loggedIn'); window.location.href = '/'; };
+    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    async function loadStokTerkini() {
+        const tbody = document.getElementById('stokTerkiniTableBody');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+
+        try {
+            const { data, error } = await getObat();
+            if (data && data.length > 0) {
+                stokTerkiniData = data;
+            } else {
+                const local = localStorage.getItem('obat');
+                if (local) stokTerkiniData = JSON.parse(local);
+            }
+            renderStokTerkini(stokTerkiniData);
+            updateStats(stokTerkiniData);
+            document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
+        } catch(e) {
+            const local = localStorage.getItem('obat');
+            if (local) {
+                stokTerkiniData = JSON.parse(local);
+                renderStokTerkini(stokTerkiniData);
+                updateStats(stokTerkiniData);
+                document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
+            }
+        }
+    }
+
+    function renderStokTerkini(data) {
+        const tbody = document.getElementById('stokTerkiniTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map((o, i) => {
+            const stok = Number(o.stok) || 0;
+            let statusClass, statusText;
+            if (stok <= 0) { statusClass = 'badge-danger'; statusText = 'Habis'; }
+            else if (stok <= 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
+            else { statusClass = 'badge-success'; statusText = 'Aman'; }
+            return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${stok}</strong></td><td>${formatRupiahStok(o.harga_beli)}</td><td>${formatRupiahStok(o.harga_jual)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
+        }).join('');
+    }
+
+    function updateStats(data) {
+        let totalObat = data.length, totalStok = 0, stokMenipis = 0, stokHabis = 0;
+        data.forEach(o => {
+            const stok = Number(o.stok) || 0;
+            totalStok += stok;
+            if (stok <= 0) stokHabis++;
+            else if (stok <= 10) stokMenipis++;
+        });
+        document.getElementById('totalObat').textContent = totalObat;
+        document.getElementById('totalStok').textContent = totalStok;
+        document.getElementById('stokMenipis').textContent = stokMenipis;
+        document.getElementById('stokHabis').textContent = stokHabis;
+    }
+
+    window.filterStokTerkini = function() {
+        const keyword = document.getElementById('searchStokTerkini').value.toLowerCase();
+        const filter = document.getElementById('filterStokTerkini').value;
+        let filtered = stokTerkiniData;
+        if (keyword) {
+            filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
+        }
+        if (filter === 'menipis') filtered = filtered.filter(o => Number(o.stok) > 0 && Number(o.stok) <= 10);
+        else if (filter === 'habis') filtered = filtered.filter(o => Number(o.stok) <= 0);
+        else if (filter === 'aman') filtered = filtered.filter(o => Number(o.stok) > 10);
+        renderStokTerkini(filtered);
+    };
+
+    function formatRupiahStok(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
+
+    function showToastStokTerkini(message, isError = false) {
+        const toast = document.getElementById('toastStokTerkini');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', loadStokTerkini);
+</script>
+</body>
+</html>
