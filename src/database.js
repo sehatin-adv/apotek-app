@@ -1218,7 +1218,7 @@ export async function createUser(userData) {
         if (authError) throw authError;
         
         // 2. Insert ke app_users
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('app_users')
             .insert({
                 auth_user_id: authData.user.id,
@@ -1244,7 +1244,7 @@ export async function createUser(userData) {
                 can_delete: p.can_delete || false
             }));
             
-            const { error: permError } = await supabase
+            const { error: permError } = await supabaseAdmin
                 .from('user_permissions')
                 .insert(permData);
             
@@ -1268,7 +1268,7 @@ export async function updateUser(id, userData) {
         if (userData.role) updateData.role = userData.role;
         if (userData.status) updateData.status = userData.status;
         
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('app_users')
             .update(updateData)
             .eq('id', id)
@@ -1280,7 +1280,7 @@ export async function updateUser(id, userData) {
         // Update permissions
         if (userData.permissions) {
             // Delete existing
-            await supabase
+            await supabaseAdmin
                 .from('user_permissions')
                 .delete()
                 .eq('user_id', id);
@@ -1295,7 +1295,7 @@ export async function updateUser(id, userData) {
                 can_delete: p.can_delete || false
             }));
             
-            const { error: permError } = await supabase
+            const { error: permError } = await supabaseAdmin
                 .from('user_permissions')
                 .insert(permData);
             
@@ -1322,7 +1322,7 @@ export async function deleteUser(id) {
         if (userError) throw userError;
         
         // Delete from app_users
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('app_users')
             .delete()
             .eq('id', id);
