@@ -1,5 +1,4 @@
-<!-- Retur Penjualan - dengan batas 3 hari -->
-<!DOCTYPE html><html><head><title>Retur Penjualan</title></head><body><h1>Retur Penjualan</h1><p>File lengkap sudah disediakan</p></body></html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -310,20 +309,42 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-    import { supabase, getCurrentUser } from './supabase.js';
+    import { supabase } from './supabase.js';
     import { getPenjualan, getPenjualanByNoFaktur, saveRetur, getAllRetur, getObat } from './database.js';
     
     // ============================================================
-    // GLOBAL
+    // AUTH CHECK
     // ============================================================
-    let selectedTransaction = null;
-    let currentReturnItems = [];
-    let returnHistory = [];
-    let allPenjualan = [];
-
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+    
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+    
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -333,6 +354,14 @@
             if (chevron) chevron.classList.toggle('open');
         }
     };
+
+    // ============================================================
+    // GLOBAL
+    // ============================================================
+    let selectedTransaction = null;
+    let currentReturnItems = [];
+    let returnHistory = [];
+    let allPenjualan = [];
 
     // ============================================================
     // LOAD DATA

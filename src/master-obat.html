@@ -316,15 +316,22 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
+    import { supabase, checkAuth } from './supabase.js';
     import { getObat, saveObat, deleteObat } from './database.js';
+    
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
     
     // ============================================================
     // NAVIGATION
     // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
-
+    
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
         const chevron = el.querySelector('.chevron');
@@ -333,19 +340,19 @@
             if (chevron) chevron.classList.toggle('open');
         }
     };
-
+    
     // ============================================================
     // GLOBAL
     // ============================================================
     let obatData = [];
-
+    
     // ============================================================
-    // LOAD OBAT DARI SUPABASE
+    // LOAD OBAT
     // ============================================================
     window.loadObat = async function() {
         const tbody = document.getElementById('obatTableBody');
         tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
-
+        
         try {
             const { data, error } = await getObat();
             if (error) throw error;
@@ -373,7 +380,7 @@
             }
         }
     };
-
+    
     function renderTable(data) {
         const tbody = document.getElementById('obatTableBody');
         if (!data || data.length === 0) {
@@ -399,11 +406,11 @@
             </tr>
         `).join('');
     }
-
+    
     function updateTotal(total) {
         document.getElementById('totalData').textContent = `Total: ${total} data`;
     }
-
+    
     window.filterObat = function() {
         const keyword = document.getElementById('searchObat').value.toLowerCase();
         const status = document.getElementById('filterStatus').value;
@@ -419,16 +426,16 @@
         }
         renderTable(filtered);
     };
-
+    
     // ============================================================
-    // CRUD - SUPABASE
+    // CRUD
     // ============================================================
     window.resetForm = function() {
         document.getElementById('editIndex').value = '';
         document.getElementById('obatForm').reset();
         document.getElementById('kodeObat').focus();
     };
-
+    
     window.saveObat = async function(e) {
         e.preventDefault();
         const editId = document.getElementById('editIndex').value;
@@ -443,19 +450,18 @@
             golongan: document.getElementById('golonganObat').value,
             status: document.getElementById('statusObat').value
         };
-
+        
         if (!data.kode_obat || !data.nama_obat) {
             showToast('⚠️ Kode dan Nama Obat wajib diisi!', true);
             return;
         }
-
-        // Cek duplikat
+        
         const duplicate = obatData.find((o) => o.kode_obat === data.kode_obat && o.id !== editId);
         if (duplicate) {
             showToast('⚠️ Kode obat "' + data.kode_obat + '" sudah ada!', true);
             return;
         }
-
+        
         try {
             if (editId) {
                 data.id = editId;
@@ -471,7 +477,7 @@
                 obatData.push(data);
                 showToast('✅ Data obat berhasil ditambahkan!');
             }
-
+            
             localStorage.setItem('obat', JSON.stringify(obatData));
             renderTable(obatData);
             updateTotal(obatData.length);
@@ -480,11 +486,11 @@
             showToast('❌ Gagal menyimpan data: ' + e.message, true);
         }
     };
-
+    
     window.editObat = function(id) {
         const o = obatData.find(item => item.id === id);
         if (!o) return;
-
+        
         document.getElementById('editIndex').value = id;
         document.getElementById('kodeObat').value = o.kode_obat || '';
         document.getElementById('namaObat').value = o.nama_obat || '';
@@ -497,7 +503,7 @@
         document.getElementById('statusObat').value = o.status || 'Aktif';
         document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
     };
-
+    
     window.deleteObat = async function(id) {
         if (!confirm('Yakin ingin menghapus data ini?')) return;
         try {
@@ -512,7 +518,7 @@
             showToast('❌ Gagal menghapus data: ' + e.message, true);
         }
     };
-
+    
     // ============================================================
     // IMPORT EXCEL
     // ============================================================
@@ -555,8 +561,7 @@
                     showToast('⚠️ Tidak ada data yang diimport.', true);
                     return;
                 }
-
-                // Simpan ke Supabase
+                
                 for (const item of newData) {
                     const { error } = await saveObat(item);
                     if (error) throw error;
@@ -574,7 +579,7 @@
         };
         reader.readAsText(file);
     };
-
+    
     // ============================================================
     // TOAST
     // ============================================================
@@ -586,7 +591,7 @@
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
     }
-
+    
     // ============================================================
     // INIT
     // ============================================================

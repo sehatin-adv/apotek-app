@@ -203,6 +203,7 @@
             <i class="fas fa-th-large"></i> Dashboard
         </div>
         
+        <!-- MASTER DATA -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-database"></i> MASTER DATA
@@ -215,10 +216,12 @@
             </div>
         </div>
         
+        <!-- PEMBELIAN - AKTIF -->
         <div class="menu-item active" onclick="navigate('pembelian.html')">
             <i class="fas fa-shopping-cart"></i> Pembelian
         </div>
         
+        <!-- STOK -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
@@ -231,6 +234,7 @@
             </div>
         </div>
         
+        <!-- PENJUALAN -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-cash-register"></i> PENJUALAN
@@ -243,6 +247,7 @@
             </div>
         </div>
         
+        <!-- LAPORAN -->
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-file-alt"></i> LAPORAN
@@ -475,7 +480,9 @@
     import { supabase } from './supabase.js';
     import { getObat, getSupplier, savePembelian } from './database.js';
     
+    // ============================================================
     // AUTH CHECK
+    // ============================================================
     async function checkAuth() {
         const session = localStorage.getItem('supabaseSession');
         if (!session) {
@@ -501,7 +508,9 @@
         window.location.href = '/';
     }
     
+    // ============================================================
     // NAVIGATION
+    // ============================================================
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
     
@@ -514,17 +523,21 @@
         }
     };
     
+    // ============================================================
     // GLOBAL
+    // ============================================================
     let items = [];
     let obatMaster = [];
     let supplierMaster = [];
     let itemCounter = 0;
     let lastSavedData = null;
     
+    // ============================================================
     // LOAD MASTER DATA
+    // ============================================================
     async function loadMasterData() {
         try {
-            const { data: obatData } = await getObat();
+            const { data: obatData, error: obatError } = await getObat();
             if (obatData && obatData.length > 0) {
                 obatMaster = obatData;
             } else {
@@ -532,7 +545,7 @@
                 if (local) obatMaster = JSON.parse(local);
             }
             
-            const { data: supplierData } = await getSupplier();
+            const { data: supplierData, error: supplierError } = await getSupplier();
             if (supplierData && supplierData.length > 0) {
                 supplierMaster = supplierData;
             } else {
@@ -571,7 +584,9 @@
         showToast('🔄 Data master di-refresh');
     };
     
+    // ============================================================
     // CARI OBAT
+    // ============================================================
     window.cariObat = function(e) {
         const keyword = document.getElementById('searchObat').value.toLowerCase();
         const saran = document.getElementById('saranObat');
@@ -622,7 +637,9 @@
         }
     };
     
+    // ============================================================
     // TAMBAH ITEM
+    // ============================================================
     function tambahItemDariMaster(obat) {
         const defaultMargin = 25;
         const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
@@ -692,8 +709,10 @@
             status: 'Aktif'
         };
         
+        // Simpan ke Supabase
         const { data: result, error } = await saveObat(data);
         if (error) {
+            // Fallback ke localStorage
             data.id = Date.now();
             obatMaster.push(data);
             localStorage.setItem('obat', JSON.stringify(obatMaster));
@@ -712,7 +731,9 @@
         }
     };
     
+    // ============================================================
     // RENDER ITEMS
+    // ============================================================
     function renderItems() {
         const tbody = document.getElementById('itemTableBody');
         const tfoot = document.getElementById('itemTableFoot');
@@ -721,7 +742,7 @@
             tbody.innerHTML = `
                 <tr>
                     <td colspan="17" style="text-align:center;color:#7a8a9e;padding:40px;">
-                        <i class="fas fa-inbox"></i> Tidak ada data
+                        <i class="fas fa-inbox"></i> Tidak ada data yang ditemukan, anda dapat menambahkan dengan memilih obat atau dengan melihat PO
                     </td>
                 </tr>
             `;
@@ -891,7 +912,9 @@
         }
     };
     
+    // ============================================================
     // HITUNG TOTAL
+    // ============================================================
     function hitungTotal() {
         let totalSubtotal = 0;
         let totalDiskon = 0;
@@ -919,7 +942,9 @@
         document.getElementById('detailTotal').textContent = formatRupiah(totalPembelian);
     }
     
+    // ============================================================
     // SIMPAN PEMBELIAN
+    // ============================================================
     window.simpanPembelian = async function() {
         const noFaktur = document.getElementById('noFaktur').value.trim();
         const tanggal = document.getElementById('tanggalFaktur').value;
@@ -1001,6 +1026,7 @@
                 'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
             );
             
+            // Refresh data obat setelah pembelian
             await loadMasterData();
             renderItems();
             hitungTotal();
@@ -1009,7 +1035,7 @@
                 resetFormSilent();
             }, 500);
         } catch(e) {
-            console.log('Error saving:', e);
+            console.log('Error saving to server, saving locally:', e);
             showSuccess('✅ Pembelian Disimpan (Offline)!', 
                 'Data pembelian No. ' + noFaktur + ' telah disimpan secara offline.',
                 'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
@@ -1031,7 +1057,9 @@
         document.getElementById('successOverlay').classList.remove('active');
     };
     
+    // ============================================================
     // RESET FORM
+    // ============================================================
     window.resetForm = function() {
         if (items.length > 0 && !confirm('Reset form akan menghapus semua item. Lanjutkan?')) return;
         resetFormSilent();
@@ -1054,7 +1082,9 @@
         showToast('🔄 Form direset');
     }
     
+    // ============================================================
     // CETAK FAKTUR
+    // ============================================================
     window.cetakFaktur = function() {
         let dataToPrint = items;
         let noFaktur = document.getElementById('noFaktur').value || '-';
@@ -1199,7 +1229,9 @@
         }
     };
     
+    // ============================================================
     // UTILITY
+    // ============================================================
     function formatRupiah(value) {
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
@@ -1213,7 +1245,9 @@
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 5000);
     }
     
+    // ============================================================
     // INIT
+    // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         loadMasterData();
         
