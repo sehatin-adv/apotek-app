@@ -137,7 +137,6 @@ export async function getApoteker() {
 
 export async function saveApoteker(apotekerData) {
     try {
-        // Clean data - remove null/undefined values
         const cleanData = {};
         Object.keys(apotekerData).forEach(key => {
             if (apotekerData[key] !== null && apotekerData[key] !== undefined && apotekerData[key] !== '') {
@@ -172,7 +171,7 @@ export async function deleteApoteker(id) {
 }
 
 // ============================================================
-// PENJUALAN - DENGAN UPDATE STOK
+// PENJUALAN
 // ============================================================
 export async function getPenjualan(tanggalMulai, tanggalAkhir) {
     try {
@@ -240,9 +239,7 @@ export async function savePenjualan(header, details) {
         
         if (detailError) throw detailError;
         
-        // ============================================================
-        // 3. UPDATE STOK OBAT - KURANGI STOK
-        // ============================================================
+        // 3. Update stok & kartu stok
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -258,7 +255,6 @@ export async function savePenjualan(header, details) {
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
                     
-                    // Insert ke kartu_stok
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -275,7 +271,6 @@ export async function savePenjualan(header, details) {
                 }
             }
         }
-        // ============================================================
         
         // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
@@ -283,7 +278,6 @@ export async function savePenjualan(header, details) {
         history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
         
-        // Update localStorage obat
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -296,13 +290,11 @@ export async function savePenjualan(header, details) {
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
-        // Fallback ke localStorage
         const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
         const data = { ...header, id: Date.now(), items: details };
         history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
         
-        // Update stok di localStorage
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -317,7 +309,7 @@ export async function savePenjualan(header, details) {
 }
 
 // ============================================================
-// RETUR PENJUALAN - DENGAN UPDATE STOK
+// RETUR PENJUALAN
 // ============================================================
 export async function getAllRetur() {
     try {
@@ -353,7 +345,6 @@ export async function getReturByNoFaktur(noFaktur) {
 
 export async function saveRetur(returData, detailRetur) {
     try {
-        // Cek batas retur 3 hari
         const { data: transaksi, error: transError } = await supabase
             .from('penjualan_header')
             .select('tanggal, jam, shift')
@@ -389,7 +380,6 @@ export async function saveRetur(returData, detailRetur) {
         
         if (headerError) throw headerError;
         
-        // Insert detail retur
         const detailsWithId = detailRetur.map(d => ({
             ...d,
             retur_id: returHeader[0].id
@@ -401,9 +391,7 @@ export async function saveRetur(returData, detailRetur) {
         
         if (detailError) throw detailError;
         
-        // ============================================================
-        // UPDATE STOK - TAMBAH STOK OBAT (karena barang dikembalikan)
-        // ============================================================
+        // Update stok & kartu stok
         for (const item of detailRetur) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -419,7 +407,6 @@ export async function saveRetur(returData, detailRetur) {
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
                     
-                    // Insert ke kartu_stok
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -436,14 +423,11 @@ export async function saveRetur(returData, detailRetur) {
                 }
             }
         }
-        // ============================================================
         
-        // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
         history.push({ ...returData, id: returHeader[0].id, items: detailRetur });
         localStorage.setItem('retur_penjualan', JSON.stringify(history));
         
-        // Update localStorage obat
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         detailRetur.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -599,7 +583,7 @@ export async function saveStokOpname(opnameData) {
 }
 
 // ============================================================
-// PEMBELIAN - DENGAN UPDATE STOK
+// PEMBELIAN - DENGAN UPDATE STOK (TANPA DUPLIKAT)
 // ============================================================
 export async function getPembelian() {
     try {
@@ -641,9 +625,7 @@ export async function savePembelian(header, details) {
         
         if (detailError) throw detailError;
         
-        // ============================================================
-        // 3. UPDATE STOK OBAT - TAMBAH STOK
-        // ============================================================
+        // 3. Update stok & kartu stok (SEKALI SAJA)
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -659,7 +641,7 @@ export async function savePembelian(header, details) {
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
                     
-                    // Insert ke kartu_stok
+                    // INSERT KARTU STOK - HANYA SEKALI
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -676,7 +658,6 @@ export async function savePembelian(header, details) {
                 }
             }
         }
-        // ============================================================
         
         // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
@@ -684,7 +665,6 @@ export async function savePembelian(header, details) {
         history.push(data);
         localStorage.setItem('pembelian_history', JSON.stringify(history));
         
-        // Update localStorage obat
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -698,13 +678,11 @@ export async function savePembelian(header, details) {
     } catch(e) {
         console.error('Error savePembelian:', e);
         
-        // Fallback ke localStorage
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
         const data = { ...header, id: Date.now(), items: details, saved_offline: true };
         history.push(data);
         localStorage.setItem('pembelian_history', JSON.stringify(history));
         
-        // Update stok di localStorage
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -780,21 +758,18 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         const lastDay = new Date(tahun, bulan, 0).getDate();
         const endDate = `${tahun}-${String(bulan).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         
-        // Total penjualan
         const { data: penjualan, error: err1 } = await supabase
             .from('penjualan_header')
             .select('total')
             .gte('tanggal', startDate)
             .lte('tanggal', endDate);
         
-        // Total retur
         const { data: retur, error: err2 } = await supabase
             .from('retur_penjualan')
             .select('total_retur')
             .gte('tanggal_retur', startDate)
             .lte('tanggal_retur', endDate);
         
-        // HPP
         const { data: detail, error: err3 } = await supabase
             .from('penjualan_detail')
             .select('obat_id, jumlah')
