@@ -573,11 +573,68 @@ export async function getStokOpname() {
 
 export async function saveStokOpname(opnameData) {
     try {
+        // 1. Insert header opname (termasuk kolom items sebagai snapshot)
         const { data, error } = await supabase
             .from('stok_opname')
             .insert(opnameData)
             .select();
         if (error) throw error;
+
+        // 2. Update stok obat & catat ke kartu stok untuk tiap item yang ada selisihnya
+        //    (SEKALI SAJA per item, sama seperti pola savePembelian / savePenjualan)
+        const items = opnameData.items || [];
+        for (const item of items) {
+            const selisih = Number(item.selisih) || 0;
+            if (selisih === 0) continue; // tidak ada selisih, tidak perlu koreksi stok
+
+            const kodeObat = item.kode_obat;
+            if (!kodeObat) continue;
+
+            const { data: obatData, error: obatError } = await supabase
+                .from('obat')
+                .select('id, stok')
+                .eq('kode_obat', kodeObat)
+                .single();
+
+            if (!obatError && obatData) {
+                // Stok opname menyesuaikan stok sistem ke hasil hitung fisik
+                const stokBaru = Math.max(0, Number(item.stok_fisik) || 0);
+                await supabase
+                    .from('obat')
+                    .update({ stok: stokBaru })
+                    .eq('id', obatData.id);
+
+                await supabase
+                    .from('kartu_stok')
+                    .insert({
+                        obat_id: obatData.id,
+                        kode_obat: kodeObat,
+                        nama_obat: item.nama_obat || '',
+                        tanggal: opnameData.tanggal_selesai
+                            ? opnameData.tanggal_selesai.split('T')[0]
+                            : new Date().toISOString().split('T')[0],
+                        jam: new Date().toTimeString().slice(0, 5),
+                        no_bukti: 'OPNAME-' + (opnameData.id || Date.now()),
+                        keterangan: 'Stok Opname (' + (selisih > 0 ? 'Lebih' : 'Kurang') + ')',
+                        masuk: selisih > 0 ? selisih : 0,
+                        keluar: selisih < 0 ? Math.abs(selisih) : 0,
+                        sisa_stok: stokBaru
+                    });
+            }
+        }
+
+        // 3. Sinkronkan juga stok obat di localStorage (jaga-jaga dipakai halaman lain)
+        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+        items.forEach(item => {
+            const selisih = Number(item.selisih) || 0;
+            if (selisih === 0) return;
+            const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
+            if (obat) {
+                obat.stok = Math.max(0, Number(item.stok_fisik) || 0);
+            }
+        });
+        localStorage.setItem('obat', JSON.stringify(obatLocal));
+
         return { data, error: null };
     } catch(e) {
         console.error('Error saveStokOpname:', e);
