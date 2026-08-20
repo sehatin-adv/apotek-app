@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Data Aplikasi - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+        .card-title .icon { color:#2d6a9f; }
+        
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-warning { background:#ffc107; color:#212529; }
+        .btn-warning:hover { background:#e0a800; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        .btn-block { width:100%; padding:12px; }
+        
+        .reset-option { 
+            border:2px solid #e8edf3; 
+            border-radius:14px; 
+            padding:20px 24px; 
+            margin-bottom:16px;
+            transition:0.2s;
+        }
+        .reset-option:hover { border-color:#c0c8d4; }
+        .reset-option .title { font-weight:700; font-size:16px; color:#0f1e2e; }
+        .reset-option .desc { font-size:13px; color:#7a8a9e; margin-top:4px; }
+        .reset-option .data-list { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+        .reset-option .data-list .tag { background:#f0f2f7; padding:4px 12px; border-radius:30px; font-size:11px; color:#5b6b7c; }
+        .reset-option .danger { color:#dc3545; font-weight:600; }
+        
+        .confirmation-box {
+            background:#fff3cd;
+            border-radius:12px;
+            padding:16px 20px;
+            border-left:4px solid #ffc107;
+            margin-top:16px;
+        }
+        .confirmation-box .warning-icon { color:#856404; font-size:20px; margin-right:10px; }
+        .confirmation-box .text { color:#856404; font-weight:600; }
+        
+        .form-group { margin-bottom:12px; }
+        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
+        .form-group input { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; }
+        .form-group input:focus { border-color:#2d6a9f; outline:none; }
+        
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:32px; max-width:550px; width:100%; max-height:90vh; overflow-y:auto; }
+        .modal-close { float:right; background:none; border:none; font-size:24px; cursor:pointer; color:#7a8a9e; }
+        .modal-box h3 { margin-bottom:12px; }
+        .modal-box .icon-big { font-size:48px; text-align:center; display:block; margin-bottom:12px; }
+        .modal-box .text-center { text-align:center; }
+        
+        .loading { display:flex; justify-content:center; align-items:center; padding:20px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        
+        .success-box { text-align:center; padding:20px; }
+        .success-box .icon { font-size:56px; color:#28a745; margin-bottom:12px; }
+        
+        @media (max-width:768px) { 
+            .sidebar { width:100%; position:static; height:auto; } 
+            .main-content { margin-left:0; padding:16px; } 
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item active" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-trash"></i> Reset Data Aplikasi</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="card" id="statusCard">
+            <div class="card-title"><span class="icon"><i class="fas fa-info-circle"></i></span> Status Data Saat Ini</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px;" id="dataStats">
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Master Obat</div>
+                    <div style="font-size:20px;font-weight:800;" id="statMasterObat">-</div>
+                </div>
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Penjualan</div>
+                    <div style="font-size:20px;font-weight:800;" id="statPenjualan">-</div>
+                </div>
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Pembelian</div>
+                    <div style="font-size:20px;font-weight:800;" id="statPembelian">-</div>
+                </div>
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Retur</div>
+                    <div style="font-size:20px;font-weight:800;" id="statRetur">-</div>
+                </div>
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Kartu Stok</div>
+                    <div style="font-size:20px;font-weight:800;" id="statKartuStok">-</div>
+                </div>
+                <div style="background:#f8fafc;padding:12px;border-radius:8px;text-align:center;">
+                    <div style="font-size:11px;color:#7a8a9e;">Shift</div>
+                    <div style="font-size:20px;font-weight:800;" id="statShift">-</div>
+                </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" onclick="loadStats()"><i class="fas fa-sync"></i> Refresh Statistik</button>
+                <button class="btn btn-outline btn-sm" onclick="backupData()"><i class="fas fa-download"></i> Backup Data</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><span class="icon"><i class="fas fa-exclamation-triangle" style="color:#dc3545;"></i></span> Pilih Jenis Reset</div>
+
+            <!-- Opsi 1: Reset Transaksi Saja -->
+            <div class="reset-option" id="optionTransaksi">
+                <div class="title">📋 Reset Data Transaksi Saja</div>
+                <div class="desc">Menghapus semua data transaksi operasional, tetapi <strong>Master Obat tetap dipertahankan</strong>.</div>
+                <div class="data-list">
+                    <span class="tag">Penjualan</span>
+                    <span class="tag">Detail Penjualan</span>
+                    <span class="tag">Retur</span>
+                    <span class="tag">Detail Retur</span>
+                    <span class="tag">Pembelian</span>
+                    <span class="tag">Detail Pembelian</span>
+                    <span class="tag">Kartu Stok</span>
+                    <span class="tag">Stok Opname</span>
+                    <span class="tag">Shift</span>
+                    <span class="tag">Laporan Transaksi</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <button class="btn btn-warning" onclick="showResetConfirmation('transaksi')"><i class="fas fa-undo"></i> Reset Transaksi Saja</button>
+                </div>
+            </div>
+
+            <!-- Opsi 2: Reset Semua Data -->
+            <div class="reset-option" style="border-color:#dc3545;">
+                <div class="title"><span class="danger">⚠️ Reset Semua Data</span></div>
+                <div class="desc"><strong class="danger">PERINGATAN:</strong> Menghapus <strong>SEMUA DATA</strong> termasuk Master Obat. Tindakan ini <strong>TIDAK DAPAT DIBATALKAN</strong>.</div>
+                <div class="data-list">
+                    <span class="tag" style="background:#dc3545;color:white;">Master Obat</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Penjualan</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Retur</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Pembelian</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Kartu Stok</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Stok Opname</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Shift</span>
+                    <span class="tag" style="background:#dc3545;color:white;">Laporan</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <button class="btn btn-danger" onclick="showResetConfirmation('semua')"><i class="fas fa-trash"></i> Reset Semua Data</button>
+                </div>
+            </div>
+
+            <div class="confirmation-box" style="margin-top:16px;">
+                <span class="warning-icon"><i class="fas fa-exclamation-circle"></i></span>
+                <span class="text">Pastikan Anda sudah melakukan <strong>backup data</strong> sebelum melakukan reset!</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><span class="icon"><i class="fas fa-history"></i></span> Riwayat Reset</div>
+            <div class="table-wrap" style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e8edf3;">Tanggal</th>
+                            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e8edf3;">User</th>
+                            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e8edf3;">Tipe Reset</th>
+                            <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e8edf3;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resetLogBody">
+                        <tr><td colspan="4" style="text-align:center;padding:20px;color:#7a8a9e;">Belum ada riwayat reset</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL KONFIRMASI RESET -->
+<div class="modal-overlay" id="resetModal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeResetModal()">&times;</button>
+        <div class="icon-big">⚠️</div>
+        <h3 class="text-center" id="resetModalTitle">PERINGATAN</h3>
+        <div id="resetModalBody">
+            <p class="text-center" style="color:#7a8a9e;margin-bottom:16px;" id="resetModalDesc">Reset data akan menghapus data aplikasi dan tindakan ini tidak dapat dibatalkan.</p>
+            <div style="background:#fff3cd;border-radius:10px;padding:12px 16px;margin-bottom:16px;" id="resetModalDetail">
+                <div style="font-weight:600;color:#856404;">Data yang akan dihapus:</div>
+                <div id="resetModalList" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;"></div>
+            </div>
+            <div class="form-group">
+                <label>Ketik <strong>RESET DATA</strong> untuk konfirmasi</label>
+                <input type="text" id="resetConfirmText" placeholder="RESET DATA" oninput="validateResetConfirm()">
+            </div>
+            <div class="form-group">
+                <label>Masukkan Password Admin Anda</label>
+                <input type="password" id="resetPassword" placeholder="Password" oninput="validateResetConfirm()">
+            </div>
+            <button class="btn btn-danger btn-block" id="resetExecuteBtn" disabled onclick="executeReset()"><i class="fas fa-trash"></i> Eksekusi Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HASIL RESET -->
+<div class="modal-overlay" id="resultModal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeResultModal()">&times;</button>
+        <div id="resultContent">
+            <div class="success-box">
+                <div class="icon"><i class="fas fa-check-circle"></i></div>
+                <h3 id="resultTitle">Reset Berhasil</h3>
+                <p id="resultDesc" style="color:#7a8a9e;">Data berhasil di-reset.</p>
+                <button class="btn btn-primary" onclick="closeResultModal();location.reload();" style="margin-top:12px;"><i class="fas fa-sync"></i> Refresh Halaman</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser } from './supabase.js';
+    import { getObat, getPenjualan, getPembelian, getAllRetur, getStokOpname, getShiftAktif } from './database.js';
+
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    // ============================================================
+    // LOAD STATISTIK
+    // ============================================================
+    let resetType = null;
+
+    window.loadStats = async function() {
+        try {
+            const [obat, penjualan, pembelian, retur, opname] = await Promise.all([
+                getObat(),
+                getPenjualan(),
+                getPembelian(),
+                getAllRetur(),
+                getStokOpname()
+            ]);
+
+            document.getElementById('statMasterObat').textContent = (obat.data || []).length;
+            document.getElementById('statPenjualan').textContent = (penjualan.data || []).length;
+            document.getElementById('statPembelian').textContent = (pembelian.data || []).length;
+            document.getElementById('statRetur').textContent = (retur.data || []).length;
+            document.getElementById('statKartuStok').textContent = '-';
+            document.getElementById('statShift').textContent = '-';
+
+            // Kartu Stok count
+            const { count: kartuCount } = await supabase.from('kartu_stok').select('*', { count: 'exact', head: true });
+            document.getElementById('statKartuStok').textContent = kartuCount || 0;
+
+            const { count: shiftCount } = await supabase.from('shift_history').select('*', { count: 'exact', head: true });
+            document.getElementById('statShift').textContent = shiftCount || 0;
+
+        } catch(e) {
+            console.error('Error loading stats:', e);
+        }
+    };
+
+    // ============================================================
+    // BACKUP DATA
+    // ============================================================
+    window.backupData = async function() {
+        try {
+            showToast('📥 Memulai backup data...');
+
+            const tables = ['obat', 'penjualan_header', 'penjualan_detail', 'retur_penjualan', 'retur_detail', 
+                           'pembelian_header', 'pembelian_detail', 'kartu_stok', 'stok_opname', 'shift_history'];
+            
+            const backup = {};
+            for (const table of tables) {
+                const { data, error } = await supabase.from(table).select('*');
+                if (!error) backup[table] = data;
+            }
+
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('✅ Backup berhasil diunduh!');
+        } catch(e) {
+            showToast('❌ Gagal backup: ' + e.message, true);
+        }
+    };
+
+    // ============================================================
+    // SHOW RESET CONFIRMATION
+    // ============================================================
+    window.showResetConfirmation = function(type) {
+        resetType = type;
+        const modal = document.getElementById('resetModal');
+        const title = document.getElementById('resetModalTitle');
+        const desc = document.getElementById('resetModalDesc');
+        const list = document.getElementById('resetModalList');
+
+        if (type === 'transaksi') {
+            title.textContent = '📋 Reset Data Transaksi Saja';
+            desc.textContent = 'Menghapus semua data transaksi operasional. Master Obat tetap dipertahankan.';
+            list.innerHTML = `
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Penjualan</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Retur</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Pembelian</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Kartu Stok</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Stok Opname</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Shift</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">Laporan</span>
+                <span class="tag" style="background:#28a745;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">✅ Master Obat Tetap</span>
+            `;
+        } else {
+            title.textContent = '⚠️ RESET SEMUA DATA';
+            desc.textContent = 'PERINGATAN: Menghapus SEMUA DATA termasuk Master Obat. Tindakan ini TIDAK DAPAT DIBATALKAN!';
+            list.innerHTML = `
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Master Obat</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Penjualan</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Retur</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Pembelian</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Kartu Stok</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Stok Opname</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Shift</span>
+                <span class="tag" style="background:#dc3545;color:white;padding:4px 12px;border-radius:30px;font-size:11px;">Laporan</span>
+                <span class="tag" style="background:#ffc107;color:#212529;padding:4px 12px;border-radius:30px;font-size:11px;">⚠️ User & Admin Tetap</span>
+            `;
+        }
+
+        document.getElementById('resetConfirmText').value = '';
+        document.getElementById('resetPassword').value = '';
+        document.getElementById('resetExecuteBtn').disabled = true;
+        modal.classList.add('active');
+    };
+
+    window.closeResetModal = function() {
+        document.getElementById('resetModal').classList.remove('active');
+        resetType = null;
+    };
+
+    window.validateResetConfirm = function() {
+        const text = document.getElementById('resetConfirmText').value.trim();
+        const pass = document.getElementById('resetPassword').value.trim();
+        const btn = document.getElementById('resetExecuteBtn');
+        btn.disabled = !(text === 'RESET DATA' && pass.length >= 6);
+    };
+
+    // ============================================================
+    // EXECUTE RESET
+    // ============================================================
+    window.executeReset = async function() {
+        if (!resetType) return;
+        if (!confirm('Anda yakin ingin melanjutkan reset? Tindakan ini tidak dapat dibatalkan!')) return;
+
+        const btn = document.getElementById('resetExecuteBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+        try {
+            const user = await getCurrentUser();
+            if (!user) throw new Error('User tidak ditemukan');
+
+            // Verifikasi password
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: document.getElementById('resetPassword').value.trim()
+            });
+
+            if (authError || !authData?.user) {
+                throw new Error('Password admin salah!');
+            }
+
+            // Urutan penghapusan berdasarkan foreign key
+            const tables = resetType === 'transaksi' 
+                ? [
+                    'penjualan_detail',
+                    'retur_detail',
+                    'pembelian_detail',
+                    'penjualan_header',
+                    'retur_penjualan',
+                    'pembelian_header',
+                    'kartu_stok',
+                    'stok_opname',
+                    'shift_history'
+                  ]
+                : [
+                    'penjualan_detail',
+                    'retur_detail',
+                    'pembelian_detail',
+                    'penjualan_header',
+                    'retur_penjualan',
+                    'pembelian_header',
+                    'kartu_stok',
+                    'stok_opname',
+                    'shift_history',
+                    'obat'
+                  ];
+
+            let success = true;
+            let errors = [];
+
+            for (const table of tables) {
+                const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                if (error) {
+                    // Skip jika error, coba lanjut ke tabel lain
+                    errors.push(`${table}: ${error.message}`);
+                }
+            }
+
+            if (errors.length > 0) {
+                console.warn('Beberapa tabel gagal dihapus:', errors);
+            }
+
+            // Bersihkan localStorage
+            const keysToRemove = ['penjualan_history', 'retur_penjualan', 'pembelian_history', 
+                                  'opname_history', 'shift_aktif', 'obat', 'supplier', 'apoteker'];
+            if (resetType === 'semua') {
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+            } else {
+                ['penjualan_history', 'retur_penjualan', 'pembelian_history', 'opname_history', 'shift_aktif'].forEach(key => localStorage.removeItem(key));
+            }
+
+            // Log audit
+            await logAudit(user.id, user.email, 'RESET_DATA', {
+                type: resetType,
+                tables_deleted: tables,
+                timestamp: new Date().toISOString()
+            });
+
+            // Tampilkan hasil
+            showResult(true, `✅ Reset ${resetType === 'transaksi' ? 'Transaksi' : 'Semua Data'} Berhasil!`, 
+                `Data telah di-reset. ${resetType === 'transaksi' ? 'Master Obat tetap dipertahankan.' : 'Semua data telah dikosongkan.'}`);
+
+        } catch(e) {
+            console.error('Error executing reset:', e);
+            showResult(false, '❌ Reset Gagal', e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-trash"></i> Eksekusi Reset';
+            closeResetModal();
+        }
+    };
+
+    // ============================================================
+    // LOG AUDIT
+    // ============================================================
+    async function logAudit(userId, username, action, details) {
+        try {
+            await supabase.from('audit_log').insert({
+                user_id: userId,
+                username: username,
+                action: action,
+                details: JSON.stringify(details)
+            });
+        } catch(e) {
+            console.error('Error logging audit:', e);
+        }
+    }
+
+    // ============================================================
+    // SHOW RESULT
+    // ============================================================
+    function showResult(success, title, desc) {
+        const modal = document.getElementById('resultModal');
+        document.getElementById('resultTitle').textContent = title;
+        document.getElementById('resultDesc').textContent = desc;
+        modal.classList.add('active');
+    }
+
+    window.closeResultModal = function() {
+        document.getElementById('resultModal').classList.remove('active');
+    };
+
+    // ============================================================
+    // LOAD RESET LOG
+    // ============================================================
+    async function loadResetLog() {
+        try {
+            const { data, error } = await supabase
+                .from('audit_log')
+                .select('*')
+                .eq('action', 'RESET_DATA')
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            const tbody = document.getElementById('resetLogBody');
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#7a8a9e;">Belum ada riwayat reset</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(row => `
+                <tr>
+                    <td style="padding:8px 10px;">${new Date(row.created_at).toLocaleString()}</td>
+                    <td style="padding:8px 10px;">${row.username || '-'}</td>
+                    <td style="padding:8px 10px;">${row.details ? JSON.parse(row.details)?.type || '-' : '-'}</td>
+                    <td style="padding:8px 10px;"><span style="color:#28a745;font-weight:600;">Berhasil</span></td>
+                </tr>
+            `).join('');
+
+        } catch(e) {
+            console.error('Error loading reset log:', e);
+        }
+    }
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const user = localStorage.getItem('user');
+        if (user) {
+            try {
+                const u = JSON.parse(user);
+                document.getElementById('userBadge').textContent = u.email || 'admin';
+                document.getElementById('userName').textContent = u.user_metadata?.full_name || u.email || 'admin';
+            } catch(e) {}
+        }
+        loadStats();
+        loadResetLog();
+    });
+</script>
+</body>
+</html>

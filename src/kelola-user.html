@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola User - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+        
+        .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+        .form-group { margin-bottom:12px; }
+        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
+        .form-group input, .form-group select { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; background:white; }
+        .form-group input:focus, .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        
+        .table-wrap { overflow-x:auto; margin-top:16px; border:1px solid #eef2f7; border-radius:10px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:10px 8px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:8px; border-bottom:1px solid #eef2f7; }
+        table tr:hover { background:#f8fafc; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:600; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-danger { background:#f8d7da; color:#721c24; }
+        .badge-warning { background:#fff3cd; color:#856404; }
+        .badge-info { background:#d1ecf1; color:#0c5460; }
+        
+        .search-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .search-bar input { flex:1; min-width:200px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; }
+        .search-bar input:focus { border-color:#2d6a9f; outline:none; }
+        
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:32px; max-width:700px; width:100%; max-height:90vh; overflow-y:auto; }
+        .modal-close { float:right; background:none; border:none; font-size:24px; cursor:pointer; color:#7a8a9e; }
+        .modal-box h3 { margin-bottom:16px; }
+        
+        .permission-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px; max-height:300px; overflow-y:auto; }
+        .permission-item { display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f8fafc; border-radius:6px; font-size:13px; }
+        .permission-item input[type="checkbox"] { width:16px; height:16px; accent-color:#2d6a9f; }
+        
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        
+        @media (max-width:768px) { 
+            .sidebar { width:100%; position:static; height:auto; } 
+            .main-content { margin-left:0; padding:16px; } 
+            .form-grid-2, .form-grid-3 { grid-template-columns:1fr; }
+            .permission-grid { grid-template-columns:1fr; }
+            .modal-box { max-width:100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item active" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-users"></i> Kelola User</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><i class="fas fa-plus-circle"></i> Tambah User Baru</div>
+                <button class="btn btn-primary btn-sm" onclick="openModal()"><i class="fas fa-plus"></i> Tambah User</button>
+            </div>
+            
+            <div class="search-bar">
+                <input type="text" id="searchUser" placeholder="🔍 Cari user..." onkeyup="filterUser()">
+                <select id="filterRole" onchange="filterUser()">
+                    <option value="">Semua Role</option>
+                    <option value="admin">Admin</option>
+                    <option value="staff">Staff</option>
+                </select>
+                <select id="filterStatus" onchange="filterUser()">
+                    <option value="">Semua Status</option>
+                    <option value="Aktif">Aktif</option>
+                    <option value="Tidak Aktif">Tidak Aktif</option>
+                </select>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Modul</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr><td colspan="8" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TAMBAH/EDIT USER -->
+<div class="modal-overlay" id="userModal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <h3 id="modalTitle"><i class="fas fa-user-plus"></i> Tambah User</h3>
+        <form id="userForm" onsubmit="saveUser(event)">
+            <input type="hidden" id="editUserId" value="">
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label>Nama Lengkap *</label>
+                    <input type="text" id="userNama" placeholder="Nama lengkap" required>
+                </div>
+                <div class="form-group">
+                    <label>Username *</label>
+                    <input type="text" id="userUsername" placeholder="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="userEmail" placeholder="email@domain.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="userPassword" placeholder="Minimal 6 karakter">
+                    <span style="font-size:11px;color:#7a8a9e;">Kosongkan jika tidak ingin mengubah password</span>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="userRole">
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="userStatus">
+                        <option value="Aktif">Aktif</option>
+                        <option value="Tidak Aktif">Tidak Aktif</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top:16px;">
+                <label style="font-weight:600;font-size:13px;color:#34495e;">Hak Akses Modul</label>
+                <div class="permission-grid" id="permissionGrid">
+                    <div class="loading"><i class="fas fa-spinner"></i> Memuat modul...</div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>
+                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser, signOut } from './supabase.js';
+    import { getUsers, createUser, updateUser, deleteUser, getModules, getCurrentUserPermissions, logAudit } from './database.js';
+
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = async function() { await signOut(); localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    // ============================================================
+    // GLOBAL
+    // ============================================================
+    let usersData = [];
+    let modulesData = [];
+    let currentUser = null;
+
+    // ============================================================
+    // LOAD DATA
+    // ============================================================
+    async function loadData() {
+        // Ambil user saat ini
+        const user = await getCurrentUser();
+        if (user) {
+            currentUser = user;
+            document.getElementById('userBadge').textContent = user.email || 'admin';
+            document.getElementById('userName').textContent = user.user_metadata?.full_name || user.email || 'admin';
+        }
+
+        // Ambil daftar user
+        const { data, error } = await getUsers();
+        if (error) {
+            console.error('Error loading users:', error);
+            showToast('❌ Gagal memuat data user', true);
+            return;
+        }
+        usersData = data || [];
+        renderTable(usersData);
+
+        // Ambil modul
+        const { data: modules, error: modError } = await getModules();
+        if (!modError) {
+            modulesData = modules || [];
+        }
+    }
+
+    // ============================================================
+    // RENDER TABLE
+    // ============================================================
+    function renderTable(data) {
+        const tbody = document.getElementById('userTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Belum ada user</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map((u, i) => {
+            const modulCount = u.user_permissions ? u.user_permissions.filter(p => p.can_view).length : 0;
+            return `
+                <tr>
+                    <td>${i+1}</td>
+                    <td><strong>${u.nama || '-'}</strong></td>
+                    <td>${u.username || '-'}</td>
+                    <td>${u.email || '-'}</td>
+                    <td><span class="badge ${u.role === 'admin' ? 'badge-warning' : 'badge-info'}">${u.role || 'staff'}</span></td>
+                    <td><span class="badge ${u.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${u.status || 'Aktif'}</span></td>
+                    <td>${modulCount} modul</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="editUser('${u.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteUserAction('${u.id}')"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterUser() {
+        const keyword = document.getElementById('searchUser').value.toLowerCase();
+        const role = document.getElementById('filterRole').value;
+        const status = document.getElementById('filterStatus').value;
+        
+        let filtered = usersData;
+        if (keyword) {
+            filtered = filtered.filter(u => 
+                (u.nama || '').toLowerCase().includes(keyword) ||
+                (u.username || '').toLowerCase().includes(keyword) ||
+                (u.email || '').toLowerCase().includes(keyword)
+            );
+        }
+        if (role) {
+            filtered = filtered.filter(u => u.role === role);
+        }
+        if (status) {
+            filtered = filtered.filter(u => u.status === status);
+        }
+        renderTable(filtered);
+    }
+
+    // ============================================================
+    // MODAL
+    // ============================================================
+    window.openModal = function() {
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus"></i> Tambah User';
+        document.getElementById('editUserId').value = '';
+        document.getElementById('userForm').reset();
+        document.getElementById('userPassword').required = true;
+        document.getElementById('userPassword').placeholder = 'Minimal 6 karakter';
+        renderPermissions([]);
+        document.getElementById('userModal').classList.add('active');
+    };
+
+    window.closeModal = function() {
+        document.getElementById('userModal').classList.remove('active');
+    };
+
+    window.editUser = async function(id) {
+        const user = usersData.find(u => u.id === id);
+        if (!user) return;
+
+        document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-edit"></i> Edit User';
+        document.getElementById('editUserId').value = id;
+        document.getElementById('userNama').value = user.nama || '';
+        document.getElementById('userUsername').value = user.username || '';
+        document.getElementById('userEmail').value = user.email || '';
+        document.getElementById('userPassword').required = false;
+        document.getElementById('userPassword').placeholder = 'Kosongkan jika tidak diubah';
+        document.getElementById('userRole').value = user.role || 'staff';
+        document.getElementById('userStatus').value = user.status || 'Aktif';
+
+        // Load permissions
+        const perms = user.user_permissions || [];
+        renderPermissions(perms);
+        document.getElementById('userModal').classList.add('active');
+    };
+
+    function renderPermissions(userPerms) {
+        const grid = document.getElementById('permissionGrid');
+        if (!modulesData || modulesData.length === 0) {
+            grid.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat modul...</div>';
+            return;
+        }
+
+        grid.innerHTML = modulesData.map(m => {
+            const perm = userPerms.find(p => p.module === m.module_key);
+            const canView = perm ? perm.can_view : false;
+            return `
+                <div class="permission-item">
+                    <input type="checkbox" class="perm-checkbox" data-module="${m.module_key}" data-action="view" ${canView ? 'checked' : ''}>
+                    <label>${m.module_name}</label>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ============================================================
+    // SAVE USER
+    // ============================================================
+    window.saveUser = async function(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editUserId').value;
+        const nama = document.getElementById('userNama').value.trim();
+        const username = document.getElementById('userUsername').value.trim();
+        const email = document.getElementById('userEmail').value.trim();
+        const password = document.getElementById('userPassword').value;
+        const role = document.getElementById('userRole').value;
+        const status = document.getElementById('userStatus').value;
+
+        if (!nama || !username || !email) {
+            showToast('⚠️ Nama, Username, dan Email wajib diisi!', true);
+            return;
+        }
+
+        if (!editId && (!password || password.length < 6)) {
+            showToast('⚠️ Password minimal 6 karakter untuk user baru!', true);
+            return;
+        }
+
+        // Ambil permissions dari checkbox
+        const checkboxes = document.querySelectorAll('.perm-checkbox');
+        const permissions = [];
+        checkboxes.forEach(cb => {
+            permissions.push({
+                module: cb.dataset.module,
+                can_view: cb.checked
+            });
+        });
+
+        const userData = {
+            nama,
+            username,
+            email,
+            role,
+            status,
+            permissions
+        };
+
+        if (password) {
+            userData.password = password;
+        }
+
+        try {
+            let result;
+            if (editId) {
+                result = await updateUser(editId, userData);
+                if (result.error) throw result.error;
+                showToast('✅ User berhasil diupdate!');
+                await logAudit(currentUser?.id, currentUser?.email, 'UPDATE_USER', `User ${username} diupdate oleh ${currentUser?.email}`);
+            } else {
+                result = await createUser(userData);
+                if (result.error) throw result.error;
+                showToast('✅ User berhasil ditambahkan!');
+                await logAudit(currentUser?.id, currentUser?.email, 'CREATE_USER', `User ${username} dibuat oleh ${currentUser?.email}`);
+            }
+
+            closeModal();
+            await loadData();
+        } catch(e) {
+            console.error('Error saving user:', e);
+            showToast('❌ Gagal menyimpan user: ' + e.message, true);
+        }
+    };
+
+    // ============================================================
+    // DELETE USER
+    // ============================================================
+    window.deleteUserAction = async function(id) {
+        const user = usersData.find(u => u.id === id);
+        if (!user) return;
+        if (user.role === 'admin') {
+            showToast('⚠️ Tidak bisa menghapus user admin!', true);
+            return;
+        }
+        if (!confirm(`Yakin ingin menghapus user "${user.nama}"?`)) return;
+
+        try {
+            const { error } = await deleteUser(id);
+            if (error) throw error;
+            showToast('🗑️ User berhasil dihapus!');
+            await logAudit(currentUser?.id, currentUser?.email, 'DELETE_USER', `User ${user.username} dihapus oleh ${currentUser?.email}`);
+            await loadData();
+        } catch(e) {
+            showToast('❌ Gagal menghapus user: ' + e.message, true);
+        }
+    };
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadData();
+    });
+</script>
+</body>
+</html>

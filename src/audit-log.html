@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Log - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+        .card-title .icon { color:#2d6a9f; }
+        
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        
+        .filter-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
+        .filter-row .form-group { margin-bottom:0; min-width:150px; flex:1; }
+        .filter-row .form-group label { display:block; font-weight:600; font-size:12px; color:#5b6b7c; margin-bottom:4px; }
+        .filter-row .form-group input, .filter-row .form-group select { width:100%; padding:8px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
+        .filter-row .form-group input:focus, .filter-row .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        
+        .table-wrap { overflow-x:auto; margin-top:10px; border:1px solid #eef2f7; border-radius:10px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:10px 8px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:8px; border-bottom:1px solid #eef2f7; }
+        table tr:hover { background:#f8fafc; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:600; }
+        .badge-warning { background:#fff3cd; color:#856404; }
+        .badge-danger { background:#f8d7da; color:#721c24; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-info { background:#d1ecf1; color:#0c5460; }
+        
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        
+        @media (max-width:768px) { 
+            .sidebar { width:100%; position:static; height:auto; } 
+            .main-content { margin-left:0; padding:16px; } 
+            .filter-row { flex-direction:column; }
+            .filter-row .form-group { min-width:100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item active" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-history"></i> Audit Log</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><span class="icon"><i class="fas fa-filter"></i></span> Filter</div>
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>User</label>
+                    <input type="text" id="filterUser" placeholder="Cari user..." onkeyup="loadAuditLog()">
+                </div>
+                <div class="form-group">
+                    <label>Aksi</label>
+                    <select id="filterAction" onchange="loadAuditLog()">
+                        <option value="">Semua Aksi</option>
+                        <option value="LOGIN">Login</option>
+                        <option value="LOGOUT">Logout</option>
+                        <option value="CREATE_USER">Create User</option>
+                        <option value="UPDATE_USER">Update User</option>
+                        <option value="DELETE_USER">Delete User</option>
+                        <option value="RESET_DATA">Reset Data</option>
+                        <option value="BUKA_SHIFT">Buka Shift</option>
+                        <option value="TUTUP_SHIFT">Tutup Shift</option>
+                        <option value="CREATE_OBAT">Create Obat</option>
+                        <option value="UPDATE_OBAT">Update Obat</option>
+                        <option value="DELETE_OBAT">Delete Obat</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Mulai</label>
+                    <input type="date" id="filterTglAwal" onchange="loadAuditLog()">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Akhir</label>
+                    <input type="date" id="filterTglAkhir" onchange="loadAuditLog()">
+                </div>
+                <div class="form-group" style="flex:0.5;min-width:80px;">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="loadAuditLog()" style="width:100%;"><i class="fas fa-search"></i> Cari</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+                <div class="card-title" style="margin-bottom:0;"><span class="icon"><i class="fas fa-list"></i></span> Daftar Log</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="loadAuditLog()"><i class="fas fa-sync"></i> Refresh</button>
+                    <span id="totalData" style="font-size:12px;color:#7a8a9e;margin-left:8px;"></span>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="min-width:150px;">Tanggal / Waktu</th>
+                            <th style="min-width:120px;">User</th>
+                            <th style="min-width:120px;">Aksi</th>
+                            <th style="min-width:200px;">Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogBody">
+                        <tr><td colspan="4" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px;">
+                <div style="font-size:12px;color:#7a8a9e;" id="paginationInfo"></div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-outline btn-sm" onclick="prevPage()"><i class="fas fa-chevron-left"></i> Sebelumnya</button>
+                    <button class="btn btn-outline btn-sm" onclick="nextPage()">Selanjutnya <i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser } from './supabase.js';
+
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) {
+            window.location.href = '/';
+            return false;
+        }
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                localStorage.removeItem('supabaseSession');
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            localStorage.removeItem('supabaseSession');
+            window.location.href = '/';
+            return false;
+        }
+    }
+
+    if (!await checkAuth()) {
+        window.location.href = '/';
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    // ============================================================
+    // GLOBAL
+    // ============================================================
+    let currentPage = 0;
+    const pageSize = 20;
+    let totalData = 0;
+
+    // ============================================================
+    // LOAD AUDIT LOG
+    // ============================================================
+    window.loadAuditLog = async function(page = 0) {
+        currentPage = page;
+        const tbody = document.getElementById('auditLogBody');
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+
+        try {
+            const userFilter = document.getElementById('filterUser').value.trim();
+            const actionFilter = document.getElementById('filterAction').value;
+            const tglAwal = document.getElementById('filterTglAwal').value;
+            const tglAkhir = document.getElementById('filterTglAkhir').value;
+
+            let query = supabase
+                .from('audit_log')
+                .select('*', { count: 'exact' })
+                .order('created_at', { ascending: false });
+
+            if (userFilter) query = query.ilike('username', `%${userFilter}%`);
+            if (actionFilter) query = query.eq('action', actionFilter);
+            if (tglAwal) query = query.gte('created_at', `${tglAwal}T00:00:00`);
+            if (tglAkhir) query = query.lte('created_at', `${tglAkhir}T23:59:59`);
+
+            const { data, error, count } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (error) throw error;
+
+            totalData = count || 0;
+            renderLogs(data || []);
+            updatePagination();
+
+        } catch(e) {
+            console.error('Error loading audit log:', e);
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:#dc3545;">❌ Gagal memuat data: ${e.message}</td></tr>`;
+        }
+    };
+
+    function renderLogs(data) {
+        const tbody = document.getElementById('auditLogBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Tidak ada log ditemukan</td></tr>';
+            return;
+        }
+
+        const actionColors = {
+            'LOGIN': 'badge-success',
+            'LOGOUT': 'badge-info',
+            'CREATE_USER': 'badge-success',
+            'UPDATE_USER': 'badge-warning',
+            'DELETE_USER': 'badge-danger',
+            'RESET_DATA': 'badge-danger',
+            'BUKA_SHIFT': 'badge-success',
+            'TUTUP_SHIFT': 'badge-warning',
+            'CREATE_OBAT': 'badge-success',
+            'UPDATE_OBAT': 'badge-warning',
+            'DELETE_OBAT': 'badge-danger'
+        };
+
+        tbody.innerHTML = data.map(row => {
+            const color = actionColors[row.action] || 'badge-info';
+            let detail = row.details || '-';
+            try {
+                const parsed = JSON.parse(detail);
+                detail = JSON.stringify(parsed).slice(0, 100) + (JSON.stringify(parsed).length > 100 ? '...' : '');
+            } catch(e) {}
+            return `
+                <tr>
+                    <td style="font-size:12px;">${new Date(row.created_at).toLocaleString()}</td>
+                    <td><strong>${row.username || '-'}</strong></td>
+                    <td><span class="badge ${color}">${row.action || '-'}</span></td>
+                    <td style="font-size:12px;color:#5b6b7c;max-width:300px;word-break:break-word;">${detail}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function updatePagination() {
+        const totalPages = Math.ceil(totalData / pageSize);
+        document.getElementById('paginationInfo').textContent = `Halaman ${currentPage + 1} dari ${totalPages || 1} (Total: ${totalData} log)`;
+        document.querySelector('#paginationInfo').style.display = totalData > 0 ? 'block' : 'none';
+    }
+
+    window.prevPage = function() {
+        if (currentPage > 0) loadAuditLog(currentPage - 1);
+    };
+
+    window.nextPage = function() {
+        const totalPages = Math.ceil(totalData / pageSize);
+        if (currentPage < totalPages - 1) loadAuditLog(currentPage + 1);
+    };
+
+    // ============================================================
+    // TOAST
+    // ============================================================
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const user = localStorage.getItem('user');
+        if (user) {
+            try {
+                const u = JSON.parse(user);
+                document.getElementById('userBadge').textContent = u.email || 'admin';
+                document.getElementById('userName').textContent = u.user_metadata?.full_name || u.email || 'admin';
+            } catch(e) {}
+        }
+        loadAuditLog();
+    });
+</script>
+</body>
+</html>

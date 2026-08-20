@@ -1166,3 +1166,298 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         };
     }
 }
+// ============================================================
+// KELOLA APLIKASI - USER & PERMISSION
+// ============================================================
+
+// GET ALL USERS
+export async function getUsers() {
+    try {
+        const { data, error } = await supabase
+            .from('app_users')
+            .select('*, user_permissions(*)')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getUsers:', e);
+        return { data: [], error: e };
+    }
+}
+
+// GET USER BY ID
+export async function getUserById(id) {
+    try {
+        const { data, error } = await supabase
+            .from('app_users')
+            .select('*, user_permissions(*)')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getUserById:', e);
+        return { data: null, error: e };
+    }
+}
+
+// CREATE USER
+export async function createUser(userData) {
+    try {
+        // 1. Buat user di Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: userData.email,
+            password: userData.password,
+            email_confirm: true,
+            user_metadata: { full_name: userData.nama }
+        });
+        
+        if (authError) throw authError;
+        
+        // 2. Insert ke app_users
+        const { data, error } = await supabase
+            .from('app_users')
+            .insert({
+                auth_user_id: authData.user.id,
+                username: userData.username || userData.email,
+                email: userData.email,
+                nama: userData.nama,
+                role: userData.role || 'staff',
+                status: userData.status || 'Aktif'
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // 3. Insert permissions
+        if (userData.permissions && userData.permissions.length > 0) {
+            const permData = userData.permissions.map(p => ({
+                user_id: data.id,
+                module: p.module,
+                can_view: p.can_view || false,
+                can_create: p.can_create || false,
+                can_edit: p.can_edit || false,
+                can_delete: p.can_delete || false
+            }));
+            
+            const { error: permError } = await supabase
+                .from('user_permissions')
+                .insert(permData);
+            
+            if (permError) throw permError;
+        }
+        
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error createUser:', e);
+        return { data: null, error: e };
+    }
+}
+
+// UPDATE USER
+export async function updateUser(id, userData) {
+    try {
+        // Update app_users
+        const updateData = {};
+        if (userData.nama) updateData.nama = userData.nama;
+        if (userData.role) updateData.role = userData.role;
+        if (userData.status) updateData.status = userData.status;
+        
+        const { data, error } = await supabase
+            .from('app_users')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        // Update permissions
+        if (userData.permissions) {
+            // Delete existing
+            await supabase
+                .from('user_permissions')
+                .delete()
+                .eq('user_id', id);
+            
+            // Insert new
+            const permData = userData.permissions.map(p => ({
+                user_id: id,
+                module: p.module,
+                can_view: p.can_view || false,
+                can_create: p.can_create || false,
+                can_edit: p.can_edit || false,
+                can_delete: p.can_delete || false
+            }));
+            
+            const { error: permError } = await supabase
+                .from('user_permissions')
+                .insert(permData);
+            
+            if (permError) throw permError;
+        }
+        
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error updateUser:', e);
+        return { data: null, error: e };
+    }
+}
+
+// DELETE USER
+export async function deleteUser(id) {
+    try {
+        // Get auth_user_id
+        const { data: userData, error: userError } = await supabase
+            .from('app_users')
+            .select('auth_user_id')
+            .eq('id', id)
+            .single();
+        
+        if (userError) throw userError;
+        
+        // Delete from app_users
+        const { error } = await supabase
+            .from('app_users')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+        
+        // Delete from auth (optional - hati-hati)
+        // await supabase.auth.admin.deleteUser(userData.auth_user_id);
+        
+        return { error: null };
+    } catch(e) {
+        console.error('Error deleteUser:', e);
+        return { error: e };
+    }
+}
+
+// GET ALL MODULES
+export async function getModules() {
+    try {
+        const { data, error } = await supabase
+            .from('app_modules')
+            .select('*')
+            .order('module_name');
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getModules:', e);
+        return { data: [], error: e };
+    }
+}
+
+// GET USER PERMISSIONS
+export async function getUserPermissions(userId) {
+    try {
+        const { data, error } = await supabase
+            .from('user_permissions')
+            .select('*')
+            .eq('user_id', userId);
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getUserPermissions:', e);
+        return { data: [], error: e };
+    }
+}
+
+// CHECK PERMISSION
+export async function hasPermission(userId, moduleKey, action = 'view') {
+    try {
+        const { data, error } = await supabase
+            .from('user_permissions')
+            .select('can_view, can_create, can_edit, can_delete')
+            .eq('user_id', userId)
+            .eq('module', moduleKey)
+            .single();
+        
+        if (error) return { has: false, error: null };
+        
+        const has = action === 'view' ? data.can_view :
+                   action === 'create' ? data.can_create :
+                   action === 'edit' ? data.can_edit :
+                   data.can_delete;
+        
+        return { has: has || false, error: null };
+    } catch(e) {
+        return { has: false, error: e };
+    }
+}
+
+// GET CURRENT USER PERMISSIONS
+export async function getCurrentUserPermissions() {
+    try {
+        // Ambil user saat ini
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) return { data: [], error: null };
+        
+        // Cari di app_users
+        const { data: appUser, error: appError } = await supabase
+            .from('app_users')
+            .select('id, role')
+            .eq('auth_user_id', user.id)
+            .single();
+        
+        if (appError) throw appError;
+        
+        // Jika admin, return semua permissions = true
+        if (appUser.role === 'admin') {
+            const { data: modules } = await getModules();
+            const allPerms = modules.map(m => ({
+                module: m.module_key,
+                can_view: true,
+                can_create: true,
+                can_edit: true,
+                can_delete: true
+            }));
+            return { data: allPerms, error: null };
+        }
+        
+        // Ambil permissions user
+        const { data, error } = await getUserPermissions(appUser.id);
+        return { data, error };
+    } catch(e) {
+        console.error('Error getCurrentUserPermissions:', e);
+        return { data: [], error: e };
+    }
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+export async function logAudit(userId, username, action, details) {
+    try {
+        const { error } = await supabase
+            .from('audit_log')
+            .insert({
+                user_id: userId,
+                username: username,
+                action: action,
+                details: details
+            });
+        return { error };
+    } catch(e) {
+        console.error('Error logAudit:', e);
+        return { error: e };
+    }
+}
+
+export async function getAuditLogs(limit = 100) {
+    try {
+        const { data, error } = await supabase
+            .from('audit_log')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getAuditLogs:', e);
+        return { data: [], error: e };
+    }
+}
