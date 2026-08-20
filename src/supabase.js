@@ -1,8 +1,16 @@
+// src/supabase.js
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+// ============================================================
+// SUPABASE CONFIG - SUDAH DIUPDATE
+// ============================================================
 
+const supabaseUrl = 'https://plkdxqmwltoxfzvxho.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDY4NjAsImV4cCI6MjEwMjc4Mjg2MH0.gYbKMv9c5VvY0wzBxlaobh6xkJ7QIhxQ5SWBHsk3NJc';
+
+// ============================================================
+// CREATE CLIENT
+// ============================================================
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================================
