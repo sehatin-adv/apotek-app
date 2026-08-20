@@ -76,168 +76,108 @@
     // MULAI STOK OPNAME
     // ============================================================
     window.mulaiOpname = async function() {
-        const existing = localStorage.getItem('opname_session_active');
-        if (existing) {
-            showToast('⚠️ Masih ada sesi opname yang aktif!', true);
-            return;
-        }
-        await loadMasterObat();
-        if (!obatMaster || obatMaster.length === 0) {
-            showToast('⚠️ Belum ada data obat!', true);
-            return;
-        }
-        if (!confirm('Mulai stok opname? Sistem akan mengambil snapshot stok saat ini.')) return;
-        const now = new Date();
-        const timestamp = now.toISOString();
-        const snapshot = obatMaster.map(o => ({
-            id: o.id, kode_obat: o.kode_obat, nama_obat: o.nama_obat,
-            satuan: o.satuan || 'Tablet', snapshot_stok: Number(o.stok) || 0
-        }));
-        sessionData = {
-            id: 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4),
-            tanggal_mulai: timestamp,
-            status: 'berlangsung',
-            snapshot: snapshot
-        };
-        localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
-        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, status: 'Belum diinput' }));
-        renderUI();
-        showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
+    const existing = localStorage.getItem('opname_session_active');
+    if (existing) {
+        showToast('⚠️ Masih ada sesi opname yang aktif!', true);
+        return;
+    }
+    await loadMasterObat();
+    if (!obatMaster || obatMaster.length === 0) {
+        showToast('⚠️ Belum ada data obat!', true);
+        return;
+    }
+    if (!confirm('Mulai stok opname? Sistem akan mengambil snapshot stok saat ini.')) return;
+    
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const snapshot = obatMaster.map(o => ({
+        id: o.id,
+        kode_obat: o.kode_obat,
+        nama_obat: o.nama_obat,
+        satuan: o.satuan || 'Tablet',
+        snapshot_stok: Number(o.stok) || 0,
+        harga_jual: o.harga_jual || 0
+    }));
+
+    sessionData = {
+        id: 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4),
+        tanggal_mulai: timestamp,
+        status: 'berlangsung',
+        snapshot: snapshot
     };
 
-    // ============================================================
-    // RENDER UI
-    // ============================================================
-    function renderUI() {
-        const active = localStorage.getItem('opname_session_active');
-        if (active) {
-            sessionData = JSON.parse(active);
-            document.getElementById('sessionCard').style.display = 'block';
-            document.getElementById('mulaiCard').style.display = 'none';
-            document.getElementById('inputCard').style.display = 'block';
-            document.getElementById('sessionStart').textContent = new Date(sessionData.tanggal_mulai).toLocaleString();
-            document.getElementById('sessionTotalItem').textContent = sessionData.snapshot.length;
-            if (opnameItems.length === 0) {
-                opnameItems = sessionData.snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, status: 'Belum diinput' }));
-            }
-            const saved = localStorage.getItem('opname_progress_' + sessionData.id);
-            if (saved) {
-                const savedData = JSON.parse(saved);
-                savedData.forEach(savedItem => {
-                    const idx = opnameItems.findIndex(item => item.id === savedItem.id);
-                    if (idx !== -1) {
-                        opnameItems[idx].stok_fisik = savedItem.stok_fisik || 0;
-                        opnameItems[idx].selisih = opnameItems[idx].stok_fisik - opnameItems[idx].stok_sistem;
-                        opnameItems[idx].status = opnameItems[idx].selisih === 0 ? 'Aman' : (opnameItems[idx].selisih > 0 ? 'Lebih' : 'Kurang');
-                    }
-                });
-            }
-            renderOpnameTable(opnameItems);
-            document.getElementById('totalItemOpname').textContent = opnameItems.length + ' item';
-            const filled = opnameItems.filter(i => i.stok_fisik > 0 || i.stok_fisik === 0 && i.status !== 'Belum diinput').length;
-            document.getElementById('sessionProgress').textContent = filled + '/' + opnameItems.length;
-        } else {
-            document.getElementById('sessionCard').style.display = 'none';
-            document.getElementById('mulaiCard').style.display = 'block';
-            document.getElementById('inputCard').style.display = 'none';
-            opnameItems = [];
-        }
-        loadRiwayat();
-    }
+    localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
+
+    opnameItems = snapshot.map(s => ({
+        ...s,
+        stok_fisik: 0,
+        stok_sistem: s.snapshot_stok,
+        selisih: 0,
+        status: 'Belum diinput'
+    }));
+
+    renderUI();
+    showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
+};
 
     // ============================================================
     // RENDER TABEL OPNAME
     // ============================================================
     function renderOpnameTable(data) {
-        const tbody = document.getElementById('opnameTableBody');
-        const tfoot = document.getElementById('opnameTableFoot');
-        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>'; tfoot.style.display = 'none'; return; }
-        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
-        tbody.innerHTML = data.map((item, index) => {
-            const selisih = item.selisih || 0;
-            totalFisik += item.stok_fisik || 0; totalSelisih += selisih; if (selisih !== 0) jumlahSelisih++;
-            let statusClass = 'badge-info', statusText = 'Belum';
-            if (item.stok_fisik > 0 || item.stok_fisik === 0 && item.status !== 'Belum diinput') {
-                if (selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
-                else if (selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + selisih; }
-                else { statusClass = 'badge-danger'; statusText = 'Kurang ' + selisih; }
-            }
-            return `<tr><td>${index+1}</td><td><strong>${item.kode_obat||'-'}</strong></td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td style="text-align:right;">${item.snapshot_stok}</td><td style="text-align:right;font-weight:600;">${item.stok_sistem}</td><td><input type="number" class="stok-fisik-input" data-index="${index}" value="${item.stok_fisik||0}" min="0" step="any" oninput="updateStokFisik(${index}, this.value)" onblur="updateStokFisik(${index}, this.value)"></td><td style="text-align:right;font-weight:700;color:${selisih===0?'#28a745':'#dc3545'};">${selisih!==0?selisih:'-'}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
-        }).join('');
-        document.getElementById('totalFisik').textContent = totalFisik;
-        document.getElementById('totalSelisih').textContent = totalSelisih;
-        document.getElementById('footerTotalSelisih').textContent = totalSelisih;
-        document.getElementById('footerJumlahSelisih').textContent = jumlahSelisih;
-        tfoot.style.display = 'table-footer-group';
+    const tbody = document.getElementById('opnameTableBody');
+    const tfoot = document.getElementById('opnameTableFoot');
+    
+    if (!tbody) return; // aman jika elemen tidak ada
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
+        if (tfoot) tfoot.style.display = 'none';
+        return;
     }
-
-    // ============================================================
-    // UPDATE STOK FISIK
-    // ============================================================
-    window.updateStokFisik = function(index, value) {
-        if (index < 0 || index >= opnameItems.length) return;
-        const stokFisik = Number(value) || 0;
-        const item = opnameItems[index];
-        item.stok_fisik = stokFisik;
-        item.selisih = stokFisik - item.stok_sistem;
-        item.status = item.selisih === 0 ? 'Aman' : (item.selisih > 0 ? 'Lebih' : 'Kurang');
-        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
-        if (row) {
-            const cells = row.querySelectorAll('td');
-            if (cells.length >= 9) {
-                cells[7].textContent = item.selisih !== 0 ? item.selisih : '-';
-                cells[7].style.color = item.selisih === 0 ? '#28a745' : '#dc3545';
-                let statusClass = 'badge-info', statusText = 'Belum';
-                if (item.stok_fisik > 0 || item.stok_fisik === 0 && item.status !== 'Belum diinput') {
-                    if (item.selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
-                    else if (item.selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + item.selisih; }
-                    else { statusClass = 'badge-danger'; statusText = 'Kurang ' + item.selisih; }
-                }
-                cells[8].innerHTML = `<span class="badge ${statusClass}">${statusText}</span>`;
-            }
+    
+    let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
+    tbody.innerHTML = data.map((item, index) => {
+        const selisih = item.selisih || 0;
+        totalFisik += item.stok_fisik || 0;
+        totalSelisih += selisih;
+        if (selisih !== 0) jumlahSelisih++;
+        
+        let statusClass = 'badge-info', statusText = 'Belum';
+        if (item.stok_fisik > 0 || (item.stok_fisik === 0 && item.status !== 'Belum diinput')) {
+            if (selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
+            else if (selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + selisih; }
+            else { statusClass = 'badge-danger'; statusText = 'Kurang ' + selisih; }
         }
-        updateTotalOpname();
-        const filled = opnameItems.filter(i => i.stok_fisik > 0 || i.stok_fisik === 0 && i.status !== 'Belum diinput').length;
-        document.getElementById('sessionProgress').textContent = filled + '/' + opnameItems.length;
-        simpanProgress();
-    };
-
-    function updateTotalOpname() {
-        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
-        opnameItems.forEach(item => {
-            totalFisik += item.stok_fisik || 0;
-            totalSelisih += item.selisih || 0;
-            if (item.selisih !== 0) jumlahSelisih++;
-        });
-        document.getElementById('totalFisik').textContent = totalFisik;
-        document.getElementById('totalSelisih').textContent = totalSelisih;
-        document.getElementById('footerTotalSelisih').textContent = totalSelisih;
-        document.getElementById('footerJumlahSelisih').textContent = jumlahSelisih;
-    }
-
-    window.filterOpname = function() {
-        const keyword = document.getElementById('searchOpname').value.toLowerCase();
-        const filter = document.getElementById('filterOpname').value;
-        let filtered = opnameItems;
-        if (keyword) filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
-        if (filter === 'selisih') filtered = filtered.filter(o => o.selisih !== 0);
-        else if (filter === 'aman') filtered = filtered.filter(o => o.selisih === 0);
-        renderOpnameTable(filtered);
-    };
-
-    window.simpanProgress = function() {
-        if (!sessionData) return;
-        localStorage.setItem('opname_progress_' + sessionData.id, JSON.stringify(opnameItems));
-    };
-
-    window.batalOpname = function() {
-        if (!confirm('Batalkan stok opname? Semua data yang sudah diinput akan hilang.')) return;
-        localStorage.removeItem('opname_session_active');
-        if (sessionData) localStorage.removeItem('opname_progress_' + sessionData.id);
-        sessionData = null; opnameItems = [];
-        renderUI();
-        showToast('🔄 Stok opname dibatalkan');
-    };
+        
+        return `<tr>
+            <td>${index + 1}</td>
+            <td><strong>${item.kode_obat || '-'}</strong></td>
+            <td>${item.nama_obat || '-'}</td>
+            <td>${item.satuan || '-'}</td>
+            <td style="text-align:right;">${item.snapshot_stok}</td>
+            <td style="text-align:right;font-weight:600;">${item.stok_sistem}</td>
+            <td>
+                <input type="number" class="stok-fisik-input" data-index="${index}" 
+                       value="${item.stok_fisik || 0}" min="0" step="any"
+                       oninput="updateStokFisik(${index}, this.value)" 
+                       onblur="updateStokFisik(${index}, this.value)">
+            </td>
+            <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
+            <td><span class="badge ${statusClass}">${statusText}</span></td>
+        </tr>`;
+    }).join('');
+    
+    const totalFisikEl = document.getElementById('totalFisik');
+    const totalSelisihEl = document.getElementById('totalSelisih');
+    const footerTotalSelisih = document.getElementById('footerTotalSelisih');
+    const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
+    
+    if (totalFisikEl) totalFisikEl.textContent = totalFisik;
+    if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
+    if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
+    if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
+    if (tfoot) tfoot.style.display = 'table-footer-group';
+}
 
     // ============================================================
 // SELESAI OPNAME - FINAL FIX
