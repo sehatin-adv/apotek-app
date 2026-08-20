@@ -106,8 +106,11 @@
             .sidebar { width:100%; position:static; height:auto; } 
             .main-content { margin-left:0; padding:16px; } 
             .form-grid-2, .form-grid-3 { grid-template-columns:1fr; }
-            .permission-grid { grid-template-columns:1fr; }
+            .permission-grid { grid-template-columns:1fr 1fr; }
             .modal-box { max-width:100%; }
+        }
+        @media (max-width:480px) {
+            .permission-grid { grid-template-columns:1fr; }
         }
     </style>
 </head>
@@ -287,7 +290,30 @@
 
 <script type="module">
     import { supabase, getCurrentUser, signOut } from './supabase.js';
-    import { getUsers, createUser, updateUser, deleteUser, getModules, getCurrentUserPermissions, logAudit } from './database.js';
+    import { getUsers, createUser, updateUser, deleteUser, getModules, logAudit } from './database.js';
+
+    // ============================================================
+    // DEFAULT MODULES (FALLBACK)
+    // ============================================================
+    const DEFAULT_MODULES = [
+        { module_key: 'dashboard', module_name: 'Dashboard' },
+        { module_key: 'master_obat', module_name: 'Master Obat' },
+        { module_key: 'master_supplier', module_name: 'Data Supplier' },
+        { module_key: 'master_apoteker', module_name: 'Data Apoteker' },
+        { module_key: 'pembelian', module_name: 'Pembelian' },
+        { module_key: 'stok_opname', module_name: 'Stok Opname' },
+        { module_key: 'stok_terkini', module_name: 'Lihat Stok' },
+        { module_key: 'kartu_stok', module_name: 'Kartu Stok' },
+        { module_key: 'shift', module_name: 'Buka/Tutup Shift' },
+        { module_key: 'kasir', module_name: 'Kasir' },
+        { module_key: 'retur_penjualan', module_name: 'Retur Penjualan' },
+        { module_key: 'laporan_harian', module_name: 'Penjualan Harian' },
+        { module_key: 'laporan_obat', module_name: 'Penjualan Per Obat' },
+        { module_key: 'laporan_laba_rugi', module_name: 'Laba Rugi' },
+        { module_key: 'kelola_user', module_name: 'Kelola User' },
+        { module_key: 'reset_data', module_name: 'Reset Data' },
+        { module_key: 'audit_log', module_name: 'Audit Log' }
+    ];
 
     // ============================================================
     // AUTH CHECK
@@ -340,6 +366,33 @@
     let currentUser = null;
 
     // ============================================================
+    // LOAD MODULES
+    // ============================================================
+    async function loadModules() {
+        try {
+            const { data, error } = await getModules();
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+                modulesData = data;
+            } else {
+                // Jika tabel kosong, gunakan default modules
+                modulesData = DEFAULT_MODULES;
+                // Simpan ke database
+                for (const mod of DEFAULT_MODULES) {
+                    await supabase
+                        .from('app_modules')
+                        .upsert(mod, { onConflict: 'module_key' })
+                        .select();
+                }
+            }
+        } catch(e) {
+            console.error('Error loading modules, using default:', e);
+            modulesData = DEFAULT_MODULES;
+        }
+    }
+
+    // ============================================================
     // LOAD DATA
     // ============================================================
     async function loadData() {
@@ -351,6 +404,9 @@
             document.getElementById('userName').textContent = user.user_metadata?.full_name || user.email || 'admin';
         }
 
+        // Load modules first
+        await loadModules();
+
         // Ambil daftar user
         const { data, error } = await getUsers();
         if (error) {
@@ -360,12 +416,6 @@
         }
         usersData = data || [];
         renderTable(usersData);
-
-        // Ambil modul
-        const { data: modules, error: modError } = await getModules();
-        if (!modError) {
-            modulesData = modules || [];
-        }
     }
 
     // ============================================================
@@ -421,6 +471,28 @@
     }
 
     // ============================================================
+    // RENDER PERMISSIONS
+    // ============================================================
+    function renderPermissions(userPerms) {
+        const grid = document.getElementById('permissionGrid');
+        if (!modulesData || modulesData.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7a8a9e;">Tidak ada modul tersedia</div>';
+            return;
+        }
+
+        grid.innerHTML = modulesData.map(m => {
+            const perm = userPerms ? userPerms.find(p => p.module === m.module_key) : null;
+            const canView = perm ? perm.can_view : false;
+            return `
+                <div class="permission-item">
+                    <input type="checkbox" class="perm-checkbox" data-module="${m.module_key}" data-action="view" ${canView ? 'checked' : ''}>
+                    <label>${m.module_name}</label>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ============================================================
     // MODAL
     // ============================================================
     window.openModal = function() {
@@ -456,25 +528,6 @@
         renderPermissions(perms);
         document.getElementById('userModal').classList.add('active');
     };
-
-    function renderPermissions(userPerms) {
-        const grid = document.getElementById('permissionGrid');
-        if (!modulesData || modulesData.length === 0) {
-            grid.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat modul...</div>';
-            return;
-        }
-
-        grid.innerHTML = modulesData.map(m => {
-            const perm = userPerms.find(p => p.module === m.module_key);
-            const canView = perm ? perm.can_view : false;
-            return `
-                <div class="permission-item">
-                    <input type="checkbox" class="perm-checkbox" data-module="${m.module_key}" data-action="view" ${canView ? 'checked' : ''}>
-                    <label>${m.module_name}</label>
-                </div>
-            `;
-        }).join('');
-    }
 
     // ============================================================
     // SAVE USER
