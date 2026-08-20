@@ -3,5 +3,5 @@ compatibility_date = "2024-12-18"
 pages_build_output_dir = "./dist"
 
 [vars]
-SUPABASE_URL = "YOUR_SUPABASE_URL"
-SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"
+SUPABASE_URL = "https://plkdxqwmltoxifzsvkho.supabase.co/rest/v1/"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDY4NjAsImV4cCI6MjEwMjc4Mjg2MH0.gYbKMv9c5VvY0wzBxlaobh6xkJ7QIhxQ5SWBHsk3NJc"
