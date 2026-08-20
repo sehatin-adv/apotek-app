@@ -143,7 +143,6 @@ export async function saveApoteker(apotekerData) {
                 cleanData[key] = apotekerData[key];
             }
         });
-        
         const { data, error } = await supabase
             .from('apoteker')
             .upsert(cleanData, { onConflict: 'id' })
@@ -180,11 +179,9 @@ export async function getPenjualan(tanggalMulai, tanggalAkhir) {
             .select('*')
             .order('tanggal', { ascending: false })
             .order('jam', { ascending: false });
-        
         if (tanggalMulai && tanggalAkhir) {
             query = query.gte('tanggal', tanggalMulai).lte('tanggal', tanggalAkhir);
         }
-        
         const { data, error } = await query;
         if (error) throw error;
         return { data, error: null };
@@ -219,27 +216,35 @@ export async function getPenjualanByNoFaktur(noFaktur) {
 
 export async function savePenjualan(header, details) {
     try {
-        // 1. Insert header
+        // 1. Cek duplikat no_faktur
+        const { data: existing } = await supabase
+            .from('penjualan_header')
+            .select('id')
+            .eq('no_faktur', header.no_faktur)
+            .maybeSingle();
+        if (existing) {
+            console.warn('⚠️ No faktur sudah ada:', header.no_faktur);
+            return { data: existing, error: null };
+        }
+
+        // 2. Insert header
         const { data: headerData, error: headerError } = await supabase
             .from('penjualan_header')
             .insert(header)
             .select();
-        
         if (headerError) throw headerError;
-        
-        // 2. Insert details
+
+        // 3. Insert detail
         const detailsWithId = details.map(d => ({
             ...d,
             penjualan_id: headerData[0].id
         }));
-        
         const { error: detailError } = await supabase
             .from('penjualan_detail')
             .insert(detailsWithId);
-        
         if (detailError) throw detailError;
-        
-        // 3. Update stok & kartu stok
+
+        // 4. Update stok & kartu stok
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -247,14 +252,12 @@ export async function savePenjualan(header, details) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
-                
                 if (!obatError && obatData) {
                     const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
-                    
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -271,13 +274,13 @@ export async function savePenjualan(header, details) {
                 }
             }
         }
-        
+
         // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
         const data = { ...header, id: headerData[0].id, items: details };
         history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
-        
+
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -286,7 +289,7 @@ export async function savePenjualan(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-        
+
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
@@ -294,7 +297,6 @@ export async function savePenjualan(header, details) {
         const data = { ...header, id: Date.now(), items: details, saved_offline: true };
         history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
-        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -303,10 +305,6 @@ export async function savePenjualan(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-        
-        // PENTING: kembalikan error asli (jangan di-null-kan) supaya UI tahu
-        // transaksi ini HANYA tersimpan lokal dan belum masuk ke Supabase,
-        // sehingga stok master di server belum terpotong.
         return { data: { id: data.id, saved_offline: true }, error: e };
     }
 }
@@ -353,48 +351,30 @@ export async function saveRetur(returData, detailRetur) {
             .select('tanggal, jam, shift')
             .eq('no_faktur', returData.no_faktur)
             .single();
-        
         if (transError) throw transError;
-        
+
         const tglTransaksi = new Date(transaksi.tanggal);
         const tglRetur = new Date(returData.tanggal_retur);
         const selisihHari = Math.floor((tglRetur - tglTransaksi) / (1000 * 60 * 60 * 24));
-        
         if (selisihHari > 3) {
-            return { 
+            return {
                 data: null,
-                error: { 
-                    message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.',
-                    code: 'RETUR_EXPIRED'
-                } 
+                error: { message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.', code: 'RETUR_EXPIRED' }
             };
         }
-        
-        // Insert retur
+
         const { data: returHeader, error: headerError } = await supabase
             .from('retur_penjualan')
-            .insert({
-                ...returData,
-                shift_asal: transaksi.shift,
-                tanggal_asal: transaksi.tanggal,
-                jam_asal: transaksi.jam
-            })
+            .insert({ ...returData, shift_asal: transaksi.shift, tanggal_asal: transaksi.tanggal, jam_asal: transaksi.jam })
             .select();
-        
         if (headerError) throw headerError;
-        
-        const detailsWithId = detailRetur.map(d => ({
-            ...d,
-            retur_id: returHeader[0].id
-        }));
-        
+
+        const detailsWithId = detailRetur.map(d => ({ ...d, retur_id: returHeader[0].id }));
         const { error: detailError } = await supabase
             .from('retur_detail')
             .insert(detailsWithId);
-        
         if (detailError) throw detailError;
-        
-        // Update stok & kartu stok
+
         for (const item of detailRetur) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -402,14 +382,12 @@ export async function saveRetur(returData, detailRetur) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
-                
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah_retur || 0);
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
-                    
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -426,11 +404,10 @@ export async function saveRetur(returData, detailRetur) {
                 }
             }
         }
-        
+
         const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
         history.push({ ...returData, id: returHeader[0].id, items: detailRetur });
         localStorage.setItem('retur_penjualan', JSON.stringify(history));
-        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         detailRetur.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -439,7 +416,7 @@ export async function saveRetur(returData, detailRetur) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-        
+
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveRetur:', e);
@@ -458,11 +435,9 @@ export async function getKartuStok(obatId, tglAwal, tglAkhir) {
             .eq('obat_id', obatId)
             .order('tanggal', { ascending: true })
             .order('jam', { ascending: true });
-        
         if (tglAwal && tglAkhir) {
             query = query.gte('tanggal', tglAwal).lte('tanggal', tglAkhir);
         }
-        
         const { data, error } = await query;
         if (error) throw error;
         return { data, error: null };
@@ -483,7 +458,6 @@ export async function getShiftAktif() {
             .eq('status', 'Buka')
             .order('waktu_buka', { ascending: false })
             .limit(1);
-        
         if (error) throw error;
         return { data: data && data.length > 0 ? data[0] : null, error: null };
     } catch(e) {
@@ -509,9 +483,7 @@ export async function bukaShift(data) {
                 waktu_buka: new Date().toISOString()
             })
             .select();
-        
         if (error) throw error;
-        
         const shiftData = result && result.length > 0 ? result[0] : null;
         localStorage.setItem('shift_aktif', JSON.stringify(shiftData));
         return { data: shiftData, error: null };
@@ -539,7 +511,6 @@ export async function tutupShift(data) {
                 waktu_tutup: new Date().toISOString()
             })
             .eq('id', data.id);
-        
         if (error) throw error;
         localStorage.removeItem('shift_aktif');
         return { error: null };
@@ -551,16 +522,89 @@ export async function tutupShift(data) {
 }
 
 // ============================================================
-// STOK OPNAME
+// STOK OPNAME - PERBAIKAN (LENGKAP)
 // ============================================================
 export async function getStokOpname() {
     try {
+        // Ambil semua data stok opname
         const { data, error } = await supabase
             .from('stok_opname')
             .select('*')
-            .order('tanggal_mulai', { ascending: false });
+            .order('sesi_id', { ascending: false })
+            .order('created_at', { ascending: false });
+
         if (error) throw error;
-        return { data, error: null };
+
+        // Jika data kosong, cek localStorage
+        if (!data || data.length === 0) {
+            const local = localStorage.getItem('opname_history');
+            if (local) {
+                const parsed = JSON.parse(local);
+                const formatted = [];
+                parsed.forEach(session => {
+                    if (session.items && session.items.length > 0) {
+                        session.items.forEach(item => {
+                            formatted.push({
+                                id: session.id + '-' + item.id,
+                                sesi_id: session.id,
+                                obat_id: item.id,
+                                kode_obat: item.kode_obat || '',
+                                nama_obat: item.nama_obat || '',
+                                satuan: item.satuan || 'Tablet',
+                                snapshot_stok: item.snapshot_stok || 0,
+                                stok_sistem: item.stok_sistem || 0,
+                                stok_fisik: item.stok_fisik || 0,
+                                selisih: item.selisih || 0,
+                                tanggal: session.tanggal_selesai ? session.tanggal_selesai.split('T')[0] : '',
+                                jam: new Date().toTimeString().slice(0,5),
+                                keterangan: session.keterangan || 'Stok Opname',
+                                created_at: session.tanggal_selesai || session.tanggal_mulai
+                            });
+                        });
+                    }
+                });
+                return { data: formatted, error: null };
+            }
+            return { data: [], error: null };
+        }
+
+        // Kelompokkan berdasarkan sesi_id
+        const sessions = {};
+        data.forEach(row => {
+            const sesiId = row.sesi_id || 'LEGACY-' + row.id;
+            if (!sessions[sesiId]) {
+                sessions[sesiId] = {
+                    id: sesiId,
+                    tanggal_mulai: row.created_at || row.tanggal || '',
+                    tanggal_selesai: row.tanggal || row.created_at || '',
+                    total_selisih: 0,
+                    jumlah_item: 0,
+                    status: 'Selesai',
+                    keterangan: row.keterangan || 'Stok Opname',
+                    items: []
+                };
+            }
+            sessions[sesiId].items.push({
+                id: row.obat_id,
+                kode_obat: row.kode_obat || '',
+                nama_obat: row.nama_obat || '',
+                satuan: row.satuan || 'Tablet',
+                snapshot_stok: row.snapshot_stok || 0,
+                stok_sistem: row.stok_sistem || 0,
+                stok_fisik: row.stok_fisik || 0,
+                selisih: row.selisih || 0
+            });
+            sessions[sesiId].total_selisih += (row.selisih || 0);
+            sessions[sesiId].jumlah_item += 1;
+        });
+
+        // Konversi ke array
+        const result = Object.values(sessions);
+
+        // Backup ke localStorage
+        localStorage.setItem('opname_history', JSON.stringify(result));
+
+        return { data: result, error: null };
     } catch(e) {
         console.error('Error getStokOpname:', e);
         const local = localStorage.getItem('opname_history');
@@ -573,61 +617,108 @@ export async function getStokOpname() {
 
 export async function saveStokOpname(opnameData) {
     try {
-        // 1. Insert header opname (termasuk kolom items sebagai snapshot)
+        // Ambil data dari parameter
+        const { items, sesi_id, tanggal_selesai, total_selisih, keterangan } = opnameData;
+        
+        if (!items || items.length === 0) {
+            return { data: null, error: new Error('Tidak ada item untuk disimpan') };
+        }
+
+        // Buat sesi_id jika belum ada
+        const sesiId = sesi_id || 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4);
+        const tanggal = tanggal_selesai ? tanggal_selesai.split('T')[0] : new Date().toISOString().split('T')[0];
+        const jam = new Date().toTimeString().slice(0, 5);
+
+        // Siapkan batch insert (1 baris per obat)
+        const batch = items.map(item => ({
+            sesi_id: sesiId,
+            obat_id: item.id || item.obat_id,
+            kode_obat: item.kode_obat || '',
+            nama_obat: item.nama_obat || '',
+            satuan: item.satuan || 'Tablet',
+            snapshot_stok: item.snapshot_stok || 0,
+            stok_sistem: item.stok_sistem || 0,
+            stok_fisik: item.stok_fisik || 0,
+            selisih: item.selisih || 0,
+            tanggal: tanggal,
+            jam: jam,
+            keterangan: keterangan || 'Stok Opname',
+            created_at: new Date().toISOString()
+        }));
+
+        // Insert ke Supabase
         const { data, error } = await supabase
             .from('stok_opname')
-            .insert(opnameData)
+            .insert(batch)
             .select();
+
         if (error) throw error;
 
-        // 2. Update stok obat & catat ke kartu stok untuk tiap item yang ada selisihnya
-        //    (SEKALI SAJA per item, sama seperti pola savePembelian / savePenjualan)
-        const items = opnameData.items || [];
+        // ============================================================
+        // UPDATE STOK OBAT (1 baris per obat)
+        // ============================================================
         for (const item of items) {
-            const selisih = Number(item.selisih) || 0;
-            if (selisih === 0) continue; // tidak ada selisih, tidak perlu koreksi stok
-
-            const kodeObat = item.kode_obat;
-            if (!kodeObat) continue;
-
-            const { data: obatData, error: obatError } = await supabase
-                .from('obat')
-                .select('id, stok')
-                .eq('kode_obat', kodeObat)
-                .single();
-
-            if (!obatError && obatData) {
-                // Stok opname menyesuaikan stok sistem ke hasil hitung fisik
-                const stokBaru = Math.max(0, Number(item.stok_fisik) || 0);
-                await supabase
+            if (item.kode_obat) {
+                const { data: obatData, error: obatError } = await supabase
                     .from('obat')
-                    .update({ stok: stokBaru })
-                    .eq('id', obatData.id);
+                    .select('id, stok')
+                    .eq('kode_obat', item.kode_obat)
+                    .single();
 
-                await supabase
-                    .from('kartu_stok')
-                    .insert({
-                        obat_id: obatData.id,
-                        kode_obat: kodeObat,
-                        nama_obat: item.nama_obat || '',
-                        tanggal: opnameData.tanggal_selesai
-                            ? opnameData.tanggal_selesai.split('T')[0]
-                            : new Date().toISOString().split('T')[0],
-                        jam: new Date().toTimeString().slice(0, 5),
-                        no_bukti: 'OPNAME-' + (opnameData.id || Date.now()),
-                        keterangan: 'Stok Opname (' + (selisih > 0 ? 'Lebih' : 'Kurang') + ')',
-                        masuk: selisih > 0 ? selisih : 0,
-                        keluar: selisih < 0 ? Math.abs(selisih) : 0,
-                        sisa_stok: stokBaru
-                    });
+                if (!obatError && obatData) {
+                    const stokBaru = Math.max(0, Number(item.stok_fisik) || 0);
+                    await supabase
+                        .from('obat')
+                        .update({ stok: stokBaru })
+                        .eq('id', obatData.id);
+
+                    await supabase
+                        .from('kartu_stok')
+                        .insert({
+                            obat_id: obatData.id,
+                            kode_obat: item.kode_obat,
+                            nama_obat: item.nama_obat || '',
+                            tanggal: tanggal,
+                            jam: jam,
+                            no_bukti: 'OPNAME-' + sesiId,
+                            keterangan: 'Stok Opname (' + (item.selisih > 0 ? 'Lebih' : 'Kurang') + ')',
+                            masuk: item.selisih > 0 ? item.selisih : 0,
+                            keluar: item.selisih < 0 ? Math.abs(item.selisih) : 0,
+                            sisa_stok: stokBaru
+                        });
+                }
             }
         }
 
-        // 3. Sinkronkan juga stok obat di localStorage (jaga-jaga dipakai halaman lain)
+        // ============================================================
+        // UPDATE LOCALSTORAGE
+        // ============================================================
+        const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
+        const record = {
+            id: sesiId,
+            tanggal_mulai: new Date().toISOString(),
+            tanggal_selesai: new Date().toISOString(),
+            total_selisih: total_selisih || items.reduce((sum, i) => sum + (i.selisih || 0), 0),
+            jumlah_item: items.length,
+            items: items.map(item => ({
+                id: item.id || item.obat_id,
+                kode_obat: item.kode_obat || '',
+                nama_obat: item.nama_obat || '',
+                satuan: item.satuan || 'Tablet',
+                snapshot_stok: item.snapshot_stok || 0,
+                stok_sistem: item.stok_sistem || 0,
+                stok_fisik: item.stok_fisik || 0,
+                selisih: item.selisih || 0
+            })),
+            status: 'Selesai',
+            keterangan: keterangan || 'Stok Opname'
+        };
+        history.push(record);
+        localStorage.setItem('opname_history', JSON.stringify(history));
+
+        // Update localStorage obat
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         items.forEach(item => {
-            const selisih = Number(item.selisih) || 0;
-            if (selisih === 0) return;
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
             if (obat) {
                 obat.stok = Math.max(0, Number(item.stok_fisik) || 0);
@@ -638,12 +729,41 @@ export async function saveStokOpname(opnameData) {
         return { data, error: null };
     } catch(e) {
         console.error('Error saveStokOpname:', e);
+        
+        // Fallback: simpan ke localStorage
+        const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
+        const sesiId = opnameData.sesi_id || 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4);
+        const record = {
+            id: sesiId,
+            tanggal_mulai: new Date().toISOString(),
+            tanggal_selesai: new Date().toISOString(),
+            total_selisih: opnameData.total_selisih || 0,
+            jumlah_item: opnameData.items ? opnameData.items.length : 0,
+            items: opnameData.items || [],
+            status: 'Selesai',
+            keterangan: opnameData.keterangan || 'Stok Opname'
+        };
+        history.push(record);
+        localStorage.setItem('opname_history', JSON.stringify(history));
+
+        // Update stok lokal
+        if (opnameData.items) {
+            const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+            opnameData.items.forEach(item => {
+                const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
+                if (obat) {
+                    obat.stok = Math.max(0, Number(item.stok_fisik) || 0);
+                }
+            });
+            localStorage.setItem('obat', JSON.stringify(obatLocal));
+        }
+
         return { data: null, error: e };
     }
 }
 
 // ============================================================
-// PEMBELIAN - DENGAN UPDATE STOK (TANPA DUPLIKAT)
+// PEMBELIAN
 // ============================================================
 export async function getPembelian() {
     try {
@@ -670,22 +790,16 @@ export async function savePembelian(header, details) {
             .from('pembelian_header')
             .insert(header)
             .select();
-        
         if (headerError) throw headerError;
-        
+
         // 2. Insert details
-        const detailsWithId = details.map(d => ({
-            ...d,
-            pembelian_id: headerData[0].id
-        }));
-        
+        const detailsWithId = details.map(d => ({ ...d, pembelian_id: headerData[0].id }));
         const { error: detailError } = await supabase
             .from('pembelian_detail')
             .insert(detailsWithId);
-        
         if (detailError) throw detailError;
-        
-        // 3. Update stok & kartu stok (SEKALI SAJA)
+
+        // 3. Update stok & kartu stok
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -693,15 +807,12 @@ export async function savePembelian(header, details) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
-                
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah || 0);
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
-                    
-                    // INSERT KARTU STOK - HANYA SEKALI
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -718,13 +829,12 @@ export async function savePembelian(header, details) {
                 }
             }
         }
-        
+
         // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
         const data = { ...header, id: headerData[0].id, items: details };
         history.push(data);
         localStorage.setItem('pembelian_history', JSON.stringify(history));
-        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -733,16 +843,14 @@ export async function savePembelian(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-        
+
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePembelian:', e);
-        
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
         const data = { ...header, id: Date.now(), items: details, saved_offline: true };
         history.push(data);
         localStorage.setItem('pembelian_history', JSON.stringify(history));
-        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -751,9 +859,6 @@ export async function savePembelian(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-        
-        // PENTING: kembalikan error asli, jangan di-null-kan, supaya UI tahu
-        // pembelian ini belum tersinkron ke Supabase.
         return { data: { id: data.id, saved_offline: true }, error: e };
     }
 }
@@ -771,7 +876,6 @@ export async function getLaporanPenjualanHarian(tanggal) {
             `)
             .eq('tanggal', tanggal)
             .order('jam', { ascending: false });
-        
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
@@ -798,16 +902,24 @@ export async function getLaporanPenjualanPerObat(obatId, tglAwal, tglAkhir) {
             `)
             .eq('obat_id', obatId)
             .order('penjualan_header.tanggal', { ascending: false });
-        
         if (tglAwal && tglAkhir) {
             query = query
                 .gte('penjualan_header.tanggal', tglAwal)
                 .lte('penjualan_header.tanggal', tglAkhir);
         }
-        
         const { data, error } = await query;
         if (error) throw error;
-        return { data, error: null };
+        // Filter duplikat
+        const uniqueMap = new Map();
+        const uniqueData = [];
+        data.forEach(item => {
+            const key = `${item.penjualan_id}-${item.obat_id}`;
+            if (!uniqueMap.has(key)) {
+                uniqueMap.set(key, true);
+                uniqueData.push(item);
+            }
+        });
+        return { data: uniqueData, error: null };
     } catch(e) {
         console.error('Error getLaporanPenjualanPerObat:', e);
         return { data: [], error: e };
@@ -819,25 +931,25 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         const startDate = `${tahun}-${String(bulan).padStart(2, '0')}-01`;
         const lastDay = new Date(tahun, bulan, 0).getDate();
         const endDate = `${tahun}-${String(bulan).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        
+
         const { data: penjualan, error: err1 } = await supabase
             .from('penjualan_header')
             .select('total')
             .gte('tanggal', startDate)
             .lte('tanggal', endDate);
-        
+
         const { data: retur, error: err2 } = await supabase
             .from('retur_penjualan')
             .select('total_retur')
             .gte('tanggal_retur', startDate)
             .lte('tanggal_retur', endDate);
-        
+
         const { data: detail, error: err3 } = await supabase
             .from('penjualan_detail')
             .select('obat_id, jumlah')
             .gte('penjualan_header.tanggal', startDate)
             .lte('penjualan_header.tanggal', endDate);
-        
+
         let totalHPP = 0;
         if (detail && detail.length > 0) {
             const obatIds = detail.map(d => d.obat_id);
@@ -845,20 +957,18 @@ export async function getLaporanLabaRugi(bulan, tahun) {
                 .from('obat')
                 .select('id, harga_beli')
                 .in('id', obatIds);
-            
             const hppMap = {};
             obatList.forEach(o => hppMap[o.id] = o.harga_beli);
-            
             detail.forEach(d => {
                 totalHPP += (d.jumlah * (hppMap[d.obat_id] || 0));
             });
         }
-        
+
         const totalPenjualan = penjualan ? penjualan.reduce((sum, p) => sum + p.total, 0) : 0;
         const totalRetur = retur ? retur.reduce((sum, r) => sum + r.total_retur, 0) : 0;
         const penjualanBersih = totalPenjualan - totalRetur;
         const labaKotor = penjualanBersih - totalHPP;
-        
+
         return {
             total_penjualan: totalPenjualan,
             total_retur: totalRetur,
