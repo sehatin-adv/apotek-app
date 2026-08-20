@@ -558,7 +558,7 @@ export async function getStokOpname() {
         const { data, error } = await supabase
             .from('stok_opname')
             .select('*')
-            .order('tanggal', { ascending: false });
+            .order('tanggal_mulai', { ascending: false });
         if (error) throw error;
         return { data, error: null };
     } catch(e) {

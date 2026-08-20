@@ -241,6 +241,7 @@
     let opnameItems = [];
     let obatMaster = [];
     let detailOpnameData = null;
+    let riwayatDataCache = [];
 
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
@@ -427,21 +428,22 @@
         let totalSelisih = 0;
         opnameItems.forEach(item => { totalSelisih += item.selisih || 0; });
         const now = new Date();
+        // PENTING: bentuk record ini HARUS sama dengan yang dibaca oleh loadRiwayat()
+        // dan lihatDetailOpname() di bawah (tanggal_mulai, tanggal_selesai, total_selisih,
+        // jumlah_item, items). Sebelumnya record yang dikirim ke Supabase punya field
+        // yang berbeda sama sekali sehingga riwayat tampil "Invalid Date" / "undefined".
         const record = {
-            obat_id: null, snapshot_stok: 0, stok_sistem: 0, stok_fisik: 0,
-            selisih: totalSelisih, tanggal: now.toISOString().split('T')[0],
-            jam: now.toTimeString().slice(0,5), keterangan: 'Opname selesai'
+            id: sessionData.id, tanggal_mulai: sessionData.tanggal_mulai,
+            tanggal_selesai: now.toISOString(), total_selisih: totalSelisih,
+            jumlah_item: opnameItems.length, items: JSON.parse(JSON.stringify(opnameItems)), status: 'Selesai'
         };
         const { data, error } = await saveStokOpname(record);
+        // Backup ke localStorage selalu dilakukan (sama seperti pola savePembelian),
+        // supaya tombol Detail tetap bisa baca data walau offline/refresh.
+        const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
+        history.push(record);
+        localStorage.setItem('opname_history', JSON.stringify(history));
         if (error) {
-            const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
-            const localRecord = {
-                id: sessionData.id, tanggal_mulai: sessionData.tanggal_mulai,
-                tanggal_selesai: now.toISOString(), total_selisih: totalSelisih,
-                jumlah_item: opnameItems.length, items: JSON.parse(JSON.stringify(opnameItems)), status: 'Selesai'
-            };
-            history.push(localRecord);
-            localStorage.setItem('opname_history', JSON.stringify(history));
             // Update stok lokal
             const obatMasterLocal = JSON.parse(localStorage.getItem('obat') || '[]');
             opnameItems.forEach(item => {
@@ -471,7 +473,8 @@
 
     async function loadRiwayat() {
         const { data, error } = await getStokOpname();
-        let history = data || JSON.parse(localStorage.getItem('opname_history') || '[]');
+        let history = (data && data.length > 0) ? data : JSON.parse(localStorage.getItem('opname_history') || '[]');
+        riwayatDataCache = history; // cache supaya lihatDetailOpname() baca dari sumber yang sama dengan tabel
         const tbody = document.getElementById('riwayatBody');
         if (!history || history.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada riwayat opname</td></tr>';
@@ -486,8 +489,8 @@
     }
 
     window.lihatDetailOpname = function(id) {
-        const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
-        const record = history.find(h => h.id === id);
+        const localHistory = JSON.parse(localStorage.getItem('opname_history') || '[]');
+        const record = riwayatDataCache.find(h => h.id === id) || localHistory.find(h => h.id === id);
         if (!record) { showToast('Data tidak ditemukan', true); return; }
         detailOpnameData = record;
         document.getElementById('detailTitle').textContent = 'Detail Stok Opname - ' + record.id;
