@@ -493,7 +493,7 @@
                 </div>
 
                 <div class="rp-actions">
-                    <button class="btn btn-success btn-block" onclick="simpanPenjualanKasir()"><i class="fas fa-save"></i> Simpan &amp; Cetak (F9)</button>
+                    <button id="btnSimpanKasir" class="btn btn-success btn-block" onclick="simpanPenjualanKasir()"><i class="fas fa-save"></i> Simpan &amp; Cetak (F9)</button>
                     <button class="btn btn-outline btn-block" onclick="resetKasir()"><i class="fas fa-undo"></i> Reset (F5)</button>
                 </div>
             </div>
@@ -1021,7 +1021,11 @@
     // ============================================================
     // SIMPAN PENJUALAN KASIR - DENGAN UPDATE STOK
     // ============================================================
+    let sedangMenyimpanKasir = false;
     window.simpanPenjualanKasir = async function() {
+        // Guard anti double-submit: cegah klik ganda / double-tap membuat
+        // transaksi & baris kartu stok terduplikasi.
+        if (sedangMenyimpanKasir) return;
         if (!cekShiftAktif()) return;
         
         const noFaktur = 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
@@ -1093,32 +1097,50 @@
             subtotal: item.subtotal
         }));
         
-        // SIMPAN KE SUPABASE - update stok otomatis di database.js
-        const { data, error } = await savePenjualan(header, details);
+        sedangMenyimpanKasir = true;
+        const btnSimpan = document.getElementById('btnSimpanKasir');
+        if (btnSimpan) { btnSimpan.disabled = true; btnSimpan.style.opacity = '0.6'; btnSimpan.style.cursor = 'not-allowed'; }
         
-        if (error) {
-            console.error('Error saving penjualan:', error);
-            showToastKasir('❌ Gagal menyimpan penjualan: ' + error.message, true);
-            return;
-        }
-        
-        // Update stok lokal (sebagai backup)
-        itemsKasir.forEach(item => {
-            const obat = obatMasterKasir.find(o => o.kode_obat === item.kode_obat);
-            if (obat) {
-                obat.stok = Math.max(0, (Number(obat.stok) || 0) - Number(item.jumlah));
-                item.stok_tersedia = obat.stok;
+        try {
+            // SIMPAN KE SUPABASE - update stok otomatis di database.js
+            const { data, error } = await savePenjualan(header, details);
+            
+            // Kalau gagal total (tidak ada data sama sekali, bahkan lokal), baru batalkan.
+            if (error && !data) {
+                console.error('Error saving penjualan:', error);
+                showToastKasir('❌ Gagal menyimpan penjualan: ' + error.message, true);
+                return;
             }
-        });
-        localStorage.setItem('obat', JSON.stringify(obatMasterKasir));
-        
-        showToastKasir('✅ Penjualan berhasil! No: ' + noFaktur + ' | Jam: ' + jam);
-        
-        setTimeout(() => {
-            cetakStrukKasir({ ...header, items: details });
-        }, 500);
-        
-        resetKasir();
+            
+            // Update stok lokal (sebagai backup)
+            itemsKasir.forEach(item => {
+                const obat = obatMasterKasir.find(o => o.kode_obat === item.kode_obat);
+                if (obat) {
+                    obat.stok = Math.max(0, (Number(obat.stok) || 0) - Number(item.jumlah));
+                    item.stok_tersedia = obat.stok;
+                }
+            });
+            localStorage.setItem('obat', JSON.stringify(obatMasterKasir));
+            
+            if (error || (data && data.saved_offline)) {
+                // Transaksi tersimpan LOKAL saja, belum sinkron ke Supabase.
+                // Jangan klaim "berhasil" penuh - beri tahu apa adanya supaya
+                // kasir tahu perlu sinkronisasi ulang.
+                console.error('Penjualan tersimpan offline (belum sync ke Supabase):', error);
+                showToastKasir('⚠️ Penjualan tersimpan LOKAL (belum tersinkron ke server). No: ' + noFaktur + ' - Cek koneksi/login lalu sinkronkan segera!', true);
+            } else {
+                showToastKasir('✅ Penjualan berhasil! No: ' + noFaktur + ' | Jam: ' + jam);
+            }
+            
+            setTimeout(() => {
+                cetakStrukKasir({ ...header, items: details });
+            }, 500);
+            
+            resetKasir();
+        } finally {
+            sedangMenyimpanKasir = false;
+            if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.style.opacity = ''; btnSimpan.style.cursor = ''; }
+        }
     };
     
     // ============================================================

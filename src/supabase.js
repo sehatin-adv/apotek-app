@@ -10,28 +10,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // AUTHENTICATION
 // ============================================================
 export async function getCurrentUser() {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) {
-        console.error('getCurrentUser error:', error);
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        return user;
+    } catch(e) {
+        console.error('Error getCurrentUser:', e);
         return null;
     }
-    return user;
 }
 
 export async function getSession() {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) {
-        console.error('getSession error:', error);
+    try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        return session;
+    } catch(e) {
+        console.error('Error getSession:', e);
         return null;
     }
-    return session;
 }
 
 export async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (data?.session) {
-        localStorage.setItem('supabaseSession', JSON.stringify(data.session));
-    }
     return { data, error };
 }
 
@@ -45,35 +46,71 @@ export async function signUp(email, password, userData) {
 }
 
 export async function signOut() {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
     localStorage.removeItem('supabaseSession');
-    window.location.href = '/';
+    return { error };
 }
 
 // ============================================================
-// CHECK AUTH - UNTUK SEMUA HALAMAN
+// REQUIRED AUTH - Perbaikan agar tidak redirect loop
+// ============================================================
+export async function requireAuth() {
+    // Cek session dari localStorage dulu
+    const savedSession = localStorage.getItem('supabaseSession');
+    if (savedSession) {
+        try {
+            const session = JSON.parse(savedSession);
+            // Cek apakah session masih valid
+            const { data, error } = await supabase.auth.getSession();
+            if (!error && data?.session) {
+                return data.session;
+            }
+        } catch(e) {
+            console.log('Session invalid, checking...');
+        }
+    }
+    
+    // Coba ambil session dari Supabase
+    const session = await getSession();
+    if (session) {
+        localStorage.setItem('supabaseSession', JSON.stringify(session));
+        return session;
+    }
+    
+    // Jika tidak ada session, redirect ke login
+    console.log('No session found, redirecting to login');
+    window.location.href = '/';
+    return null;
+}
+
+// ============================================================
+// CHECK AUTH UNTUK SETIAP HALAMAN
 // ============================================================
 export async function checkAuth() {
     const session = localStorage.getItem('supabaseSession');
     if (!session) {
+        // Coba ambil dari Supabase
+        const supabaseSession = await getSession();
+        if (supabaseSession) {
+            localStorage.setItem('supabaseSession', JSON.stringify(supabaseSession));
+            return supabaseSession;
+        }
         window.location.href = '/';
-        return false;
+        return null;
     }
+    
     try {
+        const sessionData = JSON.parse(session);
         const { data, error } = await supabase.auth.getSession();
         if (error || !data?.session) {
             localStorage.removeItem('supabaseSession');
             window.location.href = '/';
-            return false;
+            return null;
         }
-        return true;
+        return data.session;
     } catch(e) {
         localStorage.removeItem('supabaseSession');
         window.location.href = '/';
-        return false;
+        return null;
     }
-}
-
-export async function requireAuth() {
-    return await checkAuth();
 }

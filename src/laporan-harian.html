@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laporan Penjualan Harian - Apotek Mendidoha Farma</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Laporan Penjualan Per Obat - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
         {
@@ -15,124 +15,76 @@
     </script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',sans-serif; background:#eef2f8; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
         .app-layout { display:flex; min-height:100vh; }
-
         .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
         .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
         .logo i { color:#4fc3f7; margin-right:10px; }
-
         .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
         .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
         .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
         .menu-item i { width:20px; text-align:center; }
-
         .menu-group { margin-bottom:4px; }
         .menu-group .menu-item { cursor:pointer; }
-        .sub-menu {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-            background: rgba(255,255,255,0.03);
-        }
-        .sub-menu.open { max-height: 500px; }
-        .sub-menu .menu-item {
-            padding-left: 58px;
-            font-size: 13px;
-            border-left: 3px solid transparent;
-        }
-        .sub-menu .menu-item.active {
-            background: rgba(255,255,255,0.05);
-            border-left-color: #4fc3f7;
-            color: white;
-        }
-        .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
-        .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
-        .menu-item .chevron.open { transform: rotate(180deg); }
-
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:500px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
         .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
         .user-info strong { color:white; }
         .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
         .btn-logout:hover { background:rgba(255,255,255,0.2); }
-
-        .main-content { margin-left:250px; flex:1; padding:22px 28px; min-height:100vh; }
-        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
-        .header h2 { font-size:24px; color:#0f1e2e; font-weight:800; display:flex; align-items:center; gap:10px; }
-        .header h2 i { color:#2d6a9f; font-size:22px; }
-        .user-badge { background:white; padding:8px 16px 8px 8px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 10px rgba(15,30,46,0.06); display:flex; align-items:center; gap:8px; color:#0f1e2e; }
-        .user-badge i { width:26px; height:26px; border-radius:50%; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:13px; }
-
-        .card { background:white; border-radius:18px; padding:20px 22px; box-shadow:0 4px 18px rgba(15,30,46,0.05); margin-bottom:18px; }
-        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
-        .card-title .icon-badge { width:32px; height:32px; border-radius:10px; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
-        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
-
-        .btn { padding:8px 16px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:0.15s; }
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
         .btn-primary { background:#2d6a9f; color:white; }
         .btn-primary:hover { background:#1a4a7a; }
         .btn-success { background:#28a745; color:white; }
         .btn-success:hover { background:#1e7e34; }
-        .btn-outline { background:white; border:2px solid #e8edf3; color:#34495e; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
         .btn-outline:hover { background:#f0f2f7; }
-        .btn-sm { padding:5px 12px; font-size:11px; }
-        .btn-danger { background:#dc3545; color:white; }
-        .btn-danger:hover { background:#bd2130; }
-
-        .table-wrap { overflow-x:auto; border:1px solid #eef2f7; border-radius:14px; margin-top:10px; }
-        table { width:100%; border-collapse:collapse; font-size:14px; }
-        table th {
-            text-align:left;
-            padding:12px 10px;
-            background:#f8fafc;
-            font-weight:700;
-            color:#5b6b7c;
-            border-bottom:1px solid #eef2f7;
-            white-space:nowrap;
-            font-size:12.5px;
-            text-transform:uppercase;
-            letter-spacing:0.3px;
-        }
-        table td {
-            padding:10px 8px;
-            border-bottom:1px solid #eef2f7;
-            vertical-align:middle;
-            font-weight:500;
-            font-size:14px;
-        }
-        table tbody tr:last-child td { border-bottom:none; }
-        table td .badge { display:inline-block; padding:4px 10px; border-radius:30px; font-size:11px; font-weight:600; }
-        table td .badge-success { background:#d4edda; color:#155724; }
-        table td .badge-danger { background:#f8d7da; color:#721c24; }
-        table td .badge-warning { background:#fff3cd; color:#856404; }
-        table td .badge-info { background:#d1ecf1; color:#0c5460; }
-
-        .filter-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
-        .filter-row .form-group { flex:1; min-width:180px; }
-        .filter-row .form-group label { display:block; font-size:12px; font-weight:600; color:#5b6b7c; margin-bottom:4px; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        .filter-row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
+        .filter-row .form-group { margin-bottom:0; min-width:150px; flex:1; }
+        .filter-row .form-group label { display:block; font-weight:600; font-size:12px; color:#5b6b7c; margin-bottom:4px; }
         .filter-row .form-group input, .filter-row .form-group select { width:100%; padding:8px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
         .filter-row .form-group input:focus, .filter-row .form-group select:focus { border-color:#2d6a9f; outline:none; }
-
+        .table-wrap { overflow-x:auto; margin-top:10px; border:1px solid #eef2f7; border-radius:10px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:10px 8px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:8px; border-bottom:1px solid #eef2f7; }
+        .total-row { background:#f8fafc; font-weight:700; border-top:2px solid #2d6a9f; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:600; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-info { background:#d1ecf1; color:#0c5460; }
+        .obat-list { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; max-height:200px; overflow-y:auto; border:1px solid #eef2f7; border-radius:10px; padding:8px; }
+        .obat-list .item { padding:8px 12px; border-radius:8px; cursor:pointer; transition:0.15s; display:flex; justify-content:space-between; border:1px solid transparent; background:#f8fafc; }
+        .obat-list .item:hover { background:#eaf2fb; border-color:#2d6a9f; }
+        .obat-list .item.active { background:#eaf2fb; border-color:#2d6a9f; }
+        .obat-list .item .kode { font-weight:600; color:#2d6a9f; font-size:12px; }
+        .obat-list .item .nama { font-weight:500; font-size:13px; }
+        .search-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+        .search-bar input { flex:1; min-width:150px; padding:8px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
+        .search-bar input:focus { border-color:#2d6a9f; outline:none; }
         .summary-box { display:flex; gap:30px; flex-wrap:wrap; padding:12px 16px; background:#f8fafc; border-radius:10px; margin-top:12px; }
         .summary-box .item { display:flex; gap:8px; }
         .summary-box .label { color:#7a8a9e; }
         .summary-box .value { font-weight:700; color:#0f1e2e; }
-
         .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
         .toast.error { background:#dc3545; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-
         .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
         .loading i { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
-
-        @media (max-width:768px) {
-            .sidebar { width:100%; position:static; height:auto; }
-            .main-content { margin-left:0; padding:12px; }
-            .filter-row { flex-direction:column; }
-            .filter-row .form-group { min-width:100%; }
-            table { font-size:13px; }
-            table th, table td { padding:8px 6px; }
-        }
+        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:16px; } .filter-row { flex-direction:column; } .obat-list { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -180,37 +132,58 @@
                 <i class="fas fa-chevron-down chevron open"></i>
             </div>
             <div class="sub-menu open">
-                <div class="menu-item active" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
-                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item active" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
             </div>
         </div>
         <div class="user-info">
-            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
             <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
     </div>
 
     <div class="main-content">
         <div class="header">
-            <h2><i class="fas fa-calendar-day"></i> Laporan Penjualan Harian</h2>
-            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+            <h2><i class="fas fa-pills"></i> Laporan Penjualan Per Obat</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
         </div>
 
         <div class="card">
-            <div class="card-title"><span class="icon-badge"><i class="fas fa-search"></i></span> Filter Laporan</div>
+            <div class="card-title"><span class="icon-badge"><i class="fas fa-search"></i></span> Pilih Obat</div>
+            <div class="search-bar">
+                <input type="text" id="searchObat" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterObatList()">
+                <button class="btn btn-primary" onclick="loadObatList()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+            <div class="obat-list" id="obatList">
+                <div class="loading"><i class="fas fa-spinner"></i> Memuat data obat...</div>
+            </div>
+            <div style="margin-top:8px;font-size:12px;color:#7a8a9e;" id="totalObatInfo">Total: 0 obat</div>
+        </div>
+
+        <div class="card" id="detailCard" style="display:none;">
+            <div class="flex-between">
+                <div class="card-title">
+                    <span class="icon-badge"><i class="fas fa-file-invoice"></i></span>
+                    <span id="judulObat">Histori Penjualan: <span id="namaObatSelected">-</span></span>
+                </div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="downloadCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                </div>
+            </div>
+
             <div class="filter-row">
                 <div class="form-group">
                     <label>Tanggal Mulai</label>
-                    <input type="date" id="tglAwal" onchange="loadLaporan()">
+                    <input type="date" id="tglAwal" onchange="loadLaporanObat()">
                 </div>
                 <div class="form-group">
                     <label>Tanggal Akhir</label>
-                    <input type="date" id="tglAkhir" onchange="loadLaporan()">
+                    <input type="date" id="tglAkhir" onchange="loadLaporanObat()">
                 </div>
-                <div class="form-group" style="flex:0.5; min-width:100px;">
+                <div class="form-group" style="flex:0.5;min-width:100px;">
                     <label>&nbsp;</label>
-                    <button class="btn btn-primary" onclick="loadLaporan()" style="width:100%;"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn btn-outline btn-sm" onclick="resetPeriode()" style="width:100%;">Reset Periode</button>
                 </div>
             </div>
 
@@ -219,40 +192,43 @@
                     <thead>
                         <tr>
                             <th style="width:35px;">No</th>
-                            <th style="min-width:130px;">No. Faktur</th>
                             <th style="min-width:100px;">Tanggal</th>
                             <th style="width:60px;">Jam</th>
-                            <th style="min-width:90px;">Pelanggan</th>
-                            <th style="width:60px;">Shift</th>
-                            <th style="width:50px;">Item</th>
+                            <th style="min-width:130px;">No. Transaksi</th>
+                            <th style="width:60px;text-align:right;">Qty</th>
+                            <th style="width:90px;text-align:right;">Harga</th>
+                            <th style="width:110px;text-align:right;">Total</th>
                             <th style="width:80px;">Kasir</th>
-                            <th style="width:90px;">Metode</th>
-                            <th style="width:110px;">Total</th>
-                            <th style="width:110px;">Status</th>
+                            <th style="width:80px;">Metode</th>
                         </tr>
                     </thead>
                     <tbody id="laporanBody">
-                        <tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
+                        <tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Pilih obat terlebih dahulu</td></tr>
                     </tbody>
+                    <tfoot id="laporanFooter" style="display:none;">
+                        <tr class="total-row">
+                            <td colspan="4" style="text-align:right;">TOTAL</td>
+                            <td id="totalQty" style="text-align:right;font-weight:700;">0</td>
+                            <td></td>
+                            <td id="totalPenjualan" style="text-align:right;font-weight:700;color:#2d6a9f;">Rp 0</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
 
-            <div class="summary-box" id="summaryBox">
+            <div class="summary-box">
                 <div class="item">
-                    <span class="label">Total Transaksi:</span>
-                    <span class="value" id="sumTransaksi">0</span>
+                    <span class="label">Total Terjual:</span>
+                    <span class="value" id="summaryTotalQty">0</span>
                 </div>
                 <div class="item">
                     <span class="label">Total Penjualan:</span>
-                    <span class="value" id="sumTotal">Rp 0</span>
+                    <span class="value" id="summaryTotalPenjualan" style="color:#2d6a9f;">Rp 0</span>
                 </div>
                 <div class="item">
-                    <span class="label">Total Retur:</span>
-                    <span class="value" id="sumRetur" style="color:#dc3545;">Rp 0</span>
-                </div>
-                <div class="item">
-                    <span class="label">Penjualan Bersih:</span>
-                    <span class="value" id="sumBersih" style="color:#28a745;">Rp 0</span>
+                    <span class="label">Total Transaksi:</span>
+                    <span class="value" id="summaryTotalTransaksi">0</span>
                 </div>
             </div>
         </div>
@@ -262,45 +238,18 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-    import { supabase } from './supabase.js';
-    import { getPenjualan, getAllRetur } from './database.js';
-
-    // ============================================================
-    // AUTH CHECK
-    // ============================================================
-    async function checkAuth() {
-        const session = localStorage.getItem('supabaseSession');
-        if (!session) {
-            window.location.href = '/';
-            return false;
-        }
-        try {
-            const { data, error } = await supabase.auth.getSession();
-            if (error || !data?.session) {
-                localStorage.removeItem('supabaseSession');
-                window.location.href = '/';
-                return false;
-            }
-            return true;
-        } catch(e) {
-            localStorage.removeItem('supabaseSession');
-            window.location.href = '/';
-            return false;
-        }
-    }
-
-    if (!await checkAuth()) {
-        window.location.href = '/';
-    }
-
+    import { getObat, getLaporanPenjualanPerObat } from './database.js';
+    
     // ============================================================
     // GLOBAL
     // ============================================================
-    let allPenjualan = [];
-    let allRetur = [];
+    let allObat = [];
+    let selectedObat = null;
+    let laporanData = [];
 
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -312,9 +261,85 @@
     };
 
     // ============================================================
-    // LOAD LAPORAN DARI SUPABASE
+    // LOAD OBAT
     // ============================================================
-    window.loadLaporan = async function() {
+    window.loadObatList = async function() {
+        const container = document.getElementById('obatList');
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data obat...</div>';
+
+        try {
+            const { data, error } = await getObat();
+            if (data && data.length > 0) {
+                allObat = data;
+            } else {
+                const local = localStorage.getItem('obat');
+                if (local) allObat = JSON.parse(local);
+            }
+            renderObatList(allObat);
+            document.getElementById('totalObatInfo').textContent = `Total: ${allObat.length} obat`;
+        } catch(e) {
+            container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#dc3545;padding:20px;">❌ Gagal memuat data</div>';
+        }
+    };
+
+    function renderObatList(data) {
+        const container = document.getElementById('obatList');
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#7a8a9e;padding:20px;">Belum ada data obat</div>';
+            return;
+        }
+        container.innerHTML = data.map(o => `
+            <div class="item" onclick="pilihObat('${o.id}')" data-id="${o.id}">
+                <div>
+                    <span class="kode">${o.kode_obat || '-'}</span>
+                    <span class="nama">${o.nama_obat || '-'}</span>
+                </div>
+                <span style="color:#7a8a9e;font-size:12px;">Stok: ${o.stok || 0}</span>
+            </div>
+        `).join('');
+    }
+
+    window.filterObatList = function() {
+        const keyword = document.getElementById('searchObat').value.toLowerCase();
+        if (!keyword.trim()) {
+            renderObatList(allObat);
+            return;
+        }
+        const filtered = allObat.filter(o => 
+            (o.kode_obat || '').toLowerCase().includes(keyword) ||
+            (o.nama_obat || '').toLowerCase().includes(keyword)
+        );
+        renderObatList(filtered);
+    };
+
+    // ============================================================
+    // PILIH OBAT & LOAD LAPORAN
+    // ============================================================
+    window.pilihObat = async function(id) {
+        selectedObat = allObat.find(o => o.id == id);
+        if (!selectedObat) return;
+
+        document.querySelectorAll('.obat-list .item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.obat-list .item[data-id="${id}"]`)?.classList.add('active');
+
+        document.getElementById('detailCard').style.display = 'block';
+        document.getElementById('namaObatSelected').textContent = `${selectedObat.nama_obat} (${selectedObat.kode_obat})`;
+
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+        document.getElementById('tglAwal').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('tglAkhir').value = lastDay.toISOString().split('T')[0];
+
+        await loadLaporanObat();
+    };
+
+    // ============================================================
+    // LOAD LAPORAN PER OBAT
+    // ============================================================
+    window.loadLaporanObat = async function() {
+        if (!selectedObat) return;
+
         const tglAwal = document.getElementById('tglAwal').value;
         const tglAkhir = document.getElementById('tglAkhir').value;
 
@@ -324,130 +349,135 @@
         }
 
         const tbody = document.getElementById('laporanBody');
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
 
         try {
-            // Ambil dari Supabase
-            const { data: penjualanData, error: penjualanError } = await getPenjualan(tglAwal, tglAkhir);
-            const { data: returData, error: returError } = await getAllRetur();
-
-            if (penjualanData && penjualanData.length > 0) {
-                allPenjualan = penjualanData;
+            const { data, error } = await getLaporanPenjualanPerObat(selectedObat.id, tglAwal, tglAkhir);
+            
+            if (data && data.length > 0) {
+                laporanData = data;
             } else {
                 // Fallback ke localStorage
-                const localPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-                allPenjualan = localPenjualan.filter(p => {
-                    const tgl = p.tanggal || '';
-                    return tgl >= tglAwal && tgl <= tglAkhir;
+                const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
+                laporanData = [];
+                allPenjualan.forEach(p => {
+                    if (p.items) {
+                        p.items.forEach(item => {
+                            if (item.kode_obat === selectedObat.kode_obat) {
+                                laporanData.push({
+                                    ...item,
+                                    no_faktur: p.no_faktur,
+                                    tanggal: p.tanggal,
+                                    jam: p.jam || '00:00',
+                                    kasir: p.kasir || '-',
+                                    metode_pembayaran: p.metode_pembayaran || 'Cash'
+                                });
+                            }
+                        });
+                    }
                 });
-                allPenjualan = allPenjualan.map(p => {
-                    if (!p.jam) p.jam = '00:00';
-                    return p;
+                // Filter tanggal
+                laporanData = laporanData.filter(d => d.tanggal >= tglAwal && d.tanggal <= tglAkhir);
+                laporanData.sort((a,b) => {
+                    if (a.tanggal !== b.tanggal) return b.tanggal.localeCompare(a.tanggal);
+                    return (b.jam || '00:00').localeCompare(a.jam || '00:00');
                 });
             }
-
-            allRetur = returData || JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-
-            // Urutkan dari yang terbaru
-            allPenjualan.sort((a,b) => {
-                const tglA = a.tanggal || '';
-                const tglB = b.tanggal || '';
-                if (tglA !== tglB) return tglB.localeCompare(tglA);
-                const jamA = a.jam || '00:00';
-                const jamB = b.jam || '00:00';
-                return jamB.localeCompare(jamA);
-            });
-
-            renderLaporan(allPenjualan);
-            hitungSummary(allPenjualan);
+            
+            renderLaporan(laporanData);
+            hitungSummary(laporanData);
 
         } catch(e) {
-            console.error('Error load laporan:', e);
-            // Fallback ke localStorage
-            const localPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-            allPenjualan = localPenjualan.filter(p => {
-                const tgl = p.tanggal || '';
-                return tgl >= tglAwal && tgl <= tglAkhir;
-            });
-            allPenjualan = allPenjualan.map(p => {
-                if (!p.jam) p.jam = '00:00';
-                return p;
-            });
-            allRetur = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-            renderLaporan(allPenjualan);
-            hitungSummary(allPenjualan);
+            console.error('Error:', e);
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">❌ Gagal memuat data</td></tr>';
         }
     };
 
     // ============================================================
-    // RENDER LAPORAN - TAMPILKAN JAM
+    // RENDER LAPORAN
     // ============================================================
     function renderLaporan(data) {
         const tbody = document.getElementById('laporanBody');
+        const tfoot = document.getElementById('laporanFooter');
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
+            tfoot.style.display = 'none';
             return;
         }
 
-        tbody.innerHTML = data.map((p, idx) => {
-            const totalRetur = allRetur
-                .filter(r => r.no_faktur === p.no_faktur)
-                .reduce((sum, r) => sum + Number(r.total_retur || 0), 0);
-            const bersih = Number(p.total) - totalRetur;
+        tbody.innerHTML = data.map((d, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td>${formatTanggal(d.tanggal)}</td>
+                <td>${d.jam || '00:00'}</td>
+                <td><strong>${d.no_faktur || '-'}</strong></td>
+                <td style="text-align:right;">${d.jumlah || 0}</td>
+                <td style="text-align:right;">${formatRupiah(d.harga_jual)}</td>
+                <td style="text-align:right;font-weight:700;color:#2d6a9f;">${formatRupiah(d.subtotal || d.jumlah * d.harga_jual)}</td>
+                <td>${d.kasir || '-'}</td>
+                <td>${d.metode_pembayaran || 'Cash'}</td>
+            </tr>
+        `).join('');
 
-            let statusClass = 'badge-success';
-            let statusText = 'Selesai';
-            if (totalRetur > 0 && totalRetur < Number(p.total)) {
-                statusClass = 'badge-warning';
-                statusText = 'Sebagian Diretur';
-            } else if (totalRetur > 0 && totalRetur >= Number(p.total)) {
-                statusClass = 'badge-danger';
-                statusText = 'Diretur (Lengkap)';
-            }
-
-            return `
-                <tr>
-                    <td>${idx+1}</td>
-                    <td><strong>${p.no_faktur || '-'}</strong></td>
-                    <td>${formatTanggal(p.tanggal)}</td>
-                    <td>${p.jam || '00:00'}</td>
-                    <td>${p.pelanggan || 'Umum'}</td>
-                    <td>${p.shift || '-'}</td>
-                    <td>${p.items ? p.items.length : 0}</td>
-                    <td>${p.kasir || '-'}</td>
-                    <td>${p.metode_pembayaran || 'Cash'}</td>
-                    <td style="font-weight:700;color:#2d6a9f;">${formatRupiah(p.total)}</td>
-                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                </tr>
-            `;
-        }).join('');
+        tfoot.style.display = 'table-footer-group';
     }
 
     // ============================================================
     // HITUNG SUMMARY
     // ============================================================
     function hitungSummary(data) {
-        let totalTransaksi = data.length;
+        let totalQty = 0;
         let totalPenjualan = 0;
-        let totalRetur = 0;
 
-        data.forEach(p => {
-            totalPenjualan += Number(p.total) || 0;
-            allRetur.forEach(r => {
-                if (r.no_faktur === p.no_faktur) {
-                    totalRetur += Number(r.total_retur) || 0;
-                }
-            });
+        data.forEach(d => {
+            totalQty += Number(d.jumlah) || 0;
+            totalPenjualan += Number(d.subtotal || d.jumlah * d.harga_jual) || 0;
         });
 
-        const bersih = totalPenjualan - totalRetur;
-
-        document.getElementById('sumTransaksi').textContent = totalTransaksi;
-        document.getElementById('sumTotal').textContent = formatRupiah(totalPenjualan);
-        document.getElementById('sumRetur').textContent = formatRupiah(totalRetur);
-        document.getElementById('sumBersih').textContent = formatRupiah(bersih);
+        document.getElementById('totalQty').textContent = totalQty;
+        document.getElementById('totalPenjualan').textContent = formatRupiah(totalPenjualan);
+        document.getElementById('summaryTotalQty').textContent = totalQty;
+        document.getElementById('summaryTotalPenjualan').textContent = formatRupiah(totalPenjualan);
+        document.getElementById('summaryTotalTransaksi').textContent = data.length;
     }
+
+    // ============================================================
+    // RESET PERIODE
+    // ============================================================
+    window.resetPeriode = function() {
+        if (!selectedObat) return;
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+        document.getElementById('tglAwal').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('tglAkhir').value = lastDay.toISOString().split('T')[0];
+        loadLaporanObat();
+    };
+
+    // ============================================================
+    // DOWNLOAD CSV
+    // ============================================================
+    window.downloadCSV = function() {
+        if (!laporanData || laporanData.length === 0) {
+            alert('Tidak ada data untuk di-download');
+            return;
+        }
+
+        let csv = 'No,Tanggal,Jam,No. Transaksi,Qty,Harga,Total,Kasir,Metode\n';
+        laporanData.forEach((d, i) => {
+            csv += `${i+1},${d.tanggal},${d.jam || '00:00'},${d.no_faktur || '-'},${d.jumlah || 0},${d.harga_jual || 0},${d.subtotal || d.jumlah * d.harga_jual},${d.kasir || '-'},${d.metode_pembayaran || 'Cash'}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Laporan_${selectedObat?.kode_obat || 'obat'}_${document.getElementById('tglAwal').value}_${document.getElementById('tglAkhir').value}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('📥 Download berhasil');
+    };
 
     // ============================================================
     // UTILITY
@@ -478,10 +508,7 @@
     // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('tglAwal').value = today;
-        document.getElementById('tglAkhir').value = today;
-        loadLaporan();
+        loadObatList();
     });
 </script>
 </body>

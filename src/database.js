@@ -143,6 +143,7 @@ export async function saveApoteker(apotekerData) {
                 cleanData[key] = apotekerData[key];
             }
         });
+        
         const { data, error } = await supabase
             .from('apoteker')
             .upsert(cleanData, { onConflict: 'id' })
@@ -179,9 +180,11 @@ export async function getPenjualan(tanggalMulai, tanggalAkhir) {
             .select('*')
             .order('tanggal', { ascending: false })
             .order('jam', { ascending: false });
+        
         if (tanggalMulai && tanggalAkhir) {
             query = query.gte('tanggal', tanggalMulai).lte('tanggal', tanggalAkhir);
         }
+        
         const { data, error } = await query;
         if (error) throw error;
         return { data, error: null };
@@ -216,35 +219,27 @@ export async function getPenjualanByNoFaktur(noFaktur) {
 
 export async function savePenjualan(header, details) {
     try {
-        // 1. Cek duplikat no_faktur
-        const { data: existing } = await supabase
-            .from('penjualan_header')
-            .select('id')
-            .eq('no_faktur', header.no_faktur)
-            .maybeSingle();
-        if (existing) {
-            console.warn('⚠️ No faktur sudah ada:', header.no_faktur);
-            return { data: existing, error: null };
-        }
-
-        // 2. Insert header
+        // 1. Insert header
         const { data: headerData, error: headerError } = await supabase
             .from('penjualan_header')
             .insert(header)
             .select();
+        
         if (headerError) throw headerError;
-
-        // 3. Insert detail
+        
+        // 2. Insert details
         const detailsWithId = details.map(d => ({
             ...d,
             penjualan_id: headerData[0].id
         }));
+        
         const { error: detailError } = await supabase
             .from('penjualan_detail')
             .insert(detailsWithId);
+        
         if (detailError) throw detailError;
-
-        // 4. Update stok & kartu stok
+        
+        // 3. Update stok & kartu stok
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -252,12 +247,14 @@ export async function savePenjualan(header, details) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
+                
                 if (!obatError && obatData) {
                     const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
+                    
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -274,12 +271,13 @@ export async function savePenjualan(header, details) {
                 }
             }
         }
-
+        
         // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-        history.push({ ...header, id: headerData[0].id, items: details });
+        const data = { ...header, id: headerData[0].id, items: details };
+        history.push(data);
         localStorage.setItem('penjualan_history', JSON.stringify(history));
-
+        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -288,11 +286,28 @@ export async function savePenjualan(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-
+        
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
-        return { data: null, error: e };
+        const history = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
+        const data = { ...header, id: Date.now(), items: details, saved_offline: true };
+        history.push(data);
+        localStorage.setItem('penjualan_history', JSON.stringify(history));
+        
+        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+        details.forEach(item => {
+            const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
+            if (obat) {
+                obat.stok = Math.max(0, (obat.stok || 0) - (item.jumlah || 0));
+            }
+        });
+        localStorage.setItem('obat', JSON.stringify(obatLocal));
+        
+        // PENTING: kembalikan error asli (jangan di-null-kan) supaya UI tahu
+        // transaksi ini HANYA tersimpan lokal dan belum masuk ke Supabase,
+        // sehingga stok master di server belum terpotong.
+        return { data: { id: data.id, saved_offline: true }, error: e };
     }
 }
 
@@ -308,8 +323,11 @@ export async function getAllRetur() {
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
+        console.error('Error getAllRetur:', e);
         const local = localStorage.getItem('retur_penjualan');
-        if (local) return { data: JSON.parse(local), error: null };
+        if (local) {
+            return { data: JSON.parse(local), error: null };
+        }
         return { data: [], error: e };
     }
 }
@@ -323,6 +341,7 @@ export async function getReturByNoFaktur(noFaktur) {
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
+        console.error('Error getReturByNoFaktur:', e);
         return { data: null, error: e };
     }
 }
@@ -334,30 +353,48 @@ export async function saveRetur(returData, detailRetur) {
             .select('tanggal, jam, shift')
             .eq('no_faktur', returData.no_faktur)
             .single();
+        
         if (transError) throw transError;
-
+        
         const tglTransaksi = new Date(transaksi.tanggal);
         const tglRetur = new Date(returData.tanggal_retur);
         const selisihHari = Math.floor((tglRetur - tglTransaksi) / (1000 * 60 * 60 * 24));
+        
         if (selisihHari > 3) {
-            return {
+            return { 
                 data: null,
-                error: { message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.', code: 'RETUR_EXPIRED' }
+                error: { 
+                    message: 'Retur tidak dapat dilakukan karena transaksi sudah melewati batas waktu retur maksimal 3 hari.',
+                    code: 'RETUR_EXPIRED'
+                } 
             };
         }
-
+        
+        // Insert retur
         const { data: returHeader, error: headerError } = await supabase
             .from('retur_penjualan')
-            .insert({ ...returData, shift_asal: transaksi.shift, tanggal_asal: transaksi.tanggal, jam_asal: transaksi.jam })
+            .insert({
+                ...returData,
+                shift_asal: transaksi.shift,
+                tanggal_asal: transaksi.tanggal,
+                jam_asal: transaksi.jam
+            })
             .select();
+        
         if (headerError) throw headerError;
-
-        const detailsWithId = detailRetur.map(d => ({ ...d, retur_id: returHeader[0].id }));
+        
+        const detailsWithId = detailRetur.map(d => ({
+            ...d,
+            retur_id: returHeader[0].id
+        }));
+        
         const { error: detailError } = await supabase
             .from('retur_detail')
             .insert(detailsWithId);
+        
         if (detailError) throw detailError;
-
+        
+        // Update stok & kartu stok
         for (const item of detailRetur) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -365,12 +402,14 @@ export async function saveRetur(returData, detailRetur) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
+                
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah_retur || 0);
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
+                    
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -387,10 +426,20 @@ export async function saveRetur(returData, detailRetur) {
                 }
             }
         }
-
+        
         const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
         history.push({ ...returData, id: returHeader[0].id, items: detailRetur });
         localStorage.setItem('retur_penjualan', JSON.stringify(history));
+        
+        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+        detailRetur.forEach(item => {
+            const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
+            if (obat) {
+                obat.stok = (obat.stok || 0) + (item.jumlah_retur || 0);
+            }
+        });
+        localStorage.setItem('obat', JSON.stringify(obatLocal));
+        
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveRetur:', e);
@@ -409,9 +458,11 @@ export async function getKartuStok(obatId, tglAwal, tglAkhir) {
             .eq('obat_id', obatId)
             .order('tanggal', { ascending: true })
             .order('jam', { ascending: true });
+        
         if (tglAwal && tglAkhir) {
             query = query.gte('tanggal', tglAwal).lte('tanggal', tglAkhir);
         }
+        
         const { data, error } = await query;
         if (error) throw error;
         return { data, error: null };
@@ -432,11 +483,15 @@ export async function getShiftAktif() {
             .eq('status', 'Buka')
             .order('waktu_buka', { ascending: false })
             .limit(1);
+        
         if (error) throw error;
         return { data: data && data.length > 0 ? data[0] : null, error: null };
     } catch(e) {
+        console.error('Error getShiftAktif:', e);
         const local = localStorage.getItem('shift_aktif');
-        if (local) return { data: JSON.parse(local), error: null };
+        if (local) {
+            return { data: JSON.parse(local), error: null };
+        }
         return { data: null, error: e };
     }
 }
@@ -454,11 +509,14 @@ export async function bukaShift(data) {
                 waktu_buka: new Date().toISOString()
             })
             .select();
+        
         if (error) throw error;
+        
         const shiftData = result && result.length > 0 ? result[0] : null;
         localStorage.setItem('shift_aktif', JSON.stringify(shiftData));
         return { data: shiftData, error: null };
     } catch(e) {
+        console.error('Error bukaShift:', e);
         const shiftData = { ...data, id: Date.now(), status: 'Buka', waktu_buka: new Date().toISOString() };
         localStorage.setItem('shift_aktif', JSON.stringify(shiftData));
         return { data: shiftData, error: null };
@@ -481,10 +539,12 @@ export async function tutupShift(data) {
                 waktu_tutup: new Date().toISOString()
             })
             .eq('id', data.id);
+        
         if (error) throw error;
         localStorage.removeItem('shift_aktif');
         return { error: null };
     } catch(e) {
+        console.error('Error tutupShift:', e);
         localStorage.removeItem('shift_aktif');
         return { error: null };
     }
@@ -502,8 +562,11 @@ export async function getStokOpname() {
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
+        console.error('Error getStokOpname:', e);
         const local = localStorage.getItem('opname_history');
-        if (local) return { data: JSON.parse(local), error: null };
+        if (local) {
+            return { data: JSON.parse(local), error: null };
+        }
         return { data: [], error: e };
     }
 }
@@ -523,7 +586,7 @@ export async function saveStokOpname(opnameData) {
 }
 
 // ============================================================
-// PEMBELIAN
+// PEMBELIAN - DENGAN UPDATE STOK (TANPA DUPLIKAT)
 // ============================================================
 export async function getPembelian() {
     try {
@@ -534,37 +597,38 @@ export async function getPembelian() {
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
+        console.error('Error getPembelian:', e);
         const local = localStorage.getItem('pembelian_history');
-        if (local) return { data: JSON.parse(local), error: null };
+        if (local) {
+            return { data: JSON.parse(local), error: null };
+        }
         return { data: [], error: e };
     }
 }
 
 export async function savePembelian(header, details) {
     try {
-        // 1. Cek duplikat no_faktur
-        const { data: existing } = await supabase
-            .from('pembelian_header')
-            .select('id')
-            .eq('no_faktur', header.no_faktur)
-            .maybeSingle();
-        if (existing) {
-            console.warn('⚠️ No faktur sudah ada:', header.no_faktur);
-            return { data: existing, error: null };
-        }
-
+        // 1. Insert header
         const { data: headerData, error: headerError } = await supabase
             .from('pembelian_header')
             .insert(header)
             .select();
+        
         if (headerError) throw headerError;
-
-        const detailsWithId = details.map(d => ({ ...d, pembelian_id: headerData[0].id }));
+        
+        // 2. Insert details
+        const detailsWithId = details.map(d => ({
+            ...d,
+            pembelian_id: headerData[0].id
+        }));
+        
         const { error: detailError } = await supabase
             .from('pembelian_detail')
             .insert(detailsWithId);
+        
         if (detailError) throw detailError;
-
+        
+        // 3. Update stok & kartu stok (SEKALI SAJA)
         for (const item of details) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -572,12 +636,15 @@ export async function savePembelian(header, details) {
                     .select('id, stok')
                     .eq('kode_obat', item.kode_obat)
                     .single();
+                
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah || 0);
                     await supabase
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
+                    
+                    // INSERT KARTU STOK - HANYA SEKALI
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -594,11 +661,13 @@ export async function savePembelian(header, details) {
                 }
             }
         }
-
+        
+        // Backup ke localStorage
         const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
-        history.push({ ...header, id: headerData[0].id, items: details });
+        const data = { ...header, id: headerData[0].id, items: details };
+        history.push(data);
         localStorage.setItem('pembelian_history', JSON.stringify(history));
-
+        
         const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
         details.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
@@ -607,11 +676,28 @@ export async function savePembelian(header, details) {
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
-
+        
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePembelian:', e);
-        return { data: null, error: e };
+        
+        const history = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
+        const data = { ...header, id: Date.now(), items: details, saved_offline: true };
+        history.push(data);
+        localStorage.setItem('pembelian_history', JSON.stringify(history));
+        
+        const obatLocal = JSON.parse(localStorage.getItem('obat') || '[]');
+        details.forEach(item => {
+            const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
+            if (obat) {
+                obat.stok = (obat.stok || 0) + (item.jumlah || 0);
+            }
+        });
+        localStorage.setItem('obat', JSON.stringify(obatLocal));
+        
+        // PENTING: kembalikan error asli, jangan di-null-kan, supaya UI tahu
+        // pembelian ini belum tersinkron ke Supabase.
+        return { data: { id: data.id, saved_offline: true }, error: e };
     }
 }
 
@@ -622,12 +708,17 @@ export async function getLaporanPenjualanHarian(tanggal) {
     try {
         const { data, error } = await supabase
             .from('penjualan_header')
-            .select(`*, penjualan_detail(*)`)
+            .select(`
+                *,
+                penjualan_detail(*)
+            `)
             .eq('tanggal', tanggal)
             .order('jam', { ascending: false });
+        
         if (error) throw error;
         return { data, error: null };
     } catch(e) {
+        console.error('Error getLaporanPenjualanHarian:', e);
         return { data: [], error: e };
     }
 }
@@ -637,15 +728,7 @@ export async function getLaporanPenjualanPerObat(obatId, tglAwal, tglAkhir) {
         let query = supabase
             .from('penjualan_detail')
             .select(`
-                id,
-                penjualan_id,
-                obat_id,
-                kode_obat,
-                nama_obat,
-                satuan,
-                jumlah,
-                harga_jual,
-                subtotal,
+                *,
                 penjualan_header:penjualan_id (
                     no_faktur,
                     tanggal,
@@ -657,52 +740,20 @@ export async function getLaporanPenjualanPerObat(obatId, tglAwal, tglAkhir) {
                 )
             `)
             .eq('obat_id', obatId)
-            .order('penjualan_header(tanggal)', { ascending: false });
+            .order('penjualan_header.tanggal', { ascending: false });
+        
         if (tglAwal && tglAkhir) {
             query = query
                 .gte('penjualan_header.tanggal', tglAwal)
                 .lte('penjualan_header.tanggal', tglAkhir);
         }
+        
         const { data, error } = await query;
         if (error) throw error;
-
-        // Filter duplikat
-        const uniqueMap = new Map();
-        const uniqueData = [];
-        data.forEach(item => {
-            const key = `${item.penjualan_id}-${item.obat_id}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, true);
-                uniqueData.push(item);
-            }
-        });
-        return { data: uniqueData, error: null };
+        return { data, error: null };
     } catch(e) {
         console.error('Error getLaporanPenjualanPerObat:', e);
-        const allPenjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
-        const result = [];
-        allPenjualan.forEach(p => {
-            if (p.items) {
-                p.items.forEach(item => {
-                    if (item.kode_obat === obatId || item.obat_id === obatId) {
-                        const tgl = p.tanggal || '';
-                        if (tgl >= tglAwal && tgl <= tglAkhir) {
-                            result.push({ ...item, no_faktur: p.no_faktur, tanggal: p.tanggal, jam: p.jam || '00:00', kasir: p.kasir || '-', metode_pembayaran: p.metode_pembayaran || 'Cash' });
-                        }
-                    }
-                });
-            }
-        });
-        const localMap = new Map();
-        const localUnique = [];
-        result.forEach(item => {
-            const key = `${item.no_faktur}-${item.kode_obat}`;
-            if (!localMap.has(key)) {
-                localMap.set(key, true);
-                localUnique.push(item);
-            }
-        });
-        return { data: localUnique, error: null };
+        return { data: [], error: e };
     }
 }
 
@@ -711,21 +762,25 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         const startDate = `${tahun}-${String(bulan).padStart(2, '0')}-01`;
         const lastDay = new Date(tahun, bulan, 0).getDate();
         const endDate = `${tahun}-${String(bulan).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        const { data: penjualan } = await supabase
+        
+        const { data: penjualan, error: err1 } = await supabase
             .from('penjualan_header')
             .select('total')
             .gte('tanggal', startDate)
             .lte('tanggal', endDate);
-        const { data: retur } = await supabase
+        
+        const { data: retur, error: err2 } = await supabase
             .from('retur_penjualan')
             .select('total_retur')
             .gte('tanggal_retur', startDate)
             .lte('tanggal_retur', endDate);
-        const { data: detail } = await supabase
+        
+        const { data: detail, error: err3 } = await supabase
             .from('penjualan_detail')
             .select('obat_id, jumlah')
             .gte('penjualan_header.tanggal', startDate)
             .lte('penjualan_header.tanggal', endDate);
+        
         let totalHPP = 0;
         if (detail && detail.length > 0) {
             const obatIds = detail.map(d => d.obat_id);
@@ -733,16 +788,20 @@ export async function getLaporanLabaRugi(bulan, tahun) {
                 .from('obat')
                 .select('id, harga_beli')
                 .in('id', obatIds);
+            
             const hppMap = {};
             obatList.forEach(o => hppMap[o.id] = o.harga_beli);
+            
             detail.forEach(d => {
                 totalHPP += (d.jumlah * (hppMap[d.obat_id] || 0));
             });
         }
+        
         const totalPenjualan = penjualan ? penjualan.reduce((sum, p) => sum + p.total, 0) : 0;
         const totalRetur = retur ? retur.reduce((sum, r) => sum + r.total_retur, 0) : 0;
         const penjualanBersih = totalPenjualan - totalRetur;
         const labaKotor = penjualanBersih - totalHPP;
+        
         return {
             total_penjualan: totalPenjualan,
             total_retur: totalRetur,

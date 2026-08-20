@@ -17,56 +17,36 @@
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#eef2f8; }
         .app-layout { display:flex; min-height:100vh; }
-
         .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
         .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
         .logo i { color:#4fc3f7; margin-right:10px; }
-
         .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
         .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
         .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
         .menu-item i { width:20px; text-align:center; }
-
         .menu-group { margin-bottom:4px; }
         .menu-group .menu-item { cursor:pointer; }
-        .sub-menu {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-            background: rgba(255,255,255,0.03);
-        }
-        .sub-menu.open { max-height: 500px; }
-        .sub-menu .menu-item {
-            padding-left: 58px;
-            font-size: 13px;
-            border-left: 3px solid transparent;
-        }
-        .sub-menu .menu-item.active {
-            background: rgba(255,255,255,0.05);
-            border-left-color: #4fc3f7;
-            color: white;
-        }
-        .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
-        .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
-        .menu-item .chevron.open { transform: rotate(180deg); }
-
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:500px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
         .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
         .user-info strong { color:white; }
         .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
         .btn-logout:hover { background:rgba(255,255,255,0.2); }
-
         .main-content { margin-left:250px; flex:1; padding:22px 28px; min-height:100vh; }
         .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
         .header h2 { font-size:24px; color:#0f1e2e; font-weight:800; display:flex; align-items:center; gap:10px; }
         .header h2 i { color:#2d6a9f; font-size:22px; }
         .user-badge { background:white; padding:8px 16px 8px 8px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 10px rgba(15,30,46,0.06); display:flex; align-items:center; gap:8px; color:#0f1e2e; }
         .user-badge i { width:26px; height:26px; border-radius:50%; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:13px; }
-
         .card { background:white; border-radius:18px; padding:20px 22px; box-shadow:0 4px 18px rgba(15,30,46,0.05); margin-bottom:18px; }
         .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
         .card-title .icon-badge { width:32px; height:32px; border-radius:10px; background:#eaf2fb; color:#2d6a9f; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
         .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
-
         .btn { padding:8px 16px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:0.15s; }
         .btn-primary { background:#2d6a9f; color:white; }
         .btn-primary:hover { background:#1a4a7a; }
@@ -75,66 +55,25 @@
         .btn-outline { background:white; border:2px solid #e8edf3; color:#34495e; }
         .btn-outline:hover { background:#f0f2f7; }
         .btn-sm { padding:5px 12px; font-size:11px; }
-
         .filter-row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px; }
         .filter-row .form-group { margin-bottom:0; flex:1; min-width:150px; }
         .filter-row .form-group label { display:block; font-weight:600; font-size:12px; color:#5b6b7c; margin-bottom:4px; }
-        .filter-row .form-group input, .filter-row .form-group select { width:100%; padding:8px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
-        .filter-row .form-group input:focus, .filter-row .form-group select:focus { border-color:#2d6a9f; outline:none; }
-
+        .filter-row .form-group input { width:100%; padding:8px 12px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; background:white; }
+        .filter-row .form-group input:focus { border-color:#2d6a9f; outline:none; }
         .table-wrap { overflow-x:auto; border:1px solid #eef2f7; border-radius:14px; }
         table { width:100%; border-collapse:collapse; font-size:14px; }
-        table th {
-            text-align:left;
-            padding:12px 10px;
-            background:#f8fafc;
-            font-weight:700;
-            color:#5b6b7c;
-            border-bottom:1px solid #eef2f7;
-            white-space:nowrap;
-            font-size:12.5px;
-            text-transform:uppercase;
-            letter-spacing:0.3px;
-        }
-        table td {
-            padding:10px 8px;
-            border-bottom:1px solid #eef2f7;
-            vertical-align:middle;
-            font-weight:500;
-            font-size:14px;
-        }
+        table th { text-align:left; padding:12px 10px; background:#f8fafc; font-weight:700; color:#5b6b7c; border-bottom:1px solid #eef2f7; white-space:nowrap; font-size:12.5px; text-transform:uppercase; letter-spacing:0.3px; }
+        table td { padding:10px 8px; border-bottom:1px solid #eef2f7; vertical-align:middle; font-weight:500; font-size:14px; }
         table tbody tr:last-child td { border-bottom:none; }
         table td .badge { display:inline-block; padding:4px 10px; border-radius:30px; font-size:11px; font-weight:600; }
         table td .badge-success { background:#d4edda; color:#155724; }
         table td .badge-danger { background:#f8d7da; color:#721c24; }
         table td .badge-warning { background:#fff3cd; color:#856404; }
         table td .badge-info { background:#d1ecf1; color:#0c5460; }
-
         .total-row { background:#f8fafc; font-weight:700; border-top:2px solid #2d6a9f; }
         .total-row td { padding:10px 8px; }
-
-        .obat-list {
-            display:grid;
-            grid-template-columns:1fr 1fr 1fr;
-            gap:10px;
-            margin-top:10px;
-            max-height:300px;
-            overflow-y:auto;
-            border:1px solid #eef2f7;
-            border-radius:10px;
-            padding:8px;
-        }
-        .obat-list .obat-item {
-            padding:10px 14px;
-            border-radius:10px;
-            cursor:pointer;
-            transition:0.15s;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            border:1px solid transparent;
-            background:#f8fafc;
-        }
+        .obat-list { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px; max-height:300px; overflow-y:auto; border:1px solid #eef2f7; border-radius:10px; padding:8px; }
+        .obat-list .obat-item { padding:10px 14px; border-radius:10px; cursor:pointer; transition:0.15s; display:flex; justify-content:space-between; align-items:center; border:1px solid transparent; background:#f8fafc; }
         .obat-list .obat-item:hover { background:#eaf2fb; border-color:#2d6a9f; }
         .obat-list .obat-item.active { background:#eaf2fb; border-color:#2d6a9f; }
         .obat-list .obat-item .kode { font-weight:600; color:#2d6a9f; font-size:13px; }
@@ -142,44 +81,20 @@
         .obat-list .obat-item .stok { color:#7a8a9e; font-size:12px; font-weight:600; }
         .obat-list .obat-item .stok.rendah { color:#dc3545; }
         .obat-list .obat-item .stok.sedang { color:#ffc107; }
-
         .search-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
         .search-bar input { flex:1; min-width:150px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:13px; }
         .search-bar input:focus { border-color:#2d6a9f; outline:none; }
-
-        .info-stok {
-            display:flex;
-            justify-content:space-between;
-            margin-top:12px;
-            padding:12px 16px;
-            background:#f7f9fc;
-            border-radius:10px;
-            font-size:14px;
-            flex-wrap:wrap;
-            gap:10px;
-        }
+        .info-stok { display:flex; justify-content:space-between; margin-top:12px; padding:12px 16px; background:#f7f9fc; border-radius:10px; font-size:14px; flex-wrap:wrap; gap:10px; }
         .info-stok .item { display:flex; gap:8px; }
         .info-stok .label { color:#7a8a9e; }
         .info-stok .value { font-weight:700; color:#0f1e2e; }
-
         .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
         .toast.error { background:#dc3545; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-
         .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
         .loading i { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
-
-        @media (max-width:768px) {
-            .sidebar { width:100%; position:static; height:auto; }
-            .main-content { margin-left:0; padding:12px; }
-            .filter-row { flex-direction:column; }
-            .filter-row .form-group { min-width:100%; }
-            .obat-list { grid-template-columns:1fr; }
-            table { font-size:13px; }
-            table th, table td { padding:8px 6px; }
-            .info-stok { flex-direction:column; }
-        }
+        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:12px; } .filter-row { flex-direction:column; } .filter-row .form-group { min-width:100%; } .obat-list { grid-template-columns:1fr; } table { font-size:13px; } table th, table td { padding:8px 6px; } .info-stok { flex-direction:column; } }
     </style>
 </head>
 <body>
@@ -202,9 +117,9 @@
         <div class="menu-group">
             <div class="menu-item active" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
-                <i class="fas fa-chevron-down chevron open"></i>
+                <i class="fas fa-chevron-down chevron"></i>
             </div>
-            <div class="sub-menu open">
+            <div class="sub-menu">
                 <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
                 <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
                 <div class="menu-item active" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
@@ -244,7 +159,6 @@
             <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
         </div>
 
-        <!-- Pilih Obat -->
         <div class="card">
             <div class="card-title"><span class="icon-badge"><i class="fas fa-search"></i></span> Pilih Obat</div>
             <div class="search-bar">
@@ -257,80 +171,30 @@
             <div style="margin-top:10px;font-size:12px;color:#7a8a9e;" id="totalObatInfo">Total: 0 obat</div>
         </div>
 
-        <!-- Detail Kartu Stok -->
         <div class="card" id="detailKartu" style="display:none;">
             <div class="flex-between">
-                <div class="card-title">
-                    <span class="icon-badge"><i class="fas fa-file-invoice"></i></span>
-                    <span id="judulObat">Kartu Stok: <span id="namaObatSelected">-</span></span>
-                </div>
-                <div>
-                    <button class="btn btn-outline btn-sm" onclick="downloadCSV()"><i class="fas fa-download"></i> Download CSV</button>
-                </div>
+                <div class="card-title"><span class="icon-badge"><i class="fas fa-file-invoice"></i></span> <span id="judulObat">Kartu Stok: <span id="namaObatSelected">-</span></span></div>
+                <div><button class="btn btn-outline btn-sm" onclick="downloadCSV()"><i class="fas fa-download"></i> Download CSV</button></div>
             </div>
-
             <div class="filter-row">
-                <div class="form-group">
-                    <label>Periode Awal</label>
-                    <input type="date" id="tglAwal" onchange="loadKartuStok()">
-                </div>
-                <div class="form-group">
-                    <label>Periode Akhir</label>
-                    <input type="date" id="tglAkhir" onchange="loadKartuStok()">
-                </div>
-                <div class="form-group" style="flex:0.5;">
-                    <label>&nbsp;</label>
-                    <button class="btn btn-outline btn-sm" onclick="resetPeriode()" style="width:100%;">Reset Periode</button>
-                </div>
+                <div class="form-group"><label>Periode Awal</label><input type="date" id="tglAwal" onchange="loadKartuStok()"></div>
+                <div class="form-group"><label>Periode Akhir</label><input type="date" id="tglAkhir" onchange="loadKartuStok()"></div>
+                <div class="form-group" style="flex:0.5;"><label>&nbsp;</label><button class="btn btn-outline btn-sm" onclick="resetPeriode()" style="width:100%;">Reset Periode</button></div>
             </div>
-
             <div class="table-wrap">
                 <table>
-                    <thead>
-                        <tr>
-                            <th style="width:40px;">No</th>
-                            <th style="min-width:110px;">Tanggal</th>
-                            <th style="min-width:60px;">Jam</th>
-                            <th style="min-width:130px;">No. Bukti</th>
-                            <th style="min-width:160px;">Keterangan</th>
-                            <th style="width:70px;text-align:right;">Masuk</th>
-                            <th style="width:70px;text-align:right;">Keluar</th>
-                            <th style="width:80px;text-align:right;">Sisa Stok</th>
-                            <th style="width:70px;">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="kartuBody">
-                        <tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Pilih obat terlebih dahulu</td></tr>
-                    </tbody>
+                    <thead><tr><th style="width:40px;">No</th><th style="min-width:110px;">Tanggal</th><th style="min-width:60px;">Jam</th><th style="min-width:130px;">No. Bukti</th><th style="min-width:160px;">Keterangan</th><th style="width:70px;text-align:right;">Masuk</th><th style="width:70px;text-align:right;">Keluar</th><th style="width:80px;text-align:right;">Sisa Stok</th><th style="width:70px;">Status</th></tr></thead>
+                    <tbody id="kartuBody"><tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Pilih obat terlebih dahulu</td></tr></tbody>
                     <tfoot id="kartuFooter" style="display:none;">
-                        <tr class="total-row">
-                            <td colspan="5" style="text-align:right;font-weight:700;">TOTAL</td>
-                            <td id="totalMasuk" style="text-align:right;font-weight:700;color:#28a745;">0</td>
-                            <td id="totalKeluar" style="text-align:right;font-weight:700;color:#dc3545;">0</td>
-                            <td id="totalSisa" style="text-align:right;font-weight:700;color:#2d6a9f;">0</td>
-                            <td></td>
-                        </tr>
+                        <tr class="total-row"><td colspan="5" style="text-align:right;font-weight:700;">TOTAL</td><td id="totalMasuk" style="text-align:right;font-weight:700;color:#28a745;">0</td><td id="totalKeluar" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td id="totalSisa" style="text-align:right;font-weight:700;color:#2d6a9f;">0</td><td></td></tr>
                     </tfoot>
                 </table>
             </div>
-
             <div class="info-stok">
-                <div class="item">
-                    <span class="label">Stok Saat Ini (Master):</span>
-                    <span class="value" id="stokMaster">0</span>
-                </div>
-                <div class="item">
-                    <span class="label">Stok Awal Periode:</span>
-                    <span class="value" id="stokAwalPeriode">0</span>
-                </div>
-                <div class="item">
-                    <span class="label">Stok Akhir Periode:</span>
-                    <span class="value" id="stokAkhirPeriode">0</span>
-                </div>
-                <div class="item">
-                    <span class="label">Total Transaksi:</span>
-                    <span class="value" id="totalTransaksi">0</span>
-                </div>
+                <div class="item"><span class="label">Stok Saat Ini (Master):</span><span class="value" id="stokMaster">0</span></div>
+                <div class="item"><span class="label">Stok Awal Periode:</span><span class="value" id="stokAwalPeriode">0</span></div>
+                <div class="item"><span class="label">Stok Akhir Periode:</span><span class="value" id="stokAkhirPeriode">0</span></div>
+                <div class="item"><span class="label">Total Transaksi:</span><span class="value" id="totalTransaksi">0</span></div>
             </div>
         </div>
     </div>
@@ -339,46 +203,15 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-    import { supabase } from './supabase.js';
     import { getObat, getKartuStok } from './database.js';
-
-    // ============================================================
-    // AUTH CHECK
-    // ============================================================
-    async function checkAuth() {
-        const session = localStorage.getItem('supabaseSession');
-        if (!session) {
-            window.location.href = '/';
-            return false;
-        }
-        try {
-            const { data, error } = await supabase.auth.getSession();
-            if (error || !data?.session) {
-                localStorage.removeItem('supabaseSession');
-                window.location.href = '/';
-                return false;
-            }
-            return true;
-        } catch(e) {
-            localStorage.removeItem('supabaseSession');
-            window.location.href = '/';
-            return false;
-        }
-    }
-
-    if (!await checkAuth()) {
-        window.location.href = '/';
-    }
-
-    // ============================================================
-    // GLOBAL
-    // ============================================================
+    
     let allObat = [];
     let selectedObat = null;
     let kartuData = [];
 
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -389,13 +222,9 @@
         }
     };
 
-    // ============================================================
-    // LOAD OBAT DARI SUPABASE
-    // ============================================================
-    window.loadObat = async function() {
+    async function loadObat() {
         const container = document.getElementById('obatList');
         container.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data obat...</div>';
-
         try {
             const { data, error } = await getObat();
             if (data && data.length > 0) {
@@ -404,21 +233,17 @@
                 const local = localStorage.getItem('obat');
                 if (local) allObat = JSON.parse(local);
             }
-
             if (!allObat || allObat.length === 0) {
-                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#7a8a9e;padding:20px;">Belum ada data obat. Silakan tambahkan di Master Obat.</div>';
+                container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#7a8a9e;padding:20px;">Belum ada data obat</div>';
                 document.getElementById('totalObatInfo').textContent = 'Total: 0 obat';
                 return;
             }
-
             renderObatList(allObat);
-            document.getElementById('totalObatInfo').textContent = `Total: ${allObat.length} obat`;
-
+            document.getElementById('totalObatInfo').textContent = 'Total: ' + allObat.length + ' obat';
         } catch(e) {
-            console.error('Error load obat:', e);
-            container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#dc3545;padding:20px;">❌ Gagal memuat data obat</div>';
+            container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#dc3545;padding:20px;">❌ Gagal memuat data</div>';
         }
-    };
+    }
 
     function renderObatList(data) {
         const container = document.getElementById('obatList');
@@ -426,184 +251,106 @@
             container.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#7a8a9e;padding:20px;">Tidak ada obat ditemukan</div>';
             return;
         }
-
         container.innerHTML = data.map(o => {
             const stok = Number(o.stok) || 0;
             let stokClass = '';
             if (stok <= 0) stokClass = 'rendah';
             else if (stok <= 10) stokClass = 'sedang';
-
-            return `
-                <div class="obat-item" onclick="pilihObat('${o.id}')" data-id="${o.id}">
-                    <div>
-                        <span class="kode">${o.kode_obat || '-'}</span>
-                        <span class="nama">${o.nama_obat || '-'}</span>
-                    </div>
-                    <span class="stok ${stokClass}">Stok: ${stok}</span>
-                </div>
-            `;
+            return `<div class="obat-item" onclick="pilihObat('${o.id}')" data-id="${o.id}"><div><span class="kode">${o.kode_obat || '-'}</span> <span class="nama">${o.nama_obat || '-'}</span></div><span class="stok ${stokClass}">Stok: ${stok}</span></div>`;
         }).join('');
     }
 
     window.filterObat = function() {
         const keyword = document.getElementById('searchObat').value.toLowerCase();
-        if (!keyword.trim()) {
-            renderObatList(allObat);
-            return;
-        }
-        const filtered = allObat.filter(o => 
-            (o.kode_obat || '').toLowerCase().includes(keyword) ||
-            (o.nama_obat || '').toLowerCase().includes(keyword)
-        );
+        if (!keyword.trim()) { renderObatList(allObat); return; }
+        const filtered = allObat.filter(o => (o.kode_obat || '').toLowerCase().includes(keyword) || (o.nama_obat || '').toLowerCase().includes(keyword));
         renderObatList(filtered);
     };
 
-    // ============================================================
-    // PILIH OBAT & LOAD KARTU STOK
-    // ============================================================
     window.pilihObat = function(id) {
         selectedObat = allObat.find(o => o.id == id);
         if (!selectedObat) return;
-
         document.querySelectorAll('.obat-item').forEach(el => el.classList.remove('active'));
         document.querySelector(`.obat-item[data-id="${id}"]`)?.classList.add('active');
-
         document.getElementById('detailKartu').style.display = 'block';
-        document.getElementById('namaObatSelected').textContent = `${selectedObat.nama_obat} (${selectedObat.kode_obat})`;
+        document.getElementById('namaObatSelected').textContent = selectedObat.nama_obat + ' (' + selectedObat.kode_obat + ')';
         document.getElementById('stokMaster').textContent = selectedObat.stok || 0;
-
-        // Set default periode (1 bulan terakhir)
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
         document.getElementById('tglAwal').value = firstDay.toISOString().split('T')[0];
         document.getElementById('tglAkhir').value = lastDay.toISOString().split('T')[0];
-
         loadKartuStok();
     };
 
-    // ============================================================
-    // LOAD KARTU STOK DARI SUPABASE
-    // ============================================================
     window.loadKartuStok = async function() {
         if (!selectedObat) return;
-
         const tglAwal = document.getElementById('tglAwal').value;
         const tglAkhir = document.getElementById('tglAkhir').value;
-
-        if (!tglAwal || !tglAkhir) {
-            showToast('⚠️ Pilih periode terlebih dahulu', true);
-            return;
-        }
-
+        if (!tglAwal || !tglAkhir) { showToast('⚠️ Pilih periode terlebih dahulu', true); return; }
         const tbody = document.getElementById('kartuBody');
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
-
         try {
             const { data, error } = await getKartuStok(selectedObat.id, tglAwal, tglAkhir);
-
             if (data && data.length > 0) {
-                kartuData = data;
+                // Kolom di tabel Supabase bernama 'sisa_stok', bukan 'sisa'.
+                // Normalisasi di sini supaya render/total/status di bawah konsisten.
+                kartuData = data.map((d, idx) => {
+                    const sisa = Number(d.sisa_stok) || 0;
+                    let status = 'Aman';
+                    if (sisa === 0) status = 'Habis'; else if (sisa < 10) status = 'Menipis';
+                    return { ...d, no: idx + 1, sisa: sisa, status: status };
+                });
             } else {
-                // Fallback: generate dari localStorage
                 kartuData = generateKartuStokFromLocal(selectedObat, tglAwal, tglAkhir);
             }
-
             if (!kartuData || kartuData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
                 document.getElementById('kartuFooter').style.display = 'none';
-                updateInfoStok(0, 0, 0);
+                updateInfoStok([]);
                 return;
             }
-
             renderKartuStok(kartuData);
-
         } catch(e) {
-            console.error('Error load kartu stok:', e);
-            // Fallback ke localStorage
             kartuData = generateKartuStokFromLocal(selectedObat, tglAwal, tglAkhir);
-            if (kartuData.length > 0) {
-                renderKartuStok(kartuData);
-            } else {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada data (fallback)</td></tr>';
-            }
+            if (kartuData.length > 0) { renderKartuStok(kartuData); } else { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada data</td></tr>'; }
         }
     };
 
-    // ============================================================
-    // GENERATE KARTU STOK DARI LOCALSTORAGE (FALLBACK)
-    // ============================================================
     function generateKartuStokFromLocal(obat, tglAwal, tglAkhir) {
         const kodeObat = obat.kode_obat;
         const pembelian = JSON.parse(localStorage.getItem('pembelian_history') || '[]');
         const penjualan = JSON.parse(localStorage.getItem('penjualan_history') || '[]');
         const retur = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
         const opname = JSON.parse(localStorage.getItem('opname_history') || '[]');
-
-        let mutasi = [];
-        let totalMasuk = 0;
-        let totalKeluar = 0;
-
-        // Pembelian -> Masuk
+        let mutasi = []; let totalMasuk = 0; let totalKeluar = 0;
         pembelian.forEach(tr => {
             if (!tr.tanggal_faktur || tr.tanggal_faktur < tglAwal || tr.tanggal_faktur > tglAkhir) return;
             tr.items.forEach(item => {
                 if (item.kode_obat === kodeObat) {
-                    const jml = Number(item.jumlah) || 0;
-                    totalMasuk += jml;
-                    mutasi.push({
-                        tanggal: tr.tanggal_faktur,
-                        jam: '00:00',
-                        no_bukti: tr.no_faktur || 'PEM-' + tr.id,
-                        keterangan: 'Pembelian dari ' + (tr.supplier_nama || 'Supplier'),
-                        masuk: jml,
-                        keluar: 0
-                    });
+                    const jml = Number(item.jumlah) || 0; totalMasuk += jml;
+                    mutasi.push({ tanggal: tr.tanggal_faktur, jam: '00:00', no_bukti: tr.no_faktur || 'PEM-' + tr.id, keterangan: 'Pembelian', masuk: jml, keluar: 0 });
                 }
             });
         });
-
-        // Penjualan -> Keluar
         penjualan.forEach(tr => {
             if (!tr.tanggal || tr.tanggal < tglAwal || tr.tanggal > tglAkhir) return;
             tr.items.forEach(item => {
                 if (item.kode_obat === kodeObat) {
-                    const jml = Number(item.jumlah) || 0;
-                    totalKeluar += jml;
-                    mutasi.push({
-                        tanggal: tr.tanggal,
-                        jam: tr.jam || '00:00',
-                        no_bukti: tr.no_faktur || 'JUAL-' + tr.id,
-                        keterangan: 'Penjualan' + (tr.pelanggan ? ' kepada ' + tr.pelanggan : ''),
-                        masuk: 0,
-                        keluar: jml
-                    });
+                    const jml = Number(item.jumlah) || 0; totalKeluar += jml;
+                    mutasi.push({ tanggal: tr.tanggal, jam: tr.jam || '00:00', no_bukti: tr.no_faktur || 'JUAL-' + tr.id, keterangan: 'Penjualan', masuk: 0, keluar: jml });
                 }
             });
         });
-
-        // Retur -> Masuk
         retur.forEach(r => {
             if (!r.tanggal_retur || r.tanggal_retur < tglAwal || r.tanggal_retur > tglAkhir) return;
             r.items.forEach(item => {
                 if (item.kode_obat === kodeObat) {
                     const jml = Number(item.jumlah_retur) || 0;
-                    if (jml > 0) {
-                        totalMasuk += jml;
-                        mutasi.push({
-                            tanggal: r.tanggal_retur,
-                            jam: r.jam_retur || '00:00',
-                            no_bukti: 'RET-' + (r.no_faktur || r.id),
-                            keterangan: 'Retur Penjualan',
-                            masuk: jml,
-                            keluar: 0
-                        });
-                    }
+                    if (jml > 0) { totalMasuk += jml; mutasi.push({ tanggal: r.tanggal_retur, jam: r.jam_retur || '00:00', no_bukti: 'RET-' + (r.no_faktur || r.id), keterangan: 'Retur Penjualan', masuk: jml, keluar: 0 }); }
                 }
             });
         });
-
-        // Opname
         opname.forEach(record => {
             if (!record.tanggal_selesai) return;
             const tgl = record.tanggal_selesai.split('T')[0];
@@ -611,118 +358,57 @@
             record.items.forEach(item => {
                 if (item.kode_obat === kodeObat && item.selisih !== 0) {
                     const selisih = Number(item.selisih) || 0;
-                    if (selisih > 0) {
-                        totalMasuk += selisih;
-                        mutasi.push({
-                            tanggal: tgl,
-                            jam: '00:00',
-                            no_bukti: 'OPNAME-' + record.id,
-                            keterangan: 'Stok Opname (+' + selisih + ')',
-                            masuk: selisih,
-                            keluar: 0
-                        });
-                    } else {
-                        totalKeluar += Math.abs(selisih);
-                        mutasi.push({
-                            tanggal: tgl,
-                            jam: '00:00',
-                            no_bukti: 'OPNAME-' + record.id,
-                            keterangan: 'Stok Opname (' + selisih + ')',
-                            masuk: 0,
-                            keluar: Math.abs(selisih)
-                        });
-                    }
+                    if (selisih > 0) { totalMasuk += selisih; mutasi.push({ tanggal: tgl, jam: '00:00', no_bukti: 'OPNAME-' + record.id, keterangan: 'Stok Opname (+' + selisih + ')', masuk: selisih, keluar: 0 }); }
+                    else { totalKeluar += Math.abs(selisih); mutasi.push({ tanggal: tgl, jam: '00:00', no_bukti: 'OPNAME-' + record.id, keterangan: 'Stok Opname (' + selisih + ')', masuk: 0, keluar: Math.abs(selisih) }); }
                 }
             });
         });
-
-        // Urutkan
         mutasi.sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.jam.localeCompare(b.jam));
-
-        // Hitung sisa stok
-        let stokAwal = (Number(obat.stok) || 0) - totalMasuk + totalKeluar;
-        if (stokAwal < 0) stokAwal = 0;
-
-        let result = [];
-        let stokBerjalan = stokAwal;
+        let stokAwal = (Number(obat.stok) || 0) - totalMasuk + totalKeluar; if (stokAwal < 0) stokAwal = 0;
+        let result = []; let stokBerjalan = stokAwal;
         mutasi.forEach((m, idx) => {
-            stokBerjalan = stokBerjalan + m.masuk - m.keluar;
-            if (stokBerjalan < 0) stokBerjalan = 0;
-            let status = 'Aman';
-            if (stokBerjalan === 0) status = 'Habis';
-            else if (stokBerjalan < 10) status = 'Menipis';
-            result.push({
-                ...m,
-                no: idx + 1,
-                sisa: stokBerjalan,
-                status: status
-            });
+            stokBerjalan = stokBerjalan + m.masuk - m.keluar; if (stokBerjalan < 0) stokBerjalan = 0;
+            let status = 'Aman'; if (stokBerjalan === 0) status = 'Habis'; else if (stokBerjalan < 10) status = 'Menipis';
+            result.push({ ...m, no: idx + 1, sisa: stokBerjalan, status: status });
         });
-
         return result;
     }
 
-    // ============================================================
-    // RENDER KARTU STOK
-    // ============================================================
     function renderKartuStok(data) {
         const tbody = document.getElementById('kartuBody');
         const tfoot = document.getElementById('kartuFooter');
-
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
-            tfoot.style.display = 'none';
-            return;
-        }
-
-        let totalMasuk = 0;
-        let totalKeluar = 0;
-        let sisaAkhir = 0;
-
+        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi</td></tr>'; tfoot.style.display = 'none'; return; }
+        let totalMasuk = 0, totalKeluar = 0, sisaAkhir = 0;
         tbody.innerHTML = data.map((d, i) => {
-            totalMasuk += d.masuk || 0;
-            totalKeluar += d.keluar || 0;
-            sisaAkhir = d.sisa || 0;
-
-            let statusClass = 'badge-success';
-            let statusText = d.status || 'Aman';
-            if (d.sisa === 0) {
-                statusClass = 'badge-danger';
-                statusText = 'Habis';
-            } else if (d.sisa < 10) {
-                statusClass = 'badge-warning';
-                statusText = 'Menipis';
-            }
-
-            return `
-                <tr>
-                    <td>${d.no || i + 1}</td>
-                    <td>${formatTanggal(d.tanggal)}</td>
-                    <td>${d.jam || '00:00'}</td>
-                    <td><strong>${d.no_bukti || '-'}</strong></td>
-                    <td>${d.keterangan || '-'}</td>
-                    <td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td>
-                    <td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td>
-                    <td style="text-align:right;font-weight:700;">${d.sisa}</td>
-                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                </tr>
-            `;
+            totalMasuk += d.masuk || 0; totalKeluar += d.keluar || 0; sisaAkhir = d.sisa || 0;
+            let statusClass = 'badge-success', statusText = d.status || 'Aman';
+            if (d.sisa === 0) { statusClass = 'badge-danger'; statusText = 'Habis'; } else if (d.sisa < 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
+            return `<tr><td>${d.no || i + 1}</td><td>${formatTanggal(d.tanggal)}</td><td>${d.jam || '00:00'}</td><td><strong>${d.no_bukti || '-'}</strong></td><td>${d.keterangan || '-'}</td><td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td><td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td><td style="text-align:right;font-weight:700;">${d.sisa}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
         }).join('');
-
         document.getElementById('totalMasuk').textContent = totalMasuk;
         document.getElementById('totalKeluar').textContent = totalKeluar;
         document.getElementById('totalSisa').textContent = sisaAkhir;
-
         tfoot.style.display = 'table-footer-group';
-
-        updateInfoStok(totalMasuk, totalKeluar, data.length);
+        updateInfoStok(data);
     }
 
-    function updateInfoStok(totalMasuk, totalKeluar, totalTransaksi) {
-        const stokAwal = (Number(selectedObat?.stok) || 0) - totalMasuk + totalKeluar;
+    function updateInfoStok(data) {
+        // Hitung Stok Awal & Stok Akhir Periode dari data mutasi itu sendiri
+        // (bukan dari stok master hari ini), supaya tetap benar walau ada
+        // transaksi lain yang terjadi setelah periode yang dipilih.
+        let stokAwal = 0, stokAkhir = 0;
+        if (data && data.length > 0) {
+            const first = data[0];
+            const last = data[data.length - 1];
+            stokAwal = (Number(first.sisa) || 0) - (Number(first.masuk) || 0) + (Number(first.keluar) || 0);
+            stokAkhir = Number(last.sisa) || 0;
+        } else {
+            stokAwal = Number(selectedObat?.stok) || 0;
+            stokAkhir = Number(selectedObat?.stok) || 0;
+        }
         document.getElementById('stokAwalPeriode').textContent = stokAwal < 0 ? 0 : stokAwal;
-        document.getElementById('stokAkhirPeriode').textContent = selectedObat?.stok || 0;
-        document.getElementById('totalTransaksi').textContent = totalTransaksi;
+        document.getElementById('stokAkhirPeriode').textContent = stokAkhir < 0 ? 0 : stokAkhir;
+        document.getElementById('totalTransaksi').textContent = data ? data.length : 0;
     }
 
     window.resetPeriode = function() {
@@ -735,20 +421,10 @@
         loadKartuStok();
     };
 
-    // ============================================================
-    // DOWNLOAD CSV
-    // ============================================================
     window.downloadCSV = function() {
-        if (!kartuData || kartuData.length === 0) {
-            alert('Tidak ada data untuk di-download');
-            return;
-        }
-
+        if (!kartuData || kartuData.length === 0) { alert('Tidak ada data untuk di-download'); return; }
         let csv = 'No,Tanggal,Jam,No. Bukti,Keterangan,Masuk,Keluar,Sisa Stok,Status\n';
-        kartuData.forEach(d => {
-            csv += `${d.no || '-'},${d.tanggal},${d.jam || '00:00'},${d.no_bukti || '-'},"${d.keterangan || '-'}",${d.masuk || 0},${d.keluar || 0},${d.sisa || 0},${d.status || 'Aman'}\n`;
-        });
-
+        kartuData.forEach(d => { csv += `${d.no || '-'},${d.tanggal},${d.jam || '00:00'},${d.no_bukti || '-'},"${d.keterangan || '-'}",${d.masuk || 0},${d.keluar || 0},${d.sisa || 0},${d.status || 'Aman'}\n`; });
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -759,37 +435,11 @@
         showToast('📥 Download berhasil');
     };
 
-    // ============================================================
-    // UTILITY
-    // ============================================================
-    function formatRupiah(value) {
-        return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
-    }
+    function formatRupiah(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
+    function formatTanggal(tgl) { if (!tgl) return '-'; const parts = tgl.split('-'); if (parts.length === 3) { return parts[2] + '/' + parts[1] + '/' + parts[0]; } return tgl; }
+    function showToast(message, isError = false) { const toast = document.getElementById('toast'); toast.textContent = message; toast.className = 'toast' + (isError ? ' error' : ''); toast.style.display = 'block'; clearTimeout(toast._timer); toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000); }
 
-    function formatTanggal(tgl) {
-        if (!tgl) return '-';
-        const parts = tgl.split('-');
-        if (parts.length === 3) {
-            return parts[2] + '/' + parts[1] + '/' + parts[0];
-        }
-        return tgl;
-    }
-
-    function showToast(message, isError = false) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = 'toast' + (isError ? ' error' : '');
-        toast.style.display = 'block';
-        clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
-    }
-
-    // ============================================================
-    // INIT
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        loadObat();
-    });
+    document.addEventListener('DOMContentLoaded', function() { loadObat(); });
 </script>
 </body>
 </html>

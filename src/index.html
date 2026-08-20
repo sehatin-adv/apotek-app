@@ -171,14 +171,10 @@
         if (session) {
             try {
                 const sessionData = JSON.parse(session);
-                const { data, error } = await supabase.auth.getSession();
-                if (data?.session) {
+                if (sessionData && sessionData.expires_at > Date.now() / 1000) {
                     window.location.href = '/dashboard.html';
-                    return;
                 }
-            } catch(e) {
-                localStorage.removeItem('supabaseSession');
-            }
+            } catch(e) {}
         }
         
         document.addEventListener('keydown', e => { if(e.key === 'Enter') window.login(); });
