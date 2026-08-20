@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Apotek App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:500px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .grid-4 { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+        .stat-card { background:white; border-radius:14px; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #2d6a9f; }
+        .stat-card .label { font-size:12px; color:#7a8a9e; text-transform:uppercase; letter-spacing:0.5px; }
+        .stat-card .value { font-size:26px; font-weight:800; color:#0f1e2e; margin-top:4px; }
+        .stat-card .sub { font-size:12px; color:#7a8a9e; margin-top:4px; }
+        .stat-card.omset { border-left-color:#28a745; }
+        .stat-card.omset .value { color:#1b5e20; }
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .chart-container { height:200px; }
+        .btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-warning { background:#ffc107; color:#212529; }
+        .btn-warning:hover { background:#e0a800; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .loading-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; display:none; justify-content:center; align-items:center; }
+        .loading-overlay.active { display:flex; }
+        .loading-box { background:white; border-radius:16px; padding:32px 48px; text-align:center; }
+        .loading-box i { font-size:40px; color:#2d6a9f; animation:spin 1s linear infinite; }
+        .loading-box p { margin-top:12px; color:#5b6b7c; font-weight:600; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @media (max-width:768px) { .sidebar { width:100%; position:static; height:auto; } .main-content { margin-left:0; padding:16px; } .grid-4 { grid-template-columns:1fr 1fr; } }
+        @media (max-width:480px) { .grid-4 { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        <div class="menu-item active" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
+                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="userName">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-th-large"></i> Dashboard Apotek</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+        <div class="grid-4" id="statsGrid">
+            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Obat</div><div class="value" id="totalObat">0</div><div class="sub"><i class="fas fa-capsules"></i> Item terdaftar</div></div>
+            <div class="stat-card" style="border-left-color:#28a745;"><div class="label">Stok Menipis</div><div class="value" id="stokMenipis">0</div><div class="sub"><i class="fas fa-exclamation-triangle"></i> Perlu restock</div></div>
+            <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Total Supplier</div><div class="value" id="totalSupplier">0</div><div class="sub"><i class="fas fa-truck"></i> Supplier aktif</div></div>
+            <div class="stat-card omset" style="border-left-color:#28a745;"><div class="label"><i class="fas fa-chart-line"></i> Omset Hari Ini</div><div class="value" id="omsetHarian">Rp 0</div><div class="sub" id="omsetSub">Belum ada transaksi</div></div>
+        </div>
+        <div class="card"><div class="card-title">Grafik Penjualan 7 Hari Terakhir</div><div class="chart-container"><canvas id="chartPenjualan"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="fas fa-star" style="color:#ffc107;"></i> Menu Favorit</div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Data Obat</button>
+                <button class="btn btn-success" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</button>
+                <button class="btn btn-warning" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</button>
+                <button class="btn btn-outline" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="loading-overlay" id="loadingOverlay"><div class="loading-box"><i class="fas fa-spinner"></i><p>Memuat data...</p></div></div>
+
+<script type="module">
+    import { supabase, getCurrentUser, signOut } from './supabase.js';
+    import { getObat, getSupplier, getPenjualan } from './database.js';
+    
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = async function() { await signOut(); localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) { subMenu.classList.toggle('open'); if (chevron) chevron.classList.toggle('open'); }
+    };
+    
+    async function checkAuth() {
+        const session = localStorage.getItem('supabaseSession');
+        if (!session) { window.location.href = '/'; return null; }
+        try {
+            const user = await getCurrentUser();
+            if (!user) { localStorage.removeItem('supabaseSession'); window.location.href = '/'; return null; }
+            document.getElementById('userBadge').textContent = user.email || 'admin';
+            document.getElementById('userName').textContent = user.user_metadata?.full_name || user.email || 'admin';
+            return user;
+        } catch(e) { window.location.href = '/'; return null; }
+    }
+    
+    function formatRupiah(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
+    function getToday() { return new Date().toISOString().split('T')[0]; }
+    
+    async function loadDashboard() {
+        const loading = document.getElementById('loadingOverlay');
+        loading.classList.add('active');
+        try {
+            const { data: obatData } = await getObat();
+            document.getElementById('totalObat').textContent = obatData ? obatData.length : 0;
+            if (obatData) { const menipis = obatData.filter(o => (o.stok || 0) < 10).length; document.getElementById('stokMenipis').textContent = menipis; }
+            const { data: supplierData } = await getSupplier();
+            document.getElementById('totalSupplier').textContent = supplierData ? supplierData.length : 0;
+            const today = getToday();
+            const { data: penjualanData } = await getPenjualan(today, today);
+            let totalOmset = 0;
+            if (penjualanData) { penjualanData.forEach(p => { totalOmset += p.total || 0; }); }
+            document.getElementById('omsetHarian').textContent = formatRupiah(totalOmset);
+            document.getElementById('omsetSub').textContent = (penjualanData ? penjualanData.length : 0) + ' transaksi hari ini';
+            const labels = []; const values = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(); date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const { data: dailyData } = await getPenjualan(dateStr, dateStr);
+                let total = 0; if (dailyData) { dailyData.forEach(p => { total += p.total || 0; }); }
+                labels.push(dateStr.slice(5)); values.push(total);
+            }
+            new Chart(document.getElementById('chartPenjualan'), {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Penjualan (Rp)', data: values, backgroundColor: '#2d6a9f', borderRadius: 8 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        } catch(e) { console.error('Error loading dashboard:', e); } finally { loading.classList.remove('active'); }
+    }
+    await checkAuth();
+    await loadDashboard();
+</script>
+</body>
+</html>

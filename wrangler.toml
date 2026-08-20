@@ -1,0 +1,7 @@
+name = "apotek-app"
+compatibility_date = "2024-12-18"
+pages_build_output_dir = "./dist"
+
+[vars]
+SUPABASE_URL = "YOUR_SUPABASE_URL"
+SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"

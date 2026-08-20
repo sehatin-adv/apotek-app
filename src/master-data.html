@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Data - Apotek Mendidoha Farma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        
+        /* SIDEBAR */
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+        
+        /* MAIN CONTENT */
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        
+        /* TABS */
+        .tabs { display:flex; gap:4px; margin-bottom:24px; background:white; border-radius:12px; padding:4px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .tab-btn { padding:12px 24px; border:none; background:transparent; border-radius:10px; font-weight:600; font-size:14px; cursor:pointer; transition:0.2s; color:#7a8a9e; }
+        .tab-btn:hover { background:#f0f2f7; }
+        .tab-btn.active { background:#2d6a9f; color:white; }
+        .tab-content { display:none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display:block; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        
+        /* CARDS */
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:16px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+        
+        /* FORM */
+        .form-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+        .form-group { margin-bottom:12px; }
+        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
+        .form-group input, .form-group select { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; background:white; }
+        .form-group input:focus, .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        .form-actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+        
+        /* BUTTONS */
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-warning { background:#ffc107; color:#212529; }
+        .btn-warning:hover { background:#e0a800; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:4px 12px; font-size:12px; }
+        
+        /* TABLE */
+        .table-wrap { overflow-x:auto; margin-top:16px; }
+        table { width:100%; border-collapse:collapse; font-size:14px; }
+        table th { text-align:left; padding:12px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:10px 12px; border-bottom:1px solid #eef2f7; }
+        table tr:hover { background:#f8fafc; }
+        .badge { display:inline-block; padding:4px 12px; border-radius:30px; font-size:11px; font-weight:600; }
+        .badge-success { background:#d4edda; color:#155724; }
+        .badge-danger { background:#f8d7da; color:#721c24; }
+        .badge-warning { background:#fff3cd; color:#856404; }
+        .badge-info { background:#d1ecf1; color:#0c5460; }
+        
+        /* SEARCH */
+        .search-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+        .search-bar input { flex:1; min-width:200px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; }
+        .search-bar input:focus, .search-bar select:focus { border-color:#2d6a9f; outline:none; }
+        .search-bar select { padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; background:white; }
+        
+        /* FILE UPLOAD */
+        .file-upload-wrap { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .file-upload-wrap input[type="file"] { display:none; }
+        .file-upload-label { padding:8px 18px; background:#6c757d; color:white; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px; }
+        .file-upload-label:hover { background:#5a6268; }
+        
+        @media (max-width:768px) { 
+            .sidebar { width:100%; position:static; height:auto; } 
+            .main-content { margin-left:0; padding:16px; } 
+            .form-grid { grid-template-columns:1fr; }
+            .tabs { flex-wrap:wrap; }
+            .tab-btn { flex:1; text-align:center; padding:10px; font-size:12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
+        
+        <div class="menu-item" onclick="navigate('dashboard.html')">
+            <i class="fas fa-th-large"></i> Dashboard
+        </div>
+        
+        <div class="menu-item active" onclick="navigate('master-data.html')">
+            <i class="fas fa-database"></i> MASTER DATA
+        </div>
+        
+        <div class="menu-item" onclick="navigate('pembelian.html')">
+            <i class="fas fa-shopping-cart"></i> Pembelian
+        </div>
+        <div class="menu-item" onclick="navigate('stok-terkini.html')">
+            <i class="fas fa-boxes"></i> Stok
+        </div>
+        <div class="menu-item" onclick="navigate('penjualan.html')">
+            <i class="fas fa-cash-register"></i> Penjualan
+        </div>
+        <div class="menu-item" onclick="navigate('laporan-harian.html')">
+            <i class="fas fa-file-alt"></i> Laporan
+        </div>
+        
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong>admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+    
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-database"></i> Master Data</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
+        </div>
+        
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="tab-obat" onclick="switchTab('tab-obat')">
+                <i class="fas fa-capsules"></i> Master Obat
+            </button>
+            <button class="tab-btn" data-tab="tab-supplier" onclick="switchTab('tab-supplier')">
+                <i class="fas fa-truck"></i> Data Supplier
+            </button>
+            <button class="tab-btn" data-tab="tab-apoteker" onclick="switchTab('tab-apoteker')">
+                <i class="fas fa-user-md"></i> Data Apoteker
+            </button>
+        </div>
+        
+        <!-- ========================================================== -->
+        <!-- TAB 1: MASTER OBAT -->
+        <!-- ========================================================== -->
+        <div class="tab-content active" id="tab-obat">
+            <div class="card">
+                <div class="card-title"><i class="fas fa-plus-circle"></i> Tambah / Edit Obat</div>
+                <form id="obatForm" onsubmit="saveObat(event)">
+                    <input type="hidden" id="editObatId" value="">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Kode Obat *</label>
+                            <input type="text" id="kodeObat" placeholder="OBT001" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Obat *</label>
+                            <input type="text" id="namaObat" placeholder="Paracetamol 500mg" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Satuan</label>
+                            <select id="satuanObat">
+                                <option value="Tablet">Tablet</option>
+                                <option value="Kapsul">Kapsul</option>
+                                <option value="Sirup">Sirup</option>
+                                <option value="Salep">Salep</option>
+                                <option value="Botol">Botol</option>
+                                <option value="Strip">Strip</option>
+                                <option value="Ampul">Ampul</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Harga Beli (Rp)</label>
+                            <input type="number" id="hargaBeli" placeholder="5000" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Harga Jual (Rp)</label>
+                            <input type="number" id="hargaJual" placeholder="7500" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stok Awal</label>
+                            <input type="number" id="stokObat" placeholder="0" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Jenis</label>
+                            <select id="jenisObat">
+                                <option value="Generik">Generik</option>
+                                <option value="Patented">Patented</option>
+                                <option value="Herbal">Herbal</option>
+                                <option value="Alat Kesehatan">Alat Kesehatan</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Golongan</label>
+                            <select id="golonganObat">
+                                <option value="Bebas">Bebas</option>
+                                <option value="Terbatas">Terbatas</option>
+                                <option value="Keras">Keras</option>
+                                <option value="Narkotika">Narkotika</option>
+                                <option value="Prekursor">Prekursor</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="statusObat">
+                                <option value="Aktif">Aktif</option>
+                                <option value="Tidak Aktif">Tidak Aktif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
+                        <button type="reset" class="btn btn-outline" onclick="resetObatForm()"><i class="fas fa-undo"></i> Reset</button>
+                        <div class="file-upload-wrap">
+                            <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel</label>
+                            <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
+                            <span style="font-size:11px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="card">
+                <div class="flex-between">
+                    <div class="card-title"><i class="fas fa-list"></i> Daftar Obat</div>
+                    <div>
+                        <button class="btn btn-outline btn-sm" onclick="loadObat()"><i class="fas fa-sync"></i> Refresh</button>
+                        <span id="totalObat" style="font-size:13px;color:#7a8a9e;margin-left:8px;"></span>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="searchObat" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterObat()">
+                    <select id="filterStatusObat" onchange="filterObat()">
+                        <option value="">Semua Status</option>
+                        <option value="Aktif">Aktif</option>
+                        <option value="Tidak Aktif">Tidak Aktif</option>
+                    </select>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Kode</th>
+                                <th>Nama Obat</th>
+                                <th>Satuan</th>
+                                <th>Harga Beli</th>
+                                <th>Harga Jual</th>
+                                <th>Stok</th>
+                                <th>Jenis</th>
+                                <th>Golongan</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="obatTableBody">
+                            <tr><td colspan="11" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========================================================== -->
+        <!-- TAB 2: DATA SUPPLIER -->
+        <!-- ========================================================== -->
+        <div class="tab-content" id="tab-supplier">
+            <div class="card">
+                <div class="card-title"><i class="fas fa-plus-circle"></i> Tambah Supplier</div>
+                <form id="supplierForm" onsubmit="saveSupplier(event)">
+                    <input type="hidden" id="editSupplierId" value="">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Kode Supplier *</label>
+                            <input type="text" id="kodeSupplier" placeholder="SUP001" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nama Supplier *</label>
+                            <input type="text" id="namaSupplier" placeholder="PT. Kimia Farma" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Alamat</label>
+                            <input type="text" id="alamatSupplier" placeholder="Jl. Raya No. 1">
+                        </div>
+                        <div class="form-group">
+                            <label>Kota</label>
+                            <input type="text" id="kotaSupplier" placeholder="Jakarta">
+                        </div>
+                        <div class="form-group">
+                            <label>Telepon</label>
+                            <input type="text" id="teleponSupplier" placeholder="021-12345678">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="statusSupplier">
+                                <option value="Aktif">Aktif</option>
+                                <option value="Tidak Aktif">Tidak Aktif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
+                        <button type="reset" class="btn btn-outline" onclick="resetSupplierForm()"><i class="fas fa-undo"></i> Reset</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="card">
+                <div class="flex-between">
+                    <div class="card-title"><i class="fas fa-list"></i> Daftar Supplier</div>
+                    <div>
+                        <button class="btn btn-outline btn-sm" onclick="loadSupplier()"><i class="fas fa-sync"></i> Refresh</button>
+                        <span id="totalSupplier" style="font-size:13px;color:#7a8a9e;margin-left:8px;"></span>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="searchSupplier" placeholder="🔍 Cari nama supplier..." onkeyup="filterSupplier()">
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Kode</th>
+                                <th>Nama Supplier</th>
+                                <th>Alamat</th>
+                                <th>Kota</th>
+                                <th>Telepon</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplierTableBody">
+                            <tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========================================================== -->
+        <!-- TAB 3: DATA APOTEKER -->
+        <!-- ========================================================== -->
+        <div class="tab-content" id="tab-apoteker">
+            <div class="card">
+                <div class="card-title"><i class="fas fa-plus-circle"></i> Tambah Apoteker</div>
+                <form id="apotekerForm" onsubmit="saveApoteker(event)">
+                    <input type="hidden" id="editApotekerId" value="">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nama *</label>
+                            <input type="text" id="namaApoteker" placeholder="Apt. Ahmad Justawan" required>
+                        </div>
+                        <div class="form-group">
+                            <label>No. SIK</label>
+                            <input type="text" id="noSIK" placeholder="SIK-2024-001">
+                        </div>
+                        <div class="form-group">
+                            <label>No. STRA</label>
+                            <input type="text" id="noSTRA" placeholder="STRA-2024-001">
+                        </div>
+                        <div class="form-group">
+                            <label>Alamat</label>
+                            <input type="text" id="alamatApoteker" placeholder="Jl. Lambuya, Konawe">
+                        </div>
+                        <div class="form-group">
+                            <label>Jabatan</label>
+                            <select id="jabatanApoteker">
+                                <option value="APOTEKER">APOTEKER</option>
+                                <option value="PENGELOLA APOTEK">PENGELOLA APOTEK</option>
+                                <option value="ASISTEN APOTEKER">ASISTEN APOTEKER</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Mulai</label>
+                            <input type="date" id="tglMulaiApoteker">
+                        </div>
+                        <div class="form-group">
+                            <label>NIK</label>
+                            <input type="text" id="nikApoteker" placeholder="NIK">
+                        </div>
+                        <div class="form-group">
+                            <label>ID Satu Sehat</label>
+                            <input type="text" id="idSatuSehat" placeholder="ID Satu Sehat">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="statusApoteker">
+                                <option value="Aktif">Aktif</option>
+                                <option value="Tidak Aktif">Tidak Aktif</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
+                        <button type="reset" class="btn btn-outline" onclick="resetApotekerForm()"><i class="fas fa-undo"></i> Reset</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="card">
+                <div class="flex-between">
+                    <div class="card-title"><i class="fas fa-list"></i> Daftar Apoteker</div>
+                    <div>
+                        <button class="btn btn-outline btn-sm" onclick="loadApoteker()"><i class="fas fa-sync"></i> Refresh</button>
+                        <span id="totalApoteker" style="font-size:13px;color:#7a8a9e;margin-left:8px;"></span>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="searchApoteker" placeholder="🔍 Cari nama apoteker..." onkeyup="filterApoteker()">
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Nama</th>
+                                <th>No. SIK</th>
+                                <th>No. STRA</th>
+                                <th>Jabatan</th>
+                                <th>Tanggal Mulai</th>
+                                <th>NIK</th>
+                                <th>ID Satu Sehat</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apotekerTableBody">
+                            <tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // NAVIGATION & AUTH
+    // ============================================================
+    function navigate(page) { window.location.href = page; }
+    function logout() { localStorage.removeItem('loggedIn'); window.location.href = '/'; }
+    if (!localStorage.getItem('loggedIn')) window.location.href = '/';
+    
+    // ============================================================
+    // TABS
+    // ============================================================
+    function switchTab(tabId) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        // Show selected tab
+        document.getElementById(tabId).classList.add('active');
+        document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+    }
+    
+    // ============================================================
+    // CRUD OBAT
+    // ============================================================
+    let obatData = [];
+    
+    async function loadObat() {
+        const tbody = document.getElementById('obatTableBody');
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+        
+        try {
+            const res = await fetch('/api/obat');
+            obatData = await res.json();
+            if (!obatData || obatData.length === 0) {
+                const local = localStorage.getItem('obat');
+                if (local) obatData = JSON.parse(local);
+            }
+            renderObat(obatData);
+            document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+        } catch(e) {
+            const local = localStorage.getItem('obat');
+            if (local) {
+                obatData = JSON.parse(local);
+                renderObat(obatData);
+                document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+            } else {
+                obatData = [
+                    { id: 1, kode_obat: 'OBT001', nama_obat: 'Paracetamol 500mg', satuan: 'Tablet', harga_beli: 5000, harga_jual: 7500, stok: 100, jenis: 'Generik', golongan: 'Bebas', status: 'Aktif' },
+                    { id: 2, kode_obat: 'OBT002', nama_obat: 'Amoxicillin 500mg', satuan: 'Kapsul', harga_beli: 8000, harga_jual: 12000, stok: 50, jenis: 'Generik', golongan: 'Keras', status: 'Aktif' }
+                ];
+                localStorage.setItem('obat', JSON.stringify(obatData));
+                renderObat(obatData);
+                document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+            }
+        }
+    }
+    
+    function renderObat(data) {
+        const tbody = document.getElementById('obatTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#7a8a9e;padding:40px;">📭 Belum ada data obat</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map((o, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><strong>${o.kode_obat || '-'}</strong></td>
+                <td>${o.nama_obat || '-'}</td>
+                <td>${o.satuan || '-'}</td>
+                <td>Rp ${Number(o.harga_beli || 0).toLocaleString()}</td>
+                <td>Rp ${Number(o.harga_jual || 0).toLocaleString()}</td>
+                <td>${o.stok || 0}</td>
+                <td>${o.jenis || '-'}</td>
+                <td>${o.golongan || '-'}</td>
+                <td><span class="badge ${o.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${o.status || 'Aktif'}</span></td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="editObat(${i})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteObat(${i})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function filterObat() {
+        const keyword = document.getElementById('searchObat').value.toLowerCase();
+        const status = document.getElementById('filterStatusObat').value;
+        let filtered = obatData;
+        if (keyword) filtered = filtered.filter(o => (o.kode_obat || '').toLowerCase().includes(keyword) || (o.nama_obat || '').toLowerCase().includes(keyword));
+        if (status) filtered = filtered.filter(o => o.status === status);
+        renderObat(filtered);
+    }
+    
+    function saveObat(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editObatId').value;
+        const data = {
+            kode_obat: document.getElementById('kodeObat').value.trim(),
+            nama_obat: document.getElementById('namaObat').value.trim(),
+            satuan: document.getElementById('satuanObat').value,
+            harga_beli: Number(document.getElementById('hargaBeli').value) || 0,
+            harga_jual: Number(document.getElementById('hargaJual').value) || 0,
+            stok: Number(document.getElementById('stokObat').value) || 0,
+            jenis: document.getElementById('jenisObat').value,
+            golongan: document.getElementById('golonganObat').value,
+            status: document.getElementById('statusObat').value
+        };
+        if (!data.kode_obat || !data.nama_obat) { alert('⚠️ Kode dan Nama Obat wajib diisi!'); return; }
+        if (editId === '') { data.id = Date.now(); obatData.push(data); } 
+        else { obatData[parseInt(editId)] = { ...obatData[parseInt(editId)], ...data }; }
+        localStorage.setItem('obat', JSON.stringify(obatData));
+        try { fetch('/api/obat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obatData) }).catch(() => {}); } catch(e) {}
+        renderObat(obatData);
+        document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+        resetObatForm();
+        alert('✅ Data obat berhasil disimpan!');
+    }
+    
+    function editObat(index) {
+        const o = obatData[index];
+        document.getElementById('editObatId').value = index;
+        document.getElementById('kodeObat').value = o.kode_obat || '';
+        document.getElementById('namaObat').value = o.nama_obat || '';
+        document.getElementById('satuanObat').value = o.satuan || 'Tablet';
+        document.getElementById('hargaBeli').value = o.harga_beli || '';
+        document.getElementById('hargaJual').value = o.harga_jual || '';
+        document.getElementById('stokObat').value = o.stok || 0;
+        document.getElementById('jenisObat').value = o.jenis || 'Generik';
+        document.getElementById('golonganObat').value = o.golongan || 'Bebas';
+        document.getElementById('statusObat').value = o.status || 'Aktif';
+    }
+    
+    function deleteObat(index) {
+        if (!confirm('Yakin hapus data obat ini?')) return;
+        obatData.splice(index, 1);
+        localStorage.setItem('obat', JSON.stringify(obatData));
+        renderObat(obatData);
+        document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+        alert('🗑️ Obat berhasil dihapus!');
+    }
+    
+    function resetObatForm() {
+        document.getElementById('editObatId').value = '';
+        document.getElementById('obatForm').reset();
+        document.getElementById('kodeObat').focus();
+    }
+    
+    function importExcel(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const text = e.target.result;
+                const lines = text.split('\n').filter(line => line.trim());
+                let startIndex = 0;
+                if (lines[0].toLowerCase().includes('kode')) startIndex = 1;
+                let imported = 0;
+                for (let i = startIndex; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.trim());
+                    if (cols.length >= 2) {
+                        obatData.push({
+                            id: Date.now() + i,
+                            kode_obat: cols[0] || `OBT${String(obatData.length + 1).padStart(3, '0')}`,
+                            nama_obat: cols[1] || 'Obat Baru',
+                            satuan: cols[2] || 'Tablet',
+                            harga_beli: Number(cols[3]) || 0,
+                            harga_jual: Number(cols[4]) || 0,
+                            stok: Number(cols[5]) || 0,
+                            jenis: cols[6] || 'Generik',
+                            golongan: cols[7] || 'Bebas',
+                            status: cols[8] || 'Aktif'
+                        });
+                        imported++;
+                    }
+                }
+                localStorage.setItem('obat', JSON.stringify(obatData));
+                try { fetch('/api/obat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obatData) }).catch(() => {}); } catch(e) {}
+                renderObat(obatData);
+                document.getElementById('totalObat').textContent = `Total: ${obatData.length} obat`;
+                alert(`✅ Berhasil import ${imported} data obat!`);
+                event.target.value = '';
+            } catch(error) { alert('❌ Gagal import file!'); }
+        };
+        reader.readAsText(file);
+    }
+    
+    // ============================================================
+    // CRUD SUPPLIER
+    // ============================================================
+    let supplierData = [];
+    
+    async function loadSupplier() {
+        const tbody = document.getElementById('supplierTableBody');
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+        try {
+            const res = await fetch('/api/supplier');
+            supplierData = await res.json();
+            if (!supplierData || supplierData.length === 0) {
+                const local = localStorage.getItem('supplier');
+                if (local) supplierData = JSON.parse(local);
+            }
+            renderSupplier(supplierData);
+            document.getElementById('totalSupplier').textContent = `Total: ${supplierData.length} supplier`;
+        } catch(e) {
+            const local = localStorage.getItem('supplier');
+            if (local) { supplierData = JSON.parse(local); renderSupplier(supplierData); document.getElementById('totalSupplier').textContent = `Total: ${supplierData.length} supplier`; }
+            else { supplierData = [ { id: 1, kode_supplier: 'SUP001', nama_supplier: 'PT. Kimia Farma', alamat: 'Jl. Jakarta No.1', kota: 'Jakarta', telepon: '021-1234567', status: 'Aktif' } ]; localStorage.setItem('supplier', JSON.stringify(supplierData)); renderSupplier(supplierData); document.getElementById('totalSupplier').textContent = `Total: ${supplierData.length} supplier`; }
+        }
+    }
+    
+    function renderSupplier(data) {
+        const tbody = document.getElementById('supplierTableBody');
+        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:40px;">📭 Belum ada data supplier</td></tr>'; return; }
+        tbody.innerHTML = data.map((s, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><strong>${s.kode_supplier || '-'}</strong></td>
+                <td>${s.nama_supplier || '-'}</td>
+                <td>${s.alamat || '-'}</td>
+                <td>${s.kota || '-'}</td>
+                <td>${s.telepon || '-'}</td>
+                <td><span class="badge ${s.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${s.status || 'Aktif'}</span></td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="editSupplier(${i})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSupplier(${i})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function filterSupplier() {
+        const keyword = document.getElementById('searchSupplier').value.toLowerCase();
+        renderSupplier(supplierData.filter(s => (s.nama_supplier || '').toLowerCase().includes(keyword)));
+    }
+    
+    function saveSupplier(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editSupplierId').value;
+        const data = { kode_supplier: document.getElementById('kodeSupplier').value.trim(), nama_supplier: document.getElementById('namaSupplier').value.trim(), alamat: document.getElementById('alamatSupplier').value.trim(), kota: document.getElementById('kotaSupplier').value.trim(), telepon: document.getElementById('teleponSupplier').value.trim(), status: document.getElementById('statusSupplier').value };
+        if (!data.kode_supplier || !data.nama_supplier) { alert('⚠️ Kode dan Nama Supplier wajib diisi!'); return; }
+        if (editId === '') { data.id = Date.now(); supplierData.push(data); } else { supplierData[parseInt(editId)] = { ...supplierData[parseInt(editId)], ...data }; }
+        localStorage.setItem('supplier', JSON.stringify(supplierData));
+        try { fetch('/api/supplier', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(supplierData) }).catch(() => {}); } catch(e) {}
+        renderSupplier(supplierData);
+        document.getElementById('totalSupplier').textContent = `Total: ${supplierData.length} supplier`;
+        resetSupplierForm();
+        alert('✅ Data supplier berhasil disimpan!');
+    }
+    
+    function editSupplier(index) {
+        const s = supplierData[index];
+        document.getElementById('editSupplierId').value = index;
+        document.getElementById('kodeSupplier').value = s.kode_supplier || '';
+        document.getElementById('namaSupplier').value = s.nama_supplier || '';
+        document.getElementById('alamatSupplier').value = s.alamat || '';
+        document.getElementById('kotaSupplier').value = s.kota || '';
+        document.getElementById('teleponSupplier').value = s.telepon || '';
+        document.getElementById('statusSupplier').value = s.status || 'Aktif';
+    }
+    
+    function deleteSupplier(index) {
+        if (!confirm('Yakin hapus supplier ini?')) return;
+        supplierData.splice(index, 1);
+        localStorage.setItem('supplier', JSON.stringify(supplierData));
+        renderSupplier(supplierData);
+        document.getElementById('totalSupplier').textContent = `Total: ${supplierData.length} supplier`;
+        alert('🗑️ Supplier berhasil dihapus!');
+    }
+    
+    function resetSupplierForm() {
+        document.getElementById('editSupplierId').value = '';
+        document.getElementById('supplierForm').reset();
+        document.getElementById('kodeSupplier').focus();
+    }
+    
+    // ============================================================
+    // CRUD APOTEKER
+    // ============================================================
+    let apotekerData = [];
+    
+    async function loadApoteker() {
+        const tbody = document.getElementById('apotekerTableBody');
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+        try {
+            const res = await fetch('/api/apoteker');
+            apotekerData = await res.json();
+            if (!apotekerData || apotekerData.length === 0) {
+                const local = localStorage.getItem('apoteker');
+                if (local) apotekerData = JSON.parse(local);
+            }
+            renderApoteker(apotekerData);
+            document.getElementById('totalApoteker').textContent = `Total: ${apotekerData.length} apoteker`;
+        } catch(e) {
+            const local = localStorage.getItem('apoteker');
+            if (local) { apotekerData = JSON.parse(local); renderApoteker(apotekerData); document.getElementById('totalApoteker').textContent = `Total: ${apotekerData.length} apoteker`; }
+            else { apotekerData = [ { id: 1, nama: 'Apt. Ahmad Justawan, S.Farm', no_sik: 'SIK-2024-001', no_stra: 'STRA-2024-001', alamat: 'Kel. Lambuya, Konawe', jabatan: 'APOTEKER', tanggal_mulai: '2025-06-23', nik: '1234567890', id_satu_sehat: 'V000001336552622', status: 'Aktif' } ]; localStorage.setItem('apoteker', JSON.stringify(apotekerData)); renderApoteker(apotekerData); document.getElementById('totalApoteker').textContent = `Total: ${apotekerData.length} apoteker`; }
+        }
+    }
+    
+    function renderApoteker(data) {
+        const tbody = document.getElementById('apotekerTableBody');
+        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:40px;">📭 Belum ada data apoteker</td></tr>'; return; }
+        tbody.innerHTML = data.map((a, i) => `
+            <tr>
+                <td>${i+1}</td>
+                <td><strong>${a.nama || '-'}</strong></td>
+                <td>${a.no_sik || '-'}</td>
+                <td>${a.no_stra || '-'}</td>
+                <td>${a.jabatan || '-'}</td>
+                <td>${a.tanggal_mulai || '-'}</td>
+                <td>${a.nik || '-'}</td>
+                <td>${a.id_satu_sehat || '-'}</td>
+                <td><span class="badge ${a.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${a.status || 'Aktif'}</span></td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="editApoteker(${i})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteApoteker(${i})"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    function filterApoteker() {
+        const keyword = document.getElementById('searchApoteker').value.toLowerCase();
+        renderApoteker(apotekerData.filter(a => (a.nama || '').toLowerCase().includes(keyword)));
+    }
+    
+    function saveApoteker(e) {
+        e.preventDefault();
+        const editId = document.getElementById('editApotekerId').value;
+        const data = { nama: document.getElementById('namaApoteker').value.trim(), no_sik: document.getElementById('noSIK').value.trim(), no_stra: document.getElementById('noSTRA').value.trim(), alamat: document.getElementById('alamatApoteker').value.trim(), jabatan: document.getElementById('jabatanApoteker').value, tanggal_mulai: document.getElementById('tglMulaiApoteker').value, nik: document.getElementById('nikApoteker').value.trim(), id_satu_sehat: document.getElementById('idSatuSehat').value.trim(), status: document.getElementById('statusApoteker').value };
+        if (!data.nama) { alert('⚠️ Nama apoteker wajib diisi!'); return; }
+        if (editId === '') { data.id = Date.now(); apotekerData.push(data); } else { apotekerData[parseInt(editId)] = { ...apotekerData[parseInt(editId)], ...data }; }
+        localStorage.setItem('apoteker', JSON.stringify(apotekerData));
+        try { fetch('/api/apoteker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(apotekerData) }).catch(() => {}); } catch(e) {}
+        renderApoteker(apotekerData);
+        document.getElementById('totalApoteker').textContent = `Total: ${apotekerData.length} apoteker`;
+        resetApotekerForm();
+        alert('✅ Data apoteker berhasil disimpan!');
+    }
+    
+    function editApoteker(index) {
+        const a = apotekerData[index];
+        document.getElementById('editApotekerId').value = index;
+        document.getElementById('namaApoteker').value = a.nama || '';
+        document.getElementById('noSIK').value = a.no_sik || '';
+        document.getElementById('noSTRA').value = a.no_stra || '';
+        document.getElementById('alamatApoteker').value = a.alamat || '';
+        document.getElementById('jabatanApoteker').value = a.jabatan || 'APOTEKER';
+        document.getElementById('tglMulaiApoteker').value = a.tanggal_mulai || '';
+        document.getElementById('nikApoteker').value = a.nik || '';
+        document.getElementById('idSatuSehat').value = a.id_satu_sehat || '';
+        document.getElementById('statusApoteker').value = a.status || 'Aktif';
+    }
+    
+    function deleteApoteker(index) {
+        if (!confirm('Yakin hapus data apoteker ini?')) return;
+        apotekerData.splice(index, 1);
+        localStorage.setItem('apoteker', JSON.stringify(apotekerData));
+        renderApoteker(apotekerData);
+        document.getElementById('totalApoteker').textContent = `Total: ${apotekerData.length} apoteker`;
+        alert('🗑️ Apoteker berhasil dihapus!');
+    }
+    
+    function resetApotekerForm() {
+        document.getElementById('editApotekerId').value = '';
+        document.getElementById('apotekerForm').reset();
+        document.getElementById('namaApoteker').focus();
+    }
+    
+    // ============================================================
+    // INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadObat();
+        loadSupplier();
+        loadApoteker();
+    });
+</script>
+</body>
+</html>
