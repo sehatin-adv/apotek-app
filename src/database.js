@@ -1276,10 +1276,11 @@ export async function deletePengeluaran(id) {
 // ============================================================
 export async function getPengaturanApotek() {
     try {
+        // Tidak perlu filter tenant_id manual - RLS otomatis cuma
+        // kasih lihat baris milik tenant sendiri (satu baris per tenant).
         const { data, error } = await supabase
             .from('pengaturan_apotek')
             .select('*')
-            .eq('id', 1)
             .maybeSingle();
         if (error) throw error;
         return { data, error: null };
@@ -1291,9 +1292,12 @@ export async function getPengaturanApotek() {
 
 export async function savePengaturanApotek(settingsData) {
     try {
+        // tenant_id ditempel otomatis oleh trigger DB kalau baris ini
+        // baru; onConflict pakai tenant_id (bukan id lagi) karena
+        // sekarang satu baris per tenant, bukan satu baris global.
         const { data, error } = await supabase
             .from('pengaturan_apotek')
-            .upsert({ id: 1, ...settingsData }, { onConflict: 'id' })
+            .upsert(settingsData, { onConflict: 'tenant_id' })
             .select()
             .single();
         if (error) throw error;

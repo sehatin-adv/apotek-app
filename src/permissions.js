@@ -23,11 +23,27 @@ export async function enforcePermissions(currentModuleKey) {
             .eq('auth_user_id', user.id)
             .maybeSingle();
 
-        // Kalau akun ini TIDAK terdaftar di app_users (mis. akun pemilik/
-        // superadmin yang login langsung lewat Supabase Auth, bukan dibuat
-        // lewat form Tambah User di Kelola User), jangan dibatasi sama
-        // sekali - anggap akun ini di luar sistem hak akses & full access.
-        if (!appUserRow) return;
+        // PENTING - PERILAKU INI BERUBAH sejak Sehatin+ jadi multi-tenant:
+        // dulu "tidak terdaftar di app_users" berarti akun pemilik/superadmin
+        // di luar sistem hak akses -> dikasih akses penuh. Sekarang SETIAP
+        // akun WAJIB terhubung ke satu tenant/apotek lewat app_users (lihat
+        // migration-multitenant.sql, yang otomatis mendaftarkan akun lama).
+        // Jadi "tidak ditemukan" sekarang berarti akun ini tidak terhubung
+        // ke apotek manapun - harus DITOLAK, bukan dikasih akses penuh,
+        // karena RLS di database juga sudah menolak (tenant_id kosong tidak
+        // akan pernah cocok dengan data siapa pun).
+        if (!appUserRow) {
+            console.error('Akun ini tidak terhubung ke tenant/apotek manapun. Hubungi admin.');
+            document.querySelectorAll('[data-module]').forEach(el => { el.style.display = 'none'; });
+            document.querySelectorAll('.menu-group').forEach(group => {
+                const header = group.querySelector(':scope > .menu-item');
+                if (header) header.style.display = 'none';
+            });
+            if (currentModuleKey && currentModuleKey !== 'dashboard') {
+                alert('Akun Anda tidak terhubung ke apotek manapun. Hubungi admin.');
+            }
+            return;
+        }
 
         if (appUserRow.role === 'admin') return; // admin selalu full access, semua modul kebuka
 
