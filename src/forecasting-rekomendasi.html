@@ -337,16 +337,7 @@
                 : '<p style="font-size:12px;color:#9aa8b8;margin-bottom:8px;">Tidak ditemukan kecocokan otomatis. Coba cari manual di bawah.</p>';
 
             const query = manualSearchState[item.id] || '';
-            const searchResults = query ? getSearchMatches(query) : [];
-            const searchResultsHtml = query ? `
-                <div style="margin-top:8px;">
-                    ${searchResults.length === 0 ? '<p style="font-size:11px;color:#9aa8b8;">Tidak ada hasil.</p>' : searchResults.map(m => `
-                        <button class="match-option" onclick='selectMatch(${JSON.stringify(item.id)}, ${JSON.stringify(m).replace(/'/g, "&apos;")})'>
-                            <div class="nama">${m.nama}</div>
-                            <span style="font-size:11px;color:#9aa8b8;">${m.pbfNama}</span>
-                        </button>
-                    `).join('')}
-                </div>` : '';
+            const searchResultsHtml = renderSearchResultsHtml(item.id, query);
 
             body = `
                 ${matchOptions}
@@ -354,7 +345,7 @@
                     <i class="fas fa-search"></i>
                     <input type="text" placeholder="Cari manual nama obat di semua PBF..." value="${query}" oninput="manualSearch('${item.id}', this.value)">
                 </div>
-                ${searchResultsHtml}
+                <div id="searchResults_${item.id}">${searchResultsHtml}</div>
             `;
         }
 
@@ -372,14 +363,37 @@
         `;
     }
 
+    function renderSearchResultsHtml(itemId, query) {
+        if (!query) return '';
+        const searchResults = getSearchMatches(query);
+        return `
+            <div style="margin-top:8px;">
+                ${searchResults.length === 0 ? '<p style="font-size:11px;color:#9aa8b8;">Tidak ada hasil.</p>' : searchResults.map(m => `
+                    <button class="match-option" onclick='selectMatch(${JSON.stringify(itemId)}, ${JSON.stringify(m).replace(/'/g, "&apos;")})'>
+                        <div class="nama">${m.nama}</div>
+                        <span style="font-size:11px;color:#9aa8b8;">${m.pbfNama}</span>
+                    </button>
+                `).join('')}
+            </div>`;
+    }
+
     function getSearchMatches(query) {
         const q = normalize(query);
         return allProducts.filter(p => normalize(p.nama).includes(q)).slice(0, 8);
     }
 
+    // Update HANYA area hasil pencarian di dalam kartu obat ini, tanpa
+    // menyentuh/mengganti elemen <input>-nya - supaya fokus & kursor
+    // tidak hilang tiap kali mengetik satu huruf (bug sebelumnya:
+    // renderContent() membangun ulang SELURUH halaman tiap keystroke).
+    const searchDebounceTimers = {};
     window.manualSearch = function(itemId, value) {
         manualSearchState[itemId] = value;
-        renderContent(1, 1); // totalObat/totalPbf dummy > 0 supaya notice tidak muncul ulang
+        clearTimeout(searchDebounceTimers[itemId]);
+        searchDebounceTimers[itemId] = setTimeout(() => {
+            const container = document.getElementById('searchResults_' + itemId);
+            if (container) container.innerHTML = renderSearchResultsHtml(itemId, value);
+        }, 150);
     };
 
     window.selectMatch = async function(itemId, product) {
