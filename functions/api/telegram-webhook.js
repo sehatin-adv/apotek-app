@@ -138,11 +138,6 @@ Contoh:
 export async function onRequestPost(context) {
     const { request, env } = context;
 
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_AUTHORIZED_USER_ID || !env.SUPABASE_SERVICE_ROLE_KEY) {
-        // Belum dikonfigurasi - diam saja, jangan bocorkan info ke pemanggil luar
-        return new Response('OK', { status: 200 });
-    }
-
     let update;
     try {
         update = await request.json();
@@ -156,8 +151,32 @@ export async function onRequestPost(context) {
     const chatId = message.chat.id;
     const senderId = String(message.from?.id || '');
 
-    // Cuma proses pesan dari user yang diotorisasi - abaikan yang lain diam-diam
+    // Kalau TELEGRAM_BOT_TOKEN belum diset, benar-benar tidak bisa balas
+    // apa-apa (butuh token itu buat kirim pesan) - diam-diam saja.
+    if (!env.TELEGRAM_BOT_TOKEN) {
+        return new Response('OK', { status: 200 });
+    }
+
+    // Diagnostik setup - balas dengan pesan yang jelas, BUKAN diam,
+    // supaya gampang ketauan penyebabnya kalau bot belum merespons.
+    if (!env.TELEGRAM_AUTHORIZED_USER_ID) {
+        await sendTelegramMessage(env, chatId,
+            `⚠️ Bot belum sepenuhnya dikonfigurasi.\n\nTELEGRAM_AUTHORIZED_USER_ID belum diset di Cloudflare.\n\nID Telegram Anda (yang sedang chat sekarang): <code>${senderId}</code>\n\nSet secret ini lalu deploy ulang:\nnpx wrangler pages secret put TELEGRAM_AUTHORIZED_USER_ID\n(isi dengan angka di atas)`);
+        return new Response('OK', { status: 200 });
+    }
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+        await sendTelegramMessage(env, chatId, '⚠️ SUPABASE_SERVICE_ROLE_KEY belum diset di Cloudflare Pages. Set dulu lalu deploy ulang.');
+        return new Response('OK', { status: 200 });
+    }
+
+    // Cuma proses pesan dari user yang diotorisasi. Kalau TIDAK cocok,
+    // balas sekali dengan ID pengirim (bukan diam total) - supaya kalau
+    // itu Anda sendiri tapi salah isi secret, langsung ketahuan angka
+    // yang benar. Untuk orang asing yang nemu bot ini, ini cuma
+    // menunjukkan "bot ini butuh otorisasi", tidak membocorkan data apa pun.
     if (senderId !== String(env.TELEGRAM_AUTHORIZED_USER_ID)) {
+        await sendTelegramMessage(env, chatId,
+            `🔒 Akun ini belum diotorisasi.\n\nID Anda: <code>${senderId}</code>\nID yang terdaftar di sistem: <code>${env.TELEGRAM_AUTHORIZED_USER_ID}</code>\n\nKalau ini seharusnya Anda, cocokkan lagi nilai TELEGRAM_AUTHORIZED_USER_ID dengan ID di atas.`);
         return new Response('OK', { status: 200 });
     }
 
