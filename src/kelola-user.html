@@ -409,21 +409,24 @@
         try {
             const { data, error } = await getModules();
             if (error) throw error;
-            
-            if (data && data.length > 0) {
-                modulesData = data;
-            } else {
-                // Jika tabel kosong, gunakan default modules
-                modulesData = DEFAULT_MODULES;
-                // Simpan ke database (pakai client authenticated,
-                // sesuai RLS policy 'authenticated' di app_modules)
-                for (const mod of DEFAULT_MODULES) {
+
+            // DEFAULT_MODULES di kode adalah daftar modul yang BENAR-BENAR
+            // ada di aplikasi sekarang - selalu jadi sumber kebenaran utama.
+            // Tabel app_modules di database cuma cache; kalau di-treat
+            // sebaliknya (DB duluan), modul baru yang ditambahkan di kode
+            // (mis. Forecasting) tidak akan pernah muncul di daftar pilihan
+            // karena DB sudah terlanjur ke-seed dengan daftar lama.
+            const existingKeys = new Set((data || []).map(m => m.module_key));
+            const missing = DEFAULT_MODULES.filter(m => !existingKeys.has(m.module_key));
+            if (missing.length > 0) {
+                for (const mod of missing) {
                     await supabase
                         .from('app_modules')
                         .upsert(mod, { onConflict: 'module_key' })
                         .select();
                 }
             }
+            modulesData = DEFAULT_MODULES;
         } catch(e) {
             console.error('Error loading modules, using default:', e);
             modulesData = DEFAULT_MODULES;
