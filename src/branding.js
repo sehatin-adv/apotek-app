@@ -72,28 +72,40 @@ async function checkSubscriptionBanner() {
         if (!shouldWarn) return;
 
         let qrisUrl = null;
+        let subscriptionPrice = null;
         try {
             const { data: qrisRow } = await supabase.from('platform_settings').select('value').eq('key', 'qris_image_url').maybeSingle();
             qrisUrl = qrisRow?.value || null;
         } catch (e) { /* platform_settings mungkin belum ada, abaikan */ }
+        try {
+            const { data: priceRow } = await supabase.from('platform_settings').select('value').eq('key', 'subscription_price').maybeSingle();
+            subscriptionPrice = priceRow?.value || null;
+        } catch (e) { /* abaikan */ }
 
-        renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl });
+        renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl, subscriptionPrice });
     } catch (e) {
         console.error('Error checkSubscriptionBanner:', e);
     }
 }
 
-function renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl }) {
+function formatRupiah(v) {
+    const n = Number(v);
+    if (!v || isNaN(n)) return null;
+    return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+function renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl, subscriptionPrice }) {
     const mainContent = document.querySelector('.main-content');
     if (!mainContent) return;
     if (document.getElementById('subscriptionBanner')) return; // jangan dobel
 
     const urgent = isSuspended || (daysLeft !== null && daysLeft < 0);
     const tglStr = expiresAt ? expiresAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+    const hargaStr = formatRupiah(subscriptionPrice);
 
     const message = urgent
-        ? `Langganan Sehatin+ sudah <strong>berakhir</strong>${tglStr ? ' pada ' + tglStr : ''}. Sebagian fitur mungkin terkunci - segera perpanjang.`
-        : `Langganan Sehatin+ akan berakhir dalam <strong>${daysLeft} hari</strong> (${tglStr}). Perpanjang sekarang supaya tidak terputus.`;
+        ? `Langganan Sehatin+ sudah <strong>berakhir</strong>${tglStr ? ' pada ' + tglStr : ''}. Sebagian fitur mungkin terkunci - segera perpanjang${hargaStr ? ' (' + hargaStr + '/bulan)' : ''}.`
+        : `Langganan Sehatin+ akan berakhir dalam <strong>${daysLeft} hari</strong> (${tglStr}). Perpanjang sekarang${hargaStr ? ' - ' + hargaStr + '/bulan' : ''} supaya tidak terputus.`;
 
     const banner = document.createElement('div');
     banner.id = 'subscriptionBanner';
@@ -108,16 +120,18 @@ function renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl })
     mainContent.insertBefore(banner, mainContent.firstChild);
 
     const btn = document.getElementById('btnShowQris');
-    if (btn) btn.onclick = () => showQrisModal(qrisUrl);
+    if (btn) btn.onclick = () => showQrisModal(qrisUrl, subscriptionPrice);
 }
 
-function showQrisModal(qrisUrl) {
+function showQrisModal(qrisUrl, subscriptionPrice) {
+    const hargaStr = formatRupiah(subscriptionPrice);
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Inter\',sans-serif;';
     overlay.innerHTML = `
         <div style="background:white;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
             <h3 style="margin-bottom:6px;color:#0f1e2e;font-size:16px;">Perpanjang Langganan</h3>
-            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Scan QRIS di bawah, transfer sesuai biaya langganan, lalu konfirmasi ke admin Sehatin+ supaya akses Anda diaktifkan kembali.</p>
+            ${hargaStr ? `<p style="font-size:22px;font-weight:800;color:#2d6a9f;margin-bottom:4px;">${hargaStr}<span style="font-size:12px;font-weight:500;color:#7a8a9e;"> /bulan</span></p>` : ''}
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Scan QRIS di bawah, transfer sesuai nominal di atas, lalu konfirmasi ke admin Sehatin+ supaya akses Anda diaktifkan kembali.</p>
             <img src="${qrisUrl}" alt="QRIS" style="width:100%;border-radius:10px;margin-bottom:14px;border:1px solid #eef2f7;">
             <button id="btnCloseQris" style="width:100%;padding:10px;background:#2d6a9f;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Tutup</button>
         </div>

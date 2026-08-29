@@ -106,7 +106,7 @@ export async function onRequestPost(context) {
     // admin di app_users manapun - supaya admin satu apotek tidak bisa
     // bikin/lihat/matikan apotek lain.
     // ============================================================
-    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting'];
+    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting', 'get-setting', 'set-setting'];
     if (PLATFORM_ACTIONS.includes(action)) {
         if (!env.PLATFORM_ADMIN_SECRET) {
             return new Response(JSON.stringify({ error: 'PLATFORM_ADMIN_SECRET belum diset di Cloudflare Pages.' }), { status: 500, headers: CORS_HEADERS });
@@ -228,6 +228,37 @@ export async function onRequestPost(context) {
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
                     return new Response(JSON.stringify({ error: 'Gagal menyimpan pengaturan QRIS: ' + (errData.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
+                }
+                return new Response(JSON.stringify({ ok: true }), { headers: CORS_HEADERS });
+            }
+
+            // Pengaturan platform generik (key-value) - dipakai buat harga
+            // langganan & pengaturan lain ke depannya, biar tidak perlu
+            // nulis action baru tiap nambah 1 setting.
+            const ALLOWED_SETTING_KEYS = ['subscription_price'];
+            if (action === 'get-setting') {
+                const { key } = body;
+                if (!ALLOWED_SETTING_KEYS.includes(key)) {
+                    return new Response(JSON.stringify({ error: 'Key pengaturan tidak dikenal.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings?key=eq.${key}&select=value`, { headers: serviceHeaders });
+                const data = await res.json();
+                return new Response(JSON.stringify({ data: data?.[0]?.value || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'set-setting') {
+                const { key, value } = body;
+                if (!ALLOWED_SETTING_KEYS.includes(key)) {
+                    return new Response(JSON.stringify({ error: 'Key pengaturan tidak dikenal.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings`, {
+                    method: 'POST',
+                    headers: { ...serviceHeaders, 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key, value: value ?? '' })
+                });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    return new Response(JSON.stringify({ error: 'Gagal menyimpan pengaturan: ' + (errData.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
                 }
                 return new Response(JSON.stringify({ ok: true }), { headers: CORS_HEADERS });
             }
