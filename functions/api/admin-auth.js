@@ -70,16 +70,18 @@ export async function onRequestOptions() {
     return new Response(null, { headers: CORS_HEADERS });
 }
 
+const DEFAULT_KATEGORI = [
+    { tipe: 'jenis', nama: 'Generik' }, { tipe: 'jenis', nama: 'Patented' },
+    { tipe: 'jenis', nama: 'Herbal' }, { tipe: 'jenis', nama: 'Alat Kesehatan' },
+    { tipe: 'golongan', nama: 'Bebas' }, { tipe: 'golongan', nama: 'Terbatas' },
+    { tipe: 'golongan', nama: 'Keras' }, { tipe: 'golongan', nama: 'Narkotika' }, { tipe: 'golongan', nama: 'Prekursor' }
+];
+
 export async function onRequestPost(context) {
     const { request, env } = context;
 
     if (!env.SUPABASE_SERVICE_ROLE_KEY) {
         return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY belum diset di Cloudflare Pages (Settings > Environment variables > tipe Secret).' }), { status: 500, headers: CORS_HEADERS });
-    }
-
-    const auth = await verifyCallerIsAdmin(request, env);
-    if (!auth.ok) {
-        return new Response(JSON.stringify({ error: auth.message }), { status: auth.status, headers: CORS_HEADERS });
     }
 
     let body;
@@ -96,6 +98,117 @@ export async function onRequestPost(context) {
         'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': 'application/json'
     };
+
+    // ============================================================
+    // AKSI KHUSUS PEMILIK PLATFORM (kelola tenant/apotek) - otorisasi
+    // TERPISAH dari akun admin tenant biasa. Pakai PLATFORM_ADMIN_SECRET
+    // (secret Cloudflare lain, hanya Anda yang tahu), BUKAN status
+    // admin di app_users manapun - supaya admin satu apotek tidak bisa
+    // bikin/lihat/matikan apotek lain.
+    // ============================================================
+    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status'];
+    if (PLATFORM_ACTIONS.includes(action)) {
+        if (!env.PLATFORM_ADMIN_SECRET) {
+            return new Response(JSON.stringify({ error: 'PLATFORM_ADMIN_SECRET belum diset di Cloudflare Pages.' }), { status: 500, headers: CORS_HEADERS });
+        }
+        if (!body.platform_secret || body.platform_secret !== env.PLATFORM_ADMIN_SECRET) {
+            return new Response(JSON.stringify({ error: 'Kunci platform salah atau tidak diisi.' }), { status: 403, headers: CORS_HEADERS });
+        }
+
+        try {
+            if (action === 'list-tenants') {
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?select=*&order=created_at.desc`, { headers: serviceHeaders });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal memuat daftar tenant.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'update-tenant-status') {
+                const { tenant_id, status } = body;
+                if (!tenant_id || !['Aktif', 'Suspended', 'Trial'].includes(status)) {
+                    return new Response(JSON.stringify({ error: 'tenant_id dan status (Aktif/Suspended/Trial) wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenant_id}`, {
+                    method: 'PATCH',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status tenant.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'provision-tenant') {
+                const { nama_apotek, admin_nama, admin_email, admin_password } = body;
+                if (!nama_apotek || !admin_email || !admin_password) {
+                    return new Response(JSON.stringify({ error: 'Nama apotek, email admin, dan password admin wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                if (admin_password.length < 6) {
+                    return new Response(JSON.stringify({ error: 'Password minimal 6 karakter.' }), { status: 400, headers: CORS_HEADERS });
+                }
+
+                // 1. Buat tenant
+                const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants`, {
+                    method: 'POST',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ nama: nama_apotek.trim(), status: 'Trial' })
+                });
+                const tenantData = await tenantRes.json();
+                if (!tenantRes.ok) return new Response(JSON.stringify({ error: 'Gagal membuat tenant: ' + (tenantData.message || '') }), { status: tenantRes.status, headers: CORS_HEADERS });
+                const tenantId = tenantData[0].id;
+
+                // 2. Buat akun login admin pertama utk tenant ini
+                const authRes = await fetch(`${adminApiBase}/users`, {
+                    method: 'POST',
+                    headers: serviceHeaders,
+                    body: JSON.stringify({ email: admin_email.trim(), password: admin_password, email_confirm: true, user_metadata: { full_name: admin_nama || admin_email } })
+                });
+                const authData = await authRes.json();
+                if (!authRes.ok) {
+                    // Rollback tenant yang baru dibuat supaya tidak nyangkut jadi tenant kosong
+                    await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenantId}`, { method: 'DELETE', headers: serviceHeaders });
+                    return new Response(JSON.stringify({ error: 'Gagal membuat akun admin: ' + (authData.msg || authData.message || '') }), { status: authRes.status, headers: CORS_HEADERS });
+                }
+
+                // 3. Hubungkan akun itu ke tenant sebagai admin
+                const appUserRes = await fetch(`${env.SUPABASE_URL}/rest/v1/app_users`, {
+                    method: 'POST',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({
+                        auth_user_id: authData.id, username: admin_email.trim(), email: admin_email.trim(),
+                        nama: admin_nama || admin_email, role: 'admin', status: 'Aktif', tenant_id: tenantId
+                    })
+                });
+                if (!appUserRes.ok) {
+                    const appUserErr = await appUserRes.json().catch(() => ({}));
+                    return new Response(JSON.stringify({ error: 'Tenant & akun dibuat, tapi gagal menghubungkan ke tenant: ' + (appUserErr.message || '') }), { status: appUserRes.status, headers: CORS_HEADERS });
+                }
+
+                // 4. Isi kategori Jenis/Golongan default (biar Master Obat langsung bisa dipakai)
+                await fetch(`${env.SUPABASE_URL}/rest/v1/kategori_obat`, {
+                    method: 'POST',
+                    headers: serviceHeaders,
+                    body: JSON.stringify(DEFAULT_KATEGORI.map(k => ({ ...k, tenant_id: tenantId })))
+                });
+
+                return new Response(JSON.stringify({
+                    data: { tenant_id: tenantId, nama_apotek: nama_apotek.trim(), admin_email: admin_email.trim() }
+                }), { headers: CORS_HEADERS });
+            }
+        } catch(e) {
+            return new Response(JSON.stringify({ error: e.message || 'Terjadi kesalahan server.' }), { status: 500, headers: CORS_HEADERS });
+        }
+    }
+
+    // ============================================================
+    // AKSI ADMIN TENANT BIASA (kelola user staff dalam 1 apotek) -
+    // wajib login & admin tenant tsb, TIDAK bisa jangkau tenant lain
+    // (dibatasi RLS lewat token pemanggil sendiri).
+    // ============================================================
+    const auth = await verifyCallerIsAdmin(request, env);
+    if (!auth.ok) {
+        return new Response(JSON.stringify({ error: auth.message }), { status: auth.status, headers: CORS_HEADERS });
+    }
 
     try {
         if (action === 'create') {

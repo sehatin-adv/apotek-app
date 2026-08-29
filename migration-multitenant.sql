@@ -270,20 +270,30 @@ CREATE POLICY "Users can read own tenant" ON tenants
 -- milik tenant tertentu), policy lama (authenticated) masih berlaku,
 -- sengaja tidak diubah di sini.
 
+-- ------------------------------------------------------------
+-- 8) TENANT PROVISIONING - alat kelola tenant (Anda sebagai pemilik
+--    platform, BUKAN admin apotek biasa)
+-- ------------------------------------------------------------
+-- get_my_tenant_id() ditingkatkan: kalau status tenant "Suspended"
+-- (mis. pelanggan belum bayar), fungsi ini otomatis balikin NULL -
+-- yang berarti RLS menolak semua akses data tenant itu, TANPA perlu
+-- hapus/ubah data apapun. Tinggal ubah status via halaman
+-- platform-tenants.html utk bekukan/aktifkan akses pelanggan.
+CREATE OR REPLACE FUNCTION get_my_tenant_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT au.tenant_id
+    FROM app_users au
+    JOIN tenants t ON t.id = au.tenant_id
+    WHERE au.auth_user_id = auth.uid()
+    AND t.status IN ('Aktif', 'Trial')
+    LIMIT 1;
+$$;
+
 -- ============================================================
--- SELESAI
--- Setelah ini:
--- - Data yang sudah ada otomatis jadi milik 1 tenant (nama diambil
---   dari Identitas Apotek Anda saat ini).
--- - Akun yang sudah login sebelumnya (termasuk akun pemilik yang tidak
---   pernah dibuat lewat form Tambah User) otomatis terdaftar sebagai
---   admin tenant tsb.
--- - Baris baru yang dibuat lewat aplikasi otomatis tertandai tenant
---   yang benar tanpa perlu ubah kode.
--- - Kode aplikasi (src/) masih perlu sedikit penyesuaian: fallback
---   "user tidak ditemukan di app_users = akses penuh" di permissions.js
---   HARUS diubah jadi "akses ditolak" (karena sekarang user tanpa
---   tenant = benar-benar tidak terhubung ke apotek manapun), dan perlu
---   alat untuk mendaftarkan tenant/apotek baru. Ini akan menyusul di
---   pembaruan kode berikutnya.
+-- SELESAI (Tenant Provisioning)
 -- ============================================================

@@ -16,3 +16,9 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # Nilainya: Supabase Dashboard > Project Settings > API > service_role key.
 # Dipakai HANYA oleh functions/api/admin-auth.js di server, tidak
 # pernah dikirim ke browser.
+
+# JUGA set secret kedua ini - kunci khusus Anda sebagai pemilik
+# platform, dipakai buat masuk ke halaman /platform-tenants.html
+# (daftar tenant/apotek baru). Isi bebas, minimal 20 karakter acak,
+# JANGAN dipakai ulang dari password lain:
+#   npx wrangler pages secret put PLATFORM_ADMIN_SECRET

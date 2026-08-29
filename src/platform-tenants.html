@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Kelola Tenant - Sehatin+ Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#0f1e2e; min-height:100vh; padding:24px; }
+        .wrap { max-width:900px; margin:0 auto; }
+        .header { display:flex; align-items:center; gap:12px; margin-bottom:24px; color:white; }
+        .header img { height:36px; width:36px; border-radius:8px; background:white; padding:3px; }
+        .header h1 { font-size:20px; font-weight:800; }
+        .header p { font-size:12px; color:rgba(255,255,255,0.5); }
+        .badge-platform { background:#4fc3f7; color:#0f1e2e; font-size:10px; font-weight:800; padding:3px 10px; border-radius:20px; margin-left:8px; }
+
+        .lock-screen { max-width:420px; margin:15vh auto; background:white; border-radius:20px; padding:32px; text-align:center; }
+        .lock-screen i { font-size:36px; color:#2d6a9f; margin-bottom:14px; }
+        .lock-screen h2 { font-size:18px; color:#0f1e2e; margin-bottom:6px; }
+        .lock-screen p { font-size:13px; color:#7a8a9e; margin-bottom:20px; }
+        .lock-screen input { width:100%; padding:12px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; margin-bottom:12px; }
+        .lock-screen button { width:100%; padding:12px; background:#2d6a9f; color:white; border:none; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer; }
+        .lock-screen button:hover { background:#1a4a7a; }
+        .lock-error { color:#dc3545; font-size:12px; margin-top:8px; }
+
+        .card { background:white; border-radius:16px; padding:22px 24px; margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+        .form-group label { display:block; font-size:12px; font-weight:600; color:#34495e; margin-bottom:4px; }
+        .form-group input { width:100%; padding:9px 12px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
+        .form-group input:focus { border-color:#2d6a9f; outline:none; }
+        .btn { padding:10px 20px; border:none; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-primary:disabled { background:#9aa8b8; cursor:not-allowed; }
+        .btn-sm { padding:6px 12px; font-size:11px; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; color:#34495e; }
+        .btn-danger-outline { background:transparent; border:2px solid #f5c6cb; color:#dc3545; }
+        .btn-success-outline { background:transparent; border:2px solid #c3e6cb; color:#28a745; }
+
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:10px 8px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:10px 8px; border-bottom:1px solid #eef2f7; }
+        .status-badge { padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; }
+        .status-Aktif { background:#d4edda; color:#1e7e34; }
+        .status-Trial { background:#fff3cd; color:#b8860b; }
+        .status-Suspended { background:#fbe4e6; color:#dc3545; }
+
+        .result-box { background:#eaf7f0; border:1px solid #b7e4c7; border-radius:12px; padding:16px; margin-top:14px; font-size:13px; }
+        .result-box .label { color:#7a8a9e; font-size:11px; }
+        .result-box .value { font-weight:700; color:#0f1e2e; margin-bottom:8px; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:1100; font-size:13px; max-width:350px; }
+        .toast.error { background:#dc3545; }
+
+        .empty-state { text-align:center; padding:30px; color:#9aa8b8; font-size:13px; }
+        .loading { display:flex; justify-content:center; align-items:center; padding:24px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        @media (max-width:600px) { .form-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="lock-screen" id="lockScreen">
+    <i class="fas fa-lock"></i>
+    <h2>Kelola Tenant</h2>
+    <p>Halaman ini khusus pemilik platform Sehatin+, bukan untuk staff apotek. Masukkan kunci platform untuk lanjut.</p>
+    <input type="password" id="platformSecretInput" placeholder="Kunci platform..." onkeydown="if(event.key==='Enter') unlockPlatform()">
+    <button onclick="unlockPlatform()"><i class="fas fa-unlock"></i> Masuk</button>
+    <div class="lock-error" id="lockError"></div>
+</div>
+
+<div class="wrap" id="mainWrap" style="display:none;">
+    <div class="header">
+        <img src="/logo-icon.png" alt="Sehatin+">
+        <div>
+            <h1>Sehatin+ <span class="badge-platform">PLATFORM</span></h1>
+            <p>Kelola tenant / apotek pengguna Sehatin+</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i class="fas fa-plus-circle"></i> Daftarkan Apotek Baru</div>
+        <div class="form-group" style="margin-bottom:12px;">
+            <label>Nama Apotek</label>
+            <input type="text" id="fNamaApotek" placeholder="Contoh: Apotek Mendidoha Farma">
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Nama Admin</label>
+                <input type="text" id="fAdminNama" placeholder="Nama pemilik/pengelola">
+            </div>
+            <div class="form-group">
+                <label>Email Login Admin</label>
+                <input type="email" id="fAdminEmail" placeholder="admin@apotekbaru.com">
+            </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+            <label>Password Login Admin</label>
+            <input type="text" id="fAdminPassword" placeholder="Minimal 6 karakter">
+        </div>
+        <button class="btn btn-primary" id="btnProvision" onclick="provisionTenant()"><i class="fas fa-rocket"></i> Buat Tenant & Akun Admin</button>
+
+        <div class="result-box" id="resultBox" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i class="fas fa-store"></i> Daftar Tenant</div>
+        <div id="tenantListWrap">
+            <div class="loading"><i class="fas fa-spinner"></i> Memuat...</div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    const PLATFORM_URL = '/api/admin-auth';
+    let platformSecret = sessionStorage.getItem('platformSecret') || '';
+    let tenants = [];
+
+    window.unlockPlatform = async function() {
+        const val = document.getElementById('platformSecretInput').value.trim();
+        if (!val) return;
+        platformSecret = val;
+        const ok = await loadTenants();
+        if (ok) {
+            sessionStorage.setItem('platformSecret', platformSecret);
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('mainWrap').style.display = 'block';
+        }
+    };
+
+    async function callPlatformApi(action, payload) {
+        try {
+            const res = await fetch(PLATFORM_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, platform_secret: platformSecret, ...payload })
+            });
+            const result = await res.json();
+            if (!res.ok) return { data: null, error: result.error || 'Terjadi kesalahan.' };
+            return { data: result.data, error: null };
+        } catch(e) {
+            return { data: null, error: e.message };
+        }
+    }
+
+    async function loadTenants() {
+        const { data, error } = await callPlatformApi('list-tenants', {});
+        if (error) {
+            document.getElementById('lockError').textContent = error;
+            return false;
+        }
+        tenants = data || [];
+        renderTenants();
+        return true;
+    }
+
+    function formatTanggal(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function renderTenants() {
+        const wrap = document.getElementById('tenantListWrap');
+        if (tenants.length === 0) {
+            wrap.innerHTML = '<div class="empty-state">Belum ada tenant. Daftarkan apotek pertama lewat form di atas.</div>';
+            return;
+        }
+        wrap.innerHTML = `
+            <table>
+                <thead><tr><th>Nama Apotek</th><th>Status</th><th>Terdaftar</th><th>Aksi</th></tr></thead>
+                <tbody>
+                    ${tenants.map(t => `
+                        <tr>
+                            <td><strong>${t.nama}</strong></td>
+                            <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+                            <td>${formatTanggal(t.created_at)}</td>
+                            <td>
+                                ${t.status !== 'Aktif' ? `<button class="btn btn-success-outline btn-sm" onclick="setTenantStatus('${t.id}','Aktif')"><i class="fas fa-play"></i> Aktifkan</button>` : ''}
+                                ${t.status !== 'Suspended' ? `<button class="btn btn-danger-outline btn-sm" onclick="setTenantStatus('${t.id}','Suspended')"><i class="fas fa-pause"></i> Bekukan</button>` : ''}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    window.setTenantStatus = async function(tenantId, status) {
+        const label = status === 'Suspended' ? 'membekukan' : 'mengaktifkan';
+        if (!confirm(`Yakin ingin ${label} akses tenant ini? Semua staff-nya akan langsung terdampak.`)) return;
+        const { error } = await callPlatformApi('update-tenant-status', { tenant_id: tenantId, status });
+        if (error) { showToast('❌ ' + error, true); return; }
+        showToast('✅ Status tenant berhasil diubah');
+        loadTenants();
+    };
+
+    window.provisionTenant = async function() {
+        const nama_apotek = document.getElementById('fNamaApotek').value.trim();
+        const admin_nama = document.getElementById('fAdminNama').value.trim();
+        const admin_email = document.getElementById('fAdminEmail').value.trim();
+        const admin_password = document.getElementById('fAdminPassword').value.trim();
+
+        if (!nama_apotek || !admin_email || !admin_password) {
+            showToast('⚠️ Nama apotek, email, dan password wajib diisi', true);
+            return;
+        }
+
+        const btn = document.getElementById('btnProvision');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+
+        const { data, error } = await callPlatformApi('provision-tenant', { nama_apotek, admin_nama, admin_email, admin_password });
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rocket"></i> Buat Tenant & Akun Admin';
+
+        if (error) { showToast('❌ ' + error, true); return; }
+
+        const resultBox = document.getElementById('resultBox');
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = `
+            <div class="label">Apotek</div><div class="value">${data.nama_apotek}</div>
+            <div class="label">Login Admin</div><div class="value">${data.admin_email}</div>
+            <p style="color:#2d8a5f;">✅ Tenant berhasil dibuat. Kirimkan email &amp; password login ke pemilik apotek secara aman (bukan lewat channel publik).</p>
+        `;
+        document.getElementById('fNamaApotek').value = '';
+        document.getElementById('fAdminNama').value = '';
+        document.getElementById('fAdminEmail').value = '';
+        document.getElementById('fAdminPassword').value = '';
+        showToast('✅ Tenant baru berhasil dibuat!');
+        loadTenants();
+    };
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        if (platformSecret) {
+            const ok = await loadTenants();
+            if (ok) {
+                document.getElementById('lockScreen').style.display = 'none';
+                document.getElementById('mainWrap').style.display = 'block';
+            } else {
+                sessionStorage.removeItem('platformSecret');
+            }
+        }
+    });
+</script>
+</body>
+</html>
