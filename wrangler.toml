@@ -22,3 +22,8 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # (daftar tenant/apotek baru). Isi bebas, minimal 20 karakter acak,
 # JANGAN dipakai ulang dari password lain:
 #   npx wrangler pages secret put PLATFORM_ADMIN_SECRET
+
+# OPSIONAL - Bot Telegram buat kelola tenant lewat chat (lihat
+# functions/api/telegram-webhook.js buat cara pakainya):
+#   npx wrangler pages secret put TELEGRAM_BOT_TOKEN
+#   npx wrangler pages secret put TELEGRAM_AUTHORIZED_USER_ID
