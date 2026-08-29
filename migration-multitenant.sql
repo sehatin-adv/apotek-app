@@ -141,19 +141,40 @@ ALTER TABLE pengaturan_apotek ALTER COLUMN tenant_id SET NOT NULL;
 -- ------------------------------------------------------------
 -- 4) BENAHI pengaturan_apotek: dari 1 baris global JADI 1 baris PER TENANT
 -- ------------------------------------------------------------
-ALTER TABLE pengaturan_apotek DROP CONSTRAINT IF EXISTS single_row;
-ALTER TABLE pengaturan_apotek ALTER COLUMN id DROP DEFAULT;
-ALTER TABLE pengaturan_apotek ADD COLUMN IF NOT EXISTS id_new UUID DEFAULT uuid_generate_v4();
-UPDATE pengaturan_apotek SET id_new = uuid_generate_v4() WHERE id_new IS NULL;
-ALTER TABLE pengaturan_apotek DROP CONSTRAINT IF EXISTS pengaturan_apotek_pkey;
-ALTER TABLE pengaturan_apotek DROP COLUMN IF EXISTS id;
-ALTER TABLE pengaturan_apotek RENAME COLUMN id_new TO id;
-ALTER TABLE pengaturan_apotek ADD PRIMARY KEY (id);
-ALTER TABLE pengaturan_apotek ADD CONSTRAINT pengaturan_apotek_tenant_unique UNIQUE (tenant_id);
+-- Dibungkus DO block + pengecekan supaya AMAN dijalankan berkali-kali -
+-- operasi bedah kolom (ganti id dari integer ke UUID) ini DESTRUKTIF
+-- kalau diulang tanpa pengecekan (bisa menghapus kolom id yang sudah
+-- benar dari hasil migrasi sebelumnya). Cuma jalan kalau migrasi ini
+-- BELUM pernah sukses sebelumnya (dideteksi lewat constraint
+-- pengaturan_apotek_tenant_unique yang belum ada).
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'pengaturan_apotek_tenant_unique'
+    ) THEN
+        ALTER TABLE pengaturan_apotek DROP CONSTRAINT IF EXISTS single_row;
+        ALTER TABLE pengaturan_apotek ALTER COLUMN id DROP DEFAULT;
+        ALTER TABLE pengaturan_apotek ADD COLUMN IF NOT EXISTS id_new UUID DEFAULT uuid_generate_v4();
+        UPDATE pengaturan_apotek SET id_new = uuid_generate_v4() WHERE id_new IS NULL;
+        ALTER TABLE pengaturan_apotek DROP CONSTRAINT IF EXISTS pengaturan_apotek_pkey;
+        ALTER TABLE pengaturan_apotek DROP COLUMN IF EXISTS id;
+        ALTER TABLE pengaturan_apotek RENAME COLUMN id_new TO id;
+        ALTER TABLE pengaturan_apotek ADD PRIMARY KEY (id);
+        ALTER TABLE pengaturan_apotek ADD CONSTRAINT pengaturan_apotek_tenant_unique UNIQUE (tenant_id);
+    END IF;
+END $$;
 
--- kategori_obat: uniqueness sekarang per-tenant, bukan global
-ALTER TABLE kategori_obat DROP CONSTRAINT IF EXISTS kategori_obat_tipe_nama_key;
-ALTER TABLE kategori_obat ADD CONSTRAINT kategori_obat_tenant_tipe_nama_key UNIQUE (tenant_id, tipe, nama);
+-- kategori_obat: uniqueness sekarang per-tenant, bukan global (juga
+-- dibungkus pengecekan biar aman diulang)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'kategori_obat_tenant_tipe_nama_key'
+    ) THEN
+        ALTER TABLE kategori_obat DROP CONSTRAINT IF EXISTS kategori_obat_tipe_nama_key;
+        ALTER TABLE kategori_obat ADD CONSTRAINT kategori_obat_tenant_tipe_nama_key UNIQUE (tenant_id, tipe, nama);
+    END IF;
+END $$;
 
 -- ------------------------------------------------------------
 -- 5) FUNGSI: cari tenant_id milik user yang sedang login
