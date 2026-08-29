@@ -318,6 +318,7 @@
                 const local = localStorage.getItem('obat');
                 if (local) allObat = JSON.parse(local);
             }
+            allObat.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
             renderObatList(allObat);
             document.getElementById('totalObatInfo').textContent = `Total: ${allObat.length} obat`;
         } catch(e) {
@@ -369,10 +370,10 @@
         document.getElementById('namaObatSelected').textContent = `${selectedObat.nama_obat} (${selectedObat.kode_obat})`;
 
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
-        document.getElementById('tglAwal').value = firstDay.toISOString().split('T')[0];
-        document.getElementById('tglAkhir').value = lastDay.toISOString().split('T')[0];
+        const awal = new Date(now);
+        awal.setDate(awal.getDate() - 30);
+        document.getElementById('tglAwal').value = awal.toISOString().split('T')[0];
+        document.getElementById('tglAkhir').value = now.toISOString().split('T')[0];
 
         await loadLaporanObat();
     };
@@ -491,10 +492,10 @@
     window.resetPeriode = function() {
         if (!selectedObat) return;
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
-        document.getElementById('tglAwal').value = firstDay.toISOString().split('T')[0];
-        document.getElementById('tglAkhir').value = lastDay.toISOString().split('T')[0];
+        const awal = new Date(now);
+        awal.setDate(awal.getDate() - 30);
+        document.getElementById('tglAwal').value = awal.toISOString().split('T')[0];
+        document.getElementById('tglAkhir').value = now.toISOString().split('T')[0];
         loadLaporanObat();
     };
 

@@ -281,6 +281,7 @@
                 document.getElementById('totalObatInfo').textContent = 'Total: 0 obat';
                 return;
             }
+            allObat.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
             renderObatList(allObat);
             document.getElementById('totalObatInfo').textContent = 'Total: ' + allObat.length + ' obat';
         } catch(e) {

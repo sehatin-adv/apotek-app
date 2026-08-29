@@ -251,6 +251,7 @@
                 const local = localStorage.getItem('obat');
                 if (local) stokTerkiniData = JSON.parse(local);
             }
+            stokTerkiniData.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
             renderStokTerkini(stokTerkiniData);
             updateStats(stokTerkiniData);
             document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;

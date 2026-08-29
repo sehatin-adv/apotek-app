@@ -258,6 +258,10 @@
             ...o,
             statusStok: (Number(o.stok) || 0) <= 0 ? 'Habis' : 'Menipis'
         }));
+        // Urutkan: Habis dulu baru Menipis, dalam masing-masing status
+        // diurutkan alfabetis biar gampang dicari di daftar yang panjang.
+        const statusOrder = { Habis: 0, Menipis: 1 };
+        needReorder.sort((a, b) => statusOrder[a.statusStok] - statusOrder[b.statusStok] || (a.nama_obat || '').localeCompare(b.nama_obat || ''));
 
         allProducts = [];
         pbfs.forEach(p => (p.products || []).forEach(prod => allProducts.push({ ...prod, pbfId: p.id, pbfNama: p.nama_supplier })));

@@ -433,6 +433,7 @@
                     obatData = [];
                 }
             }
+            obatData.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
             renderTable(obatData);
             updateTotal(obatData.length);
         } catch(e) {
