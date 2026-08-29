@@ -1,6 +1,6 @@
 // src/database.js
 import { supabase } from './supabase.js';
-import { supabaseAdmin, adminCreateUser } from './supabase.js';
+import { adminCreateUser, adminDeleteUser, findAuthUserByEmail } from './supabase.js';
 
 // ============================================================
 // OBAT
@@ -1361,10 +1361,8 @@ export async function createUser(userData) {
                 || (authError.message || '').toLowerCase().includes('already registered');
             if (!alreadyRegistered) throw authError;
 
-            const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-            if (listError) throw authError; // gagal cari, lempar error asli aja
-
-            const match = listData?.users?.find(u => (u.email || '').toLowerCase() === userData.email.toLowerCase());
+            const { data: match, error: findError } = await findAuthUserByEmail(userData.email);
+            if (findError) throw authError; // gagal cari, lempar error asli aja
             if (!match) throw authError;
             authUserId = match.id;
 
@@ -1493,11 +1491,9 @@ export async function deleteUser(id) {
         
         if (error) throw error;
         
-        // Delete from auth menggunakan Service Role Key
+        // Delete from auth menggunakan endpoint server (bukan service key langsung)
         if (userData.auth_user_id) {
-            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-                userData.auth_user_id
-            );
+            const { error: authError } = await adminDeleteUser(userData.auth_user_id);
             if (authError) console.warn('Gagal menghapus dari auth:', authError);
         }
         

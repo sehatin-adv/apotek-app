@@ -5,3 +5,14 @@ pages_build_output_dir = "./dist"
 [vars]
 SUPABASE_URL = "https://plkdxqwmltoxifzsvkho.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDY4NjAsImV4cCI6MjEwMjc4Mjg2MH0.gYbKMv9c5VvY0wzBxlaobh6xkJ7QIhxQ5SWBHsk3NJc"
+
+# PENTING - JANGAN taruh SUPABASE_SERVICE_ROLE_KEY di file ini atau di
+# mana pun yang ikut ke-commit ke git/zip. Set sebagai SECRET terpisah
+# lewat salah satu cara ini:
+#   1. CLI: npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY
+#   2. Dashboard: Workers & Pages > sehatin-app > Settings >
+#      Environment variables > Add variable > tipe "Secret" (bukan
+#      "Text"/plaintext) > name: SUPABASE_SERVICE_ROLE_KEY
+# Nilainya: Supabase Dashboard > Project Settings > API > service_role key.
+# Dipakai HANYA oleh functions/api/admin-auth.js di server, tidak
+# pernah dikirim ke browser.

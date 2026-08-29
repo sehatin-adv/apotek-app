@@ -3,10 +3,18 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const supabaseUrl = 'https://plkdxqwmltoxifzsvkho.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMDY4NjAsImV4cCI6MjEwMjc4Mjg2MH0.gYbKMv9c5VvY0wzBxlaobh6xkJ7QIhxQ5SWBHsk3NJc';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsa2R4cXdtbHRveGlmenN2a2hvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzIwNjg2MCwiZXhwIjoyMTAyNzgyODYwfQ.dDj_uE_1vdHQkw4cV5khnGWOhOeSbOHGJruM1SW2soY';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// CATATAN KEAMANAN: sebelumnya ada "supabaseAdmin" di sini yang dibuat
+// pakai service role key - kunci itu bisa melewati SEMUA aturan
+// keamanan (RLS), dan karena file ini dikirim ke browser semua orang,
+// siapa pun yang buka DevTools/View Source bisa mencurinya dan dapat
+// akses penuh ke seluruh database. Sekarang service role key hanya
+// hidup di server (functions/api/admin-auth.js), sebagai secret
+// environment variable di Cloudflare Pages - TIDAK PERNAH dikirim ke
+// browser. Operasi admin (bikin/hapus akun login) sekarang lewat
+// fetch() ke endpoint itu, bukan pakai kuncinya langsung.
 
 // ============================================================
 // AUTHENTICATION
@@ -54,34 +62,52 @@ export async function signOut() {
 }
 
 // ============================================================
-// ADMIN FUNCTIONS - Menggunakan Service Role Key
+// ADMIN FUNCTIONS - lewat functions/api/admin-auth.js (server-side),
+// BUKAN pakai service role key langsung di browser lagi.
 // ============================================================
-export async function adminCreateUser(email, password, userMetadata) {
+async function callAdminAuthApi(action, payload) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+        return { data: null, error: new Error('Sesi login tidak ditemukan.') };
+    }
     try {
-        const { data, error } = await supabaseAdmin.auth.admin.createUser({
-            email: email,
-            password: password,
-            email_confirm: true,
-            user_metadata: userMetadata || {}
+        const res = await fetch('/api/admin-auth', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ action, ...payload })
         });
-        
-        if (error) throw error;
-        return { data, error: null };
+        const result = await res.json();
+        if (!res.ok) return { data: null, error: new Error(result.error || 'Gagal memproses permintaan.') };
+        return { data: result.data ?? result, error: null };
     } catch(e) {
-        console.error('Error adminCreateUser:', e);
         return { data: null, error: e };
     }
 }
 
+export async function adminCreateUser(email, password, userMetadata) {
+    const { data, error } = await callAdminAuthApi('create', { email, password, user_metadata: userMetadata || {} });
+    if (error) { console.error('Error adminCreateUser:', error); return { data: null, error }; }
+    return { data: { user: data }, error: null };
+}
+
 export async function adminDeleteUser(userId) {
-    try {
-        const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-        if (error) throw error;
-        return { data, error: null };
-    } catch(e) {
-        console.error('Error adminDeleteUser:', e);
-        return { data: null, error: e };
-    }
+    const { data, error } = await callAdminAuthApi('delete', { user_id: userId });
+    if (error) { console.error('Error adminDeleteUser:', error); return { data: null, error }; }
+    return { data, error: null };
+}
+
+// Cari akun Supabase Auth berdasarkan email (dipakai saat createUser
+// menemukan email yang sudah terdaftar di Auth tapi belum ada baris
+// app_users-nya). Dulu ini pakai supabaseAdmin.auth.admin.listUsers()
+// langsung di browser (butuh service key) - sekarang lewat endpoint
+// server yang sudah diverifikasi hak aksesnya.
+export async function findAuthUserByEmail(email) {
+    const { data, error } = await callAdminAuthApi('find-by-email', { email });
+    if (error) { console.error('Error findAuthUserByEmail:', error); return { data: null, error }; }
+    return { data, error: null };
 }
 
 export async function requireAuth() {
