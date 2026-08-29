@@ -2,16 +2,36 @@
 import { supabase } from './supabase.js';
 import { adminCreateUser, adminDeleteUser, findAuthUserByEmail } from './supabase.js';
 
+// Ambil SEMUA baris dari suatu tabel, lewati batas default Supabase
+// (1000 baris per request) dengan ambil per-halaman (.range()) sampai
+// benar-benar habis. Tanpa ini, kalau total baris > 1000 (mis. obat
+// yang jumlahnya banyak, atau katalog gabungan banyak PBF), sebagian
+// data bisa "hilang" dari hasil query padahal sebenarnya tersimpan -
+// cuma tidak ke-ambil krn baris lain sudah keburu penuhi kuota 1000
+// baris itu duluan.
+async function fetchAllRows(table, selectStr = '*', orderCol = null, ascending = false) {
+    let allRows = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+        let query = supabase.from(table).select(selectStr);
+        if (orderCol) query = query.order(orderCol, { ascending });
+        query = query.range(from, from + pageSize - 1);
+        const { data, error } = await query;
+        if (error) throw error;
+        allRows = allRows.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+    }
+    return allRows;
+}
+
 // ============================================================
 // OBAT
 // ============================================================
 export async function getObat() {
     try {
-        const { data, error } = await supabase
-            .from('obat')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
+        const data = await fetchAllRows('obat', '*', 'created_at', false);
         return { data, error: null };
     } catch(e) {
         console.error('Error getObat:', e);
@@ -336,11 +356,7 @@ export async function savePenjualan(header, details) {
 // ============================================================
 export async function getAllRetur() {
     try {
-        const { data, error } = await supabase
-            .from('retur_penjualan')
-            .select('*, retur_detail(*)')
-            .order('tanggal_retur', { ascending: false });
-        if (error) throw error;
+        const data = await fetchAllRows('retur_penjualan', '*, retur_detail(*)', 'tanggal_retur', false);
         return { data, error: null };
     } catch(e) {
         console.error('Error getAllRetur:', e);
@@ -948,11 +964,7 @@ export async function saveStokOpname(opnameData) {
 // ============================================================
 export async function getPembelian() {
     try {
-        const { data, error } = await supabase
-            .from('pembelian_header')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
+        const data = await fetchAllRows('pembelian_header', '*', 'created_at', false);
         return { data, error: null };
     } catch(e) {
         console.error('Error getPembelian:', e);
@@ -1654,11 +1666,10 @@ export async function getSupplierWithKatalog() {
         // ada (mis. migration-sehatin.sql belum dijalankan), daftar supplier
         // tetap bisa tampil (dengan 0 produk) - tidak gagal total.
         let katalog = [];
-        const { data: katalogData, error: e2 } = await supabase.from('supplier_katalog').select('*');
-        if (e2) {
+        try {
+            katalog = await fetchAllRows('supplier_katalog');
+        } catch(e2) {
             console.error('Error load supplier_katalog (mungkin migration-sehatin.sql belum dijalankan):', e2);
-        } else {
-            katalog = katalogData || [];
         }
         const list = (suppliers || []).map(s => ({
             ...s,
