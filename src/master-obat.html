@@ -127,6 +127,18 @@
         .loading i { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
 
+        .progress-overlay { display:none; position:fixed; inset:0; background:rgba(15,30,46,0.55); z-index:1000; justify-content:center; align-items:center; padding:20px; }
+        .progress-overlay.active { display:flex; }
+        .progress-box { background:white; border-radius:20px; padding:32px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+        .progress-box i.spin-icon { font-size:32px; color:#2d6a9f; animation: spin 1s linear infinite; margin-bottom:14px; display:inline-block; }
+        .progress-box h3 { font-size:16px; color:#0f1e2e; margin-bottom:6px; }
+        .progress-box p { font-size:13px; color:#7a8a9e; margin-bottom:18px; }
+        .progress-bar-track { width:100%; height:10px; background:#eef2f7; border-radius:10px; overflow:hidden; margin-bottom:10px; }
+        .progress-bar-fill { height:100%; background:linear-gradient(90deg,#2d6a9f,#4fc3f7); border-radius:10px; width:0%; transition:width 0.25s ease; }
+        .progress-status { font-size:12px; color:#34495e; font-weight:600; }
+        .progress-done i { color:#28a745; }
+        .progress-error i { color:#dc3545; }
+
         @media (max-width:768px) {
             .sidebar { width:100%; position:static; height:auto; }
             .main-content { margin-left:0; padding:12px; }
@@ -341,6 +353,16 @@
                 </table>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="progress-overlay" id="progressOverlay">
+    <div class="progress-box">
+        <div id="progressIconWrap"><i class="fas fa-spinner spin-icon" id="progressIcon"></i></div>
+        <h3 id="progressTitle">Mengimport Data...</h3>
+        <p id="progressSubtitle">Mohon tunggu, jangan tutup halaman ini.</p>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+        <div class="progress-status" id="progressStatus">0 / 0</div>
     </div>
 </div>
 
@@ -571,6 +593,36 @@
         return digitsOnly ? parseInt(digitsOnly, 10) : 0;
     }
 
+    // ============================================================
+    // PROGRESS MODAL (tampilan proses saat upload/import)
+    // ============================================================
+    function showProgress(title, subtitle) {
+        document.getElementById('progressTitle').textContent = title || 'Memproses...';
+        document.getElementById('progressSubtitle').textContent = subtitle || 'Mohon tunggu, jangan tutup halaman ini.';
+        document.getElementById('progressIcon').className = 'fas fa-spinner spin-icon';
+        document.getElementById('progressIconWrap').className = '';
+        document.getElementById('progressBarFill').style.width = '0%';
+        document.getElementById('progressStatus').textContent = '';
+        document.getElementById('progressOverlay').classList.add('active');
+    }
+    function updateProgress(done, total, label) {
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        document.getElementById('progressBarFill').style.width = pct + '%';
+        document.getElementById('progressStatus').textContent = label || `${done} / ${total} (${pct}%)`;
+    }
+    function finishProgress(success, message) {
+        document.getElementById('progressIcon').className = success ? 'fas fa-circle-check spin-icon' : 'fas fa-circle-exclamation spin-icon';
+        document.getElementById('progressIcon').style.animation = 'none';
+        document.getElementById('progressIconWrap').className = success ? 'progress-done' : 'progress-error';
+        document.getElementById('progressTitle').textContent = success ? 'Selesai!' : 'Gagal';
+        document.getElementById('progressSubtitle').textContent = message || '';
+        document.getElementById('progressBarFill').style.width = '100%';
+        setTimeout(() => {
+            document.getElementById('progressOverlay').classList.remove('active');
+            document.getElementById('progressIcon').style.animation = '';
+        }, 1200);
+    }
+
     window.downloadTemplate = function() {
         const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status'];
         const contoh = [
@@ -587,6 +639,7 @@
     window.importExcel = function(event) {
         const file = event.target.files[0];
         if (!file) return;
+        showProgress('Membaca File...', `Membaca ${file.name}`);
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
@@ -636,23 +689,30 @@
                 }
 
                 if (imported === 0) {
-                    showToast('⚠️ Tidak ada data baru yang diimport' + (skipped > 0 ? ` (${skipped} kode obat sudah ada sebelumnya).` : '. Cek lagi isi filenya.'), true);
+                    finishProgress(false, 'Tidak ada data baru yang diimport' + (skipped > 0 ? ` (${skipped} kode obat sudah ada sebelumnya).` : '. Cek lagi isi filenya.'));
                     event.target.value = '';
                     return;
                 }
 
-                // Simpan ke Supabase
+                // Simpan ke Supabase satu-per-satu, sambil update progress bar
+                showProgress('Mengupload Data...', `Menyimpan ${imported} data obat ke database`);
+                let savedCount = 0;
                 for (const item of newData) {
+                    updateProgress(savedCount, newData.length, `Menyimpan "${item.nama_obat}" (${savedCount + 1}/${newData.length})`);
                     const { error } = await saveObat(item);
                     if (error) throw error;
                     obatData.push(item);
+                    savedCount++;
+                    updateProgress(savedCount, newData.length);
                 }
                 localStorage.setItem('obat', JSON.stringify(obatData));
                 renderTable(obatData);
                 updateTotal(obatData.length);
+                finishProgress(true, `Berhasil import ${imported} data obat!` + (skipped > 0 ? ` (${skipped} dilewati krn kode obat sudah ada)` : ''));
                 showToast(`✅ Berhasil import ${imported} data obat!` + (skipped > 0 ? ` (${skipped} dilewati krn kode obat sudah ada)` : ''));
                 event.target.value = '';
             } catch(error) {
+                finishProgress(false, 'Gagal import: ' + error.message);
                 showToast('❌ Gagal import file: ' + error.message, true);
                 console.error(error);
                 event.target.value = '';
