@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Surat Pesanan - Sehatin+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .header p { font-size:13px; color:#7a8a9e; margin-top:2px; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+
+        .group-card { background:white; border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:16px; }
+        .group-head { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; background:#f8fafc; border-bottom:1px solid #eef2f7; }
+        .group-head .nama { font-weight:700; color:#0f1e2e; font-size:14px; }
+        .group-head .count { font-size:11px; color:#9aa8b8; margin-left:8px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:8px 16px; color:#9aa8b8; font-size:11px; font-weight:600; text-transform:uppercase; }
+        table td { padding:8px 16px; border-top:1px solid #f0f2f7; color:#34495e; }
+        .group-total { padding:10px 16px; border-top:1px solid #eef2f7; text-align:right; font-size:13px; font-weight:700; color:#0f1e2e; }
+
+        .btn { padding:7px 14px; border:none; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+
+        .empty-state { text-align:center; padding:50px 20px; color:#9aa8b8; border:2px dashed #e8edf3; border-radius:14px; background:white; }
+        .empty-state i { font-size:32px; margin-bottom:10px; display:block; }
+
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ===== Area cetak Surat Pesanan ===== */
+        #printArea { display:none; }
+        @media print {
+            body * { visibility:hidden; }
+            #printArea, #printArea * { visibility:visible; }
+            #printArea { display:block !important; position:absolute; top:0; left:0; width:100%; padding:24px; }
+        }
+        .sp-doc { max-width:720px; margin:0 auto; font-family:'Times New Roman', serif; color:#111; }
+        .sp-kop { text-align:center; border-bottom:2px solid #222; padding-bottom:8px; margin-bottom:16px; }
+        .sp-kop h1 { font-size:18px; text-transform:uppercase; letter-spacing:0.5px; }
+        .sp-kop p { font-size:12px; color:#333; margin-top:2px; }
+        .sp-title { text-align:center; margin-bottom:20px; }
+        .sp-title h2 { font-size:15px; font-weight:700; }
+        .sp-title p { font-size:13px; margin-top:2px; }
+        .sp-info { display:grid; grid-template-columns:1fr 1fr; gap:24px; font-size:12px; margin-bottom:20px; }
+        .sp-info p { margin-bottom:2px; }
+        .sp-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .sp-table th, .sp-table td { border:1px solid #444; padding:6px 8px; }
+        .sp-table th { background:#e2e2e2; text-align:center; }
+        .sp-table td.center { text-align:center; }
+        .sp-sign { display:flex; justify-content:flex-end; margin-top:60px; font-size:12px; }
+        .sp-sign .box { width:230px; text-align:center; }
+        .sp-sign .space { height:64px; }
+
+        @media (max-width:768px) {
+            .sidebar { width:100%; position:static; height:auto; }
+            .main-content { margin-left:0; padding:16px; }
+            .sp-info { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout" id="appLayout">
+    <div class="sidebar">
+        <div class="logo" style="display:flex;align-items:center;gap:10px;">
+            <img id="sidebarLogo" src="/logo-icon.png" alt="Sehatin+" style="height:32px;width:32px;object-fit:contain;border-radius:7px;flex-shrink:0;background:#fff;padding:2px;">
+            <div style="display:flex;flex-direction:column;line-height:1.25;overflow:hidden;">
+                <span style="font-size:15px;font-weight:800;">Sehatin+</span>
+                <span id="sidebarApotekName" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Apotek Saya</span>
+            </div>
+        </div>
+        <div class="menu-item" data-module="dashboard" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="master_obat" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" data-module="master_supplier" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="shift" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" data-module="kasir" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" data-module="retur_penjualan" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-wallet"></i> KEUANGAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pengeluaran" onclick="navigate('pengeluaran.html')"><i class="fas fa-money-bill-wave"></i> Pengeluaran</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-chart-line"></i> FORECASTING
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" data-module="forecasting_stok" onclick="navigate('forecasting-stok.html')"><i class="fas fa-boxes-stacked"></i> Analisis Stok</div>
+                <div class="menu-item" data-module="forecasting_pbf" onclick="navigate('forecasting-pbf.html')"><i class="fas fa-industry"></i> Data PBF</div>
+                <div class="menu-item" data-module="forecasting_rekomendasi" onclick="navigate('forecasting-rekomendasi.html')"><i class="fas fa-list-check"></i> Rekomendasi Pesanan</div>
+                <div class="menu-item active" data-module="forecasting_sp" onclick="navigate('forecasting-sp.html')"><i class="fas fa-file-signature"></i> Surat Pesanan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div>
+                <h2><i class="fas fa-file-signature"></i> Surat Pesanan</h2>
+                <p>Obat yang sudah dipilih PBF-nya, dikelompokkan & siap dicetak per PBF</p>
+            </div>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div id="contentWrap">
+            <div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>
+        </div>
+    </div>
+</div>
+
+<!-- AREA CETAK -->
+<div id="printArea"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser, signOut } from './supabase.js';
+    import { getSupplierWithKatalog, getSupplierSelections } from './database.js';
+    import { getPengaturanApotek } from './database.js';
+    import { applyBranding } from './branding.js';
+    applyBranding('Surat Pesanan');
+    import { enforcePermissions } from './permissions.js';
+    enforcePermissions('forecasting_sp');
+
+    async function checkAuth() {
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) { window.location.href = '/'; return false; }
+            return true;
+        } catch(e) { window.location.href = '/'; return false; }
+    }
+    if (!await checkAuth()) { window.location.href = '/'; }
+
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = async function() { await signOut(); localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) { subMenu.classList.toggle('open'); if (chevron) chevron.classList.toggle('open'); }
+    };
+
+    let spGroups = [];
+    let pbfs = [];
+    let profile = {};
+
+    async function loadUser() {
+        const user = await getCurrentUser();
+        if (user) {
+            document.getElementById('userBadge').textContent = user.email || 'admin';
+            document.getElementById('usernameDisplay').textContent = user.user_metadata?.full_name || user.email || 'admin';
+        }
+    }
+
+    function formatRupiah(v) { return 'Rp ' + Number(v || 0).toLocaleString('id-ID'); }
+
+    async function loadAll() {
+        const wrap = document.getElementById('contentWrap');
+        wrap.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>';
+
+        const [pbfRes, selRes, profRes] = await Promise.all([getSupplierWithKatalog(), getSupplierSelections(), getPengaturanApotek()]);
+        pbfs = pbfRes.data || [];
+        const selArr = selRes.data || [];
+        profile = profRes.data || {};
+
+        const groups = {};
+        selArr.forEach(sel => {
+            if (!groups[sel.supplier_id]) groups[sel.supplier_id] = { pbfId: sel.supplier_id, pbfNama: sel.supplier_nama, items: [] };
+            groups[sel.supplier_id].items.push(sel);
+        });
+        spGroups = Object.values(groups);
+
+        renderGroups();
+    }
+
+    function renderGroups() {
+        const wrap = document.getElementById('contentWrap');
+        if (spGroups.length === 0) {
+            wrap.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard-list"></i>Belum ada obat yang dipilih. Pilih PBF untuk tiap obat di halaman <a href="forecasting-rekomendasi.html" style="color:#2d6a9f;font-weight:600;">Rekomendasi Pesanan</a>.</div>';
+            return;
+        }
+        wrap.innerHTML = spGroups.map(group => {
+            const total = group.items.reduce((s, it) => s + (Number(it.harga) || 0) * (Number(it.qty) || 0), 0);
+            return `
+                <div class="group-card">
+                    <div class="group-head">
+                        <div><span class="nama"><i class="fas fa-file-lines"></i> ${group.pbfNama}</span><span class="count">${group.items.length} item</span></div>
+                        <button class="btn btn-primary" onclick="printSp('${group.pbfId}')"><i class="fas fa-print"></i> Cetak Surat Pesanan</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Nama Obat</th><th style="text-align:right;">Jumlah</th><th>Satuan</th><th style="text-align:right;">Subtotal</th></tr></thead>
+                        <tbody>
+                            ${group.items.map(it => `
+                                <tr>
+                                    <td>${it.produk_nama}</td>
+                                    <td style="text-align:right;font-family:monospace;">${it.qty}</td>
+                                    <td>${it.satuan || '-'}</td>
+                                    <td style="text-align:right;">${it.harga ? formatRupiah((Number(it.harga)||0) * (Number(it.qty)||0)) : '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div class="group-total">Total: ${formatRupiah(total)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.printSp = function(pbfId) {
+        const group = spGroups.find(g => g.pbfId === pbfId);
+        if (!group) return;
+        const pbfFull = pbfs.find(p => p.id === pbfId);
+        const today = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        const nomorSp = `SPO/REG-${today.replace(/\s/g, '').slice(0, 6)}${pbfId.replace(/[^0-9]/g, '').slice(0, 4) || '0001'}/${new Date().getFullYear()}`;
+
+        const html = `
+            <div class="sp-doc">
+                <div class="sp-kop">
+                    <h1>${profile.nama_apotek || '(Nama Apotek belum diatur)'}</h1>
+                    ${profile.alamat ? `<p>${profile.alamat}</p>` : ''}
+                    ${(profile.telepon || profile.email) ? `<p>${profile.telepon ? 'Telp. ' + profile.telepon : ''}${profile.telepon && profile.email ? '  •  ' : ''}${profile.email ? 'Email: ' + profile.email : ''}</p>` : ''}
+                </div>
+                <div class="sp-title">
+                    <h2>Surat Pesanan</h2>
+                    <p>Nomor: ${nomorSp}</p>
+                </div>
+                <div class="sp-info">
+                    <div>
+                        <p><strong>Apotek</strong> : ${profile.nama_apotek || '-'}</p>
+                        <p><strong>Alamat</strong> : ${profile.alamat || '-'}</p>
+                    </div>
+                    <div>
+                        <p style="font-weight:700;margin-bottom:2px;">Kepada Yth.,</p>
+                        <p><strong>PBF</strong> : ${group.pbfNama}</p>
+                        <p><strong>Di</strong> : ${pbfFull ? [pbfFull.alamat, pbfFull.kota].filter(Boolean).join(', ') || '-' : '-'}</p>
+                    </div>
+                </div>
+                <table class="sp-table">
+                    <thead><tr><th style="width:36px;">NO</th><th>NAMA OBAT YANG DIPESAN</th><th style="width:60px;">JUMLAH</th><th style="width:70px;">SATUAN</th></tr></thead>
+                    <tbody>
+                        ${group.items.map((it, i) => `
+                            <tr>
+                                <td class="center">${i + 1}</td>
+                                <td>${it.produk_nama}</td>
+                                <td class="center">${it.qty}</td>
+                                <td class="center">${it.satuan || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="sp-sign">
+                    <div class="box">
+                        <p>Hormat Kami</p>
+                        <p>Apoteker Penanggung Jawab</p>
+                        <div class="space"></div>
+                        <p style="font-weight:700;">(${profile.apoteker_pj || 'apt. ______________, S.Farm'})</p>
+                        ${profile.sia ? `<p>SIA: ${profile.sia}</p>` : ''}
+                        ${profile.sipa ? `<p>SIPA: ${profile.sipa}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('printArea').innerHTML = html;
+        setTimeout(() => window.print(), 150);
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUser();
+        loadAll();
+    });
+</script>
+</body>
+</html>

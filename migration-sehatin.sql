@@ -106,3 +106,64 @@ ON CONFLICT (id) DO NOTHING;
 -- sebelumnya), dan kode aplikasi sudah diubah untuk memakai client
 -- login biasa (bukan service role) saat mengakses tabel-tabel ini.
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 4) MODUL FORECASTING — Analisis Stok & Katalog PBF
+-- ------------------------------------------------------------
+-- Catatan: "Analisis Stok" memakai data obat yang SUDAH ADA di tabel
+-- obat (kolom stok & stok_minimal) - tidak perlu tabel baru untuk itu.
+-- "Data PBF" TIDAK punya tabel distributor sendiri - datanya diambil
+-- langsung dari tabel supplier (Master Data > Data Supplier) yang
+-- sudah ada, supaya tidak ada data ganda. Tabel di bawah ini cuma
+-- untuk katalog produk tiap supplier & pilihan pesanan.
+
+-- Bersihkan tabel PBF terpisah dari percobaan migrasi sebelumnya
+-- (kalau belum pernah dijalankan, DROP IF EXISTS ini aman/no-op)
+DROP TABLE IF EXISTS pbf_selections CASCADE;
+DROP TABLE IF EXISTS pbf_produk CASCADE;
+DROP TABLE IF EXISTS pbf CASCADE;
+
+CREATE TABLE IF NOT EXISTS supplier_katalog (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    supplier_id UUID NOT NULL REFERENCES supplier(id) ON DELETE CASCADE,
+    nama TEXT NOT NULL,
+    harga INTEGER DEFAULT 0,
+    satuan TEXT,
+    min_order INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_supplier_katalog_supplier_id ON supplier_katalog(supplier_id);
+
+-- Pilihan pesanan per obat (1 obat cuma boleh punya 1 pilihan supplier/produk
+-- aktif, makanya obat_id jadi primary key - pilih ulang = timpa yang lama)
+CREATE TABLE IF NOT EXISTS supplier_selections (
+    obat_id UUID PRIMARY KEY REFERENCES obat(id) ON DELETE CASCADE,
+    obat_nama TEXT,
+    supplier_id UUID NOT NULL REFERENCES supplier(id) ON DELETE CASCADE,
+    supplier_nama TEXT,
+    produk_id UUID,
+    produk_nama TEXT,
+    harga INTEGER DEFAULT 0,
+    satuan TEXT,
+    qty INTEGER DEFAULT 1,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE supplier_katalog ENABLE ROW LEVEL SECURITY;
+ALTER TABLE supplier_selections ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated users full access" ON supplier_katalog;
+CREATE POLICY "Allow authenticated users full access" ON supplier_katalog
+    FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Allow authenticated users full access" ON supplier_selections;
+CREATE POLICY "Allow authenticated users full access" ON supplier_selections
+    FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+-- Tambahan kolom SIA/SIPA apoteker di Identitas Apotek, dipakai di
+-- kop tanda-tangan Surat Pesanan (kalau kolomnya sudah ada, baris ini aman dilewati)
+ALTER TABLE pengaturan_apotek ADD COLUMN IF NOT EXISTS sia TEXT;
+ALTER TABLE pengaturan_apotek ADD COLUMN IF NOT EXISTS sipa TEXT;
+
+-- ============================================================
+-- SELESAI (Forecasting)
+-- ============================================================

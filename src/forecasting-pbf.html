@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Data PBF - Sehatin+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .header p { font-size:13px; color:#7a8a9e; margin-top:2px; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:14px; }
+        .info-banner { background:#eaf2fb; border:1px solid #cfe2f3; color:#1a4a7a; padding:12px 16px; border-radius:10px; font-size:13px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start; }
+        .form-row { display:flex; gap:10px; flex-wrap:wrap; }
+        .form-row input { flex:1; min-width:200px; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; }
+        .form-row input:focus { border-color:#2d6a9f; outline:none; }
+
+        .btn { padding:9px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-danger { background:#dc3545; color:white; }
+        .btn-danger:hover { background:#bd2130; }
+        .btn-sm { padding:6px 14px; font-size:12px; }
+
+        .pbf-card { background:white; border-radius:14px; padding:16px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+        .pbf-info { flex:1; min-width:200px; }
+        .pbf-info .nama { font-weight:700; color:#0f1e2e; font-size:15px; }
+        .pbf-info .sub { font-size:12px; color:#7a8a9e; margin-top:2px; }
+        .pbf-info .alamat-edit { border:none; background:none; color:#7a8a9e; font-size:12px; text-align:left; cursor:pointer; display:flex; align-items:center; gap:5px; padding:0; }
+        .pbf-info .alamat-edit:hover { color:#2d6a9f; }
+        .pbf-info input.alamat-input { width:100%; max-width:400px; border:1px solid #cfe2f3; border-radius:8px; padding:5px 10px; font-size:12px; }
+        .pbf-actions { display:flex; gap:8px; flex-shrink:0; }
+
+        .empty-state { text-align:center; padding:50px 20px; color:#9aa8b8; border:2px dashed #e8edf3; border-radius:14px; }
+        .empty-state i { font-size:32px; margin-bottom:10px; display:block; }
+
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,30,46,0.6); z-index:1000; justify-content:center; align-items:center; padding:20px; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:white; border-radius:20px; padding:0; max-width:600px; width:100%; max-height:88vh; overflow:hidden; display:flex; flex-direction:column; }
+        .modal-header { padding:20px 24px; background:#2d6a9f; color:white; display:flex; justify-content:space-between; align-items:center; }
+        .modal-header h3 { font-size:16px; }
+        .modal-header p { font-size:12px; opacity:0.85; margin-top:2px; }
+        .modal-header button { background:none; border:none; color:white; font-size:22px; cursor:pointer; opacity:0.85; }
+        .modal-body { padding:22px 24px; overflow-y:auto; flex:1; }
+        .modal-footer { padding:16px 24px; border-top:1px solid #eef2f7; display:flex; justify-content:flex-end; gap:10px; }
+
+        .dropzone { border:2px dashed #cfd8e3; border-radius:12px; padding:40px 20px; text-align:center; cursor:pointer; transition:0.2s; }
+        .dropzone:hover { border-color:#2d6a9f; background:#f8fbfe; }
+        .dropzone i { font-size:28px; color:#9aa8b8; margin-bottom:8px; }
+
+        .map-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .map-row label { width:180px; font-size:13px; color:#34495e; flex-shrink:0; }
+        .map-row select { flex:1; padding:8px 10px; border:2px solid #e8edf3; border-radius:8px; font-size:13px; }
+
+        .preview-table-wrap { max-height:180px; overflow:auto; border:1px solid #eef2f7; border-radius:8px; margin:14px 0; }
+        .preview-table-wrap table { width:100%; border-collapse:collapse; font-size:11px; }
+        .preview-table-wrap th { background:#f8fafc; text-align:left; padding:6px 8px; position:sticky; top:0; }
+        .preview-table-wrap td { padding:5px 8px; color:#7a8a9e; border-top:1px solid #f0f2f7; white-space:nowrap; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:1100; font-size:13px; max-width:350px; }
+        .toast.error { background:#dc3545; }
+
+        @media (max-width:768px) {
+            .sidebar { width:100%; position:static; height:auto; }
+            .main-content { margin-left:0; padding:16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo" style="display:flex;align-items:center;gap:10px;">
+            <img id="sidebarLogo" src="/logo-icon.png" alt="Sehatin+" style="height:32px;width:32px;object-fit:contain;border-radius:7px;flex-shrink:0;background:#fff;padding:2px;">
+            <div style="display:flex;flex-direction:column;line-height:1.25;overflow:hidden;">
+                <span style="font-size:15px;font-weight:800;">Sehatin+</span>
+                <span id="sidebarApotekName" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Apotek Saya</span>
+            </div>
+        </div>
+        <div class="menu-item" data-module="dashboard" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="master_obat" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" data-module="master_supplier" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="shift" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" data-module="kasir" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" data-module="retur_penjualan" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-wallet"></i> KEUANGAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pengeluaran" onclick="navigate('pengeluaran.html')"><i class="fas fa-money-bill-wave"></i> Pengeluaran</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-chart-line"></i> FORECASTING
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" data-module="forecasting_stok" onclick="navigate('forecasting-stok.html')"><i class="fas fa-boxes-stacked"></i> Analisis Stok</div>
+                <div class="menu-item active" data-module="forecasting_pbf" onclick="navigate('forecasting-pbf.html')"><i class="fas fa-industry"></i> Data PBF</div>
+                <div class="menu-item" data-module="forecasting_rekomendasi" onclick="navigate('forecasting-rekomendasi.html')"><i class="fas fa-list-check"></i> Rekomendasi Pesanan</div>
+                <div class="menu-item" data-module="forecasting_sp" onclick="navigate('forecasting-sp.html')"><i class="fas fa-file-signature"></i> Surat Pesanan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div>
+                <h2><i class="fas fa-industry"></i> Data PBF</h2>
+                <p>Katalog produk per distributor (PBF), bagian dari modul Forecasting</p>
+            </div>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="info-banner">
+            <i class="fas fa-circle-info"></i>
+            <div>Daftar PBF di halaman ini diambil langsung dari <strong>Master Data &gt; Data Supplier</strong> — supaya tidak ada data ganda. Untuk menambah/mengedit nama, alamat, atau kontak PBF, buka <a href="master-supplier.html" style="color:#1a4a7a;font-weight:700;">Data Supplier</a>. Di sini Anda cukup upload katalog produk & harganya.</div>
+        </div>
+
+        <div id="pbfListWrap">
+            <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Memuat data supplier...</div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL UPLOAD KATALOG -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div>
+                <h3 id="uploadModalTitle">Upload Katalog Produk</h3>
+                <p>Upload daftar obat & harga dari PBF ini (nama boleh beda format dengan Master Obat Anda)</p>
+            </div>
+            <button onclick="closeUploadModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="uploadStep1">
+                <div class="dropzone" onclick="document.getElementById('pbfFileInput').click()">
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <p style="font-size:13px;color:#34495e;">Klik untuk pilih file Excel/CSV katalog PBF</p>
+                    <p style="font-size:11px;color:#9aa8b8;margin-top:4px;">Format .xlsx, .xls, atau .csv</p>
+                    <input type="file" id="pbfFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handlePbfFile(event)">
+                </div>
+            </div>
+            <div id="uploadStep2" style="display:none;">
+                <p style="font-size:13px;color:#34495e;margin-bottom:12px;">Ditemukan <strong id="rowCount">0</strong> baris data. Cocokkan kolom di file dengan data yang dibutuhkan:</p>
+                <div id="mappingRows"></div>
+                <div class="preview-table-wrap"><table id="previewTable"></table></div>
+                <button class="btn btn-outline btn-sm" onclick="resetUploadStep()"><i class="fas fa-arrow-left"></i> Pilih file lain</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeUploadModal()">Batal</button>
+            <button class="btn btn-primary" id="btnProsesUpload" style="display:none;" onclick="confirmPbfUpload()"><i class="fas fa-check"></i> Proses Data</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser, signOut } from './supabase.js';
+    import { getSupplierWithKatalog, saveSupplierKatalog } from './database.js';
+    import { applyBranding } from './branding.js';
+    applyBranding('Data PBF');
+    import { enforcePermissions } from './permissions.js';
+    enforcePermissions('forecasting_pbf');
+
+    async function checkAuth() {
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) { window.location.href = '/'; return false; }
+            return true;
+        } catch(e) { window.location.href = '/'; return false; }
+    }
+    if (!await checkAuth()) { window.location.href = '/'; }
+
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = async function() { await signOut(); localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) { subMenu.classList.toggle('open'); if (chevron) chevron.classList.toggle('open'); }
+    };
+
+    let suppliers = [];
+    let activeUploadSupplierId = null;
+    let rawRows = null;
+    let mapping = {};
+    const PBF_FIELDS = [
+        { key: 'nama', label: 'Nama Obat (versi PBF)', keywords: ['nama obat', 'nama produk', 'nama'], required: true, type: 'text' },
+        { key: 'harga', label: 'Harga', keywords: ['harga', 'hna'], required: false, type: 'number' },
+        { key: 'satuan', label: 'Satuan', keywords: ['satuan', 'kemasan'], required: false, type: 'text' },
+        { key: 'minOrder', label: 'Minimal Order', keywords: ['minimal', 'min order', 'moq'], required: false, type: 'number' }
+    ];
+
+    async function loadUser() {
+        const user = await getCurrentUser();
+        if (user) {
+            document.getElementById('userBadge').textContent = user.email || 'admin';
+            document.getElementById('usernameDisplay').textContent = user.user_metadata?.full_name || user.email || 'admin';
+        }
+    }
+
+    window.loadPbfs = async function() {
+        const wrap = document.getElementById('pbfListWrap');
+        wrap.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Memuat data supplier...</div>';
+        const { data, error } = await getSupplierWithKatalog();
+        if (error) {
+            wrap.innerHTML = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>Gagal memuat data supplier</div>';
+            return;
+        }
+        suppliers = data || [];
+        renderPbfs();
+    };
+
+    function renderPbfs() {
+        const wrap = document.getElementById('pbfListWrap');
+        if (suppliers.length === 0) {
+            wrap.innerHTML = `<div class="empty-state"><i class="fas fa-industry"></i>Belum ada data supplier. Tambahkan dulu di <a href="master-supplier.html" style="color:#2d6a9f;font-weight:600;">Master Data &gt; Data Supplier</a>, lalu kembali ke sini untuk upload katalognya.</div>`;
+            return;
+        }
+        wrap.innerHTML = suppliers.map(s => {
+            const alamatLengkap = [s.alamat, s.kota].filter(Boolean).join(', ');
+            return `
+            <div class="pbf-card">
+                <div class="pbf-info">
+                    <div class="nama">${s.nama_supplier}</div>
+                    <div class="sub">${s.products.length} produk katalog terdaftar${s.telepon ? ' · ' + s.telepon : ''}</div>
+                    <div style="font-size:12px;color:#9aa8b8;">${alamatLengkap || 'Alamat belum diisi - lengkapi di Data Supplier'}</div>
+                </div>
+                <div class="pbf-actions">
+                    <button class="btn btn-outline btn-sm" onclick="openUploadModal('${s.id}')"><i class="fas fa-upload"></i> ${s.products.length ? 'Update Katalog' : 'Upload Katalog'}</button>
+                </div>
+            </div>
+        `; }).join('');
+    }
+
+    // ---------- Upload katalog ----------
+    window.openUploadModal = function(supplierId) {
+        activeUploadSupplierId = supplierId;
+        const s = suppliers.find(x => x.id === supplierId);
+        document.getElementById('uploadModalTitle').textContent = 'Upload Katalog Produk — ' + (s?.nama_supplier || '');
+        resetUploadStep();
+        document.getElementById('uploadModal').classList.add('active');
+    };
+    window.closeUploadModal = function() {
+        document.getElementById('uploadModal').classList.remove('active');
+        activeUploadSupplierId = null;
+    };
+    window.resetUploadStep = function() {
+        rawRows = null;
+        mapping = {};
+        document.getElementById('uploadStep1').style.display = 'block';
+        document.getElementById('uploadStep2').style.display = 'none';
+        document.getElementById('btnProsesUpload').style.display = 'none';
+        document.getElementById('pbfFileInput').value = '';
+    };
+
+    function guessColumnIndex(headers, keywords) {
+        const lower = headers.map(h => (h || '').toString().toLowerCase());
+        for (const kw of keywords) {
+            const idx = lower.findIndex(h => h.includes(kw));
+            if (idx !== -1) return idx;
+        }
+        return -1;
+    }
+    function toNumber(v) {
+        if (typeof v === 'number') return v;
+        const digitsOnly = String(v || '').replace(/[^0-9]/g, '');
+        return digitsOnly ? parseInt(digitsOnly, 10) : 0;
+    }
+
+    window.handlePbfFile = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+                if (!rows || rows.length < 2) { showToast('⚠️ File kosong atau tidak terbaca', true); return; }
+                rawRows = rows;
+                const headers = rows[0];
+                mapping = {};
+                PBF_FIELDS.forEach(f => { mapping[f.key] = guessColumnIndex(headers, f.keywords); });
+                renderMappingStep();
+            } catch(err) {
+                showToast('❌ Gagal membaca file: ' + err.message, true);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    function renderMappingStep() {
+        const headers = rawRows[0];
+        const dataRows = rawRows.slice(1).filter(r => r.some(c => c !== ''));
+        document.getElementById('rowCount').textContent = dataRows.length;
+        document.getElementById('uploadStep1').style.display = 'none';
+        document.getElementById('uploadStep2').style.display = 'block';
+        document.getElementById('btnProsesUpload').style.display = 'inline-flex';
+
+        document.getElementById('mappingRows').innerHTML = PBF_FIELDS.map(f => `
+            <div class="map-row">
+                <label>${f.label}${f.required ? ' *' : ''}</label>
+                <select onchange="updateMapping('${f.key}', this.value)">
+                    <option value="-1">-- Tidak digunakan --</option>
+                    ${headers.map((h, i) => `<option value="${i}" ${mapping[f.key] === i ? 'selected' : ''}>${h || 'Kolom ' + (i+1)}</option>`).join('')}
+                </select>
+            </div>
+        `).join('');
+
+        const previewRows = dataRows.slice(0, 5);
+        document.getElementById('previewTable').innerHTML = `
+            <thead><tr>${headers.map((h,i) => `<th>${h || 'Kolom ' + (i+1)}</th>`).join('')}</tr></thead>
+            <tbody>${previewRows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+        `;
+    }
+
+    window.updateMapping = function(key, val) {
+        mapping[key] = parseInt(val);
+    };
+
+    window.confirmPbfUpload = async function() {
+        if (!activeUploadSupplierId || !rawRows) return;
+        const namaIdx = mapping['nama'];
+        if (namaIdx === undefined || namaIdx === -1) {
+            showToast('⚠️ Kolom "Nama Obat" wajib dipilih', true);
+            return;
+        }
+        const dataRows = rawRows.slice(1).filter(r => r.some(c => c !== ''));
+        const mapped = dataRows.map(row => {
+            const obj = {};
+            PBF_FIELDS.forEach(f => {
+                const idx = mapping[f.key];
+                const raw = (idx !== undefined && idx !== -1) ? row[idx] : '';
+                obj[f.key] = f.type === 'number' ? toNumber(raw) : (raw || '').toString().trim();
+            });
+            return obj;
+        }).filter(o => o.nama);
+
+        if (mapped.length === 0) { showToast('⚠️ Tidak ada baris data yang valid', true); return; }
+
+        const btn = document.getElementById('btnProsesUpload');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        const { error } = await saveSupplierKatalog(activeUploadSupplierId, mapped);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Proses Data';
+        if (error) { showToast('❌ Gagal menyimpan katalog: ' + error.message, true); return; }
+
+        const s = suppliers.find(x => x.id === activeUploadSupplierId);
+        if (s) s.products = mapped;
+        renderPbfs();
+        showToast(`✅ Berhasil menyimpan ${mapped.length} produk katalog!`);
+        closeUploadModal();
+    };
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUser();
+        loadPbfs();
+    });
+</script>
+</body>
+</html>

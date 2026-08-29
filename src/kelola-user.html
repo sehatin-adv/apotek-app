@@ -180,6 +180,18 @@
             </div>
         </div>
         <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-chart-line"></i> FORECASTING
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="forecasting_stok" onclick="navigate('forecasting-stok.html')"><i class="fas fa-boxes-stacked"></i> Analisis Stok</div>
+                <div class="menu-item" data-module="forecasting_pbf" onclick="navigate('forecasting-pbf.html')"><i class="fas fa-industry"></i> Data PBF</div>
+                <div class="menu-item" data-module="forecasting_rekomendasi" onclick="navigate('forecasting-rekomendasi.html')"><i class="fas fa-list-check"></i> Rekomendasi Pesanan</div>
+                <div class="menu-item" data-module="forecasting_sp" onclick="navigate('forecasting-sp.html')"><i class="fas fa-file-signature"></i> Surat Pesanan</div>
+            </div>
+        </div>
+        <div class="menu-group">
             <div class="menu-item active" onclick="toggleDropdown(this)">
                 <i class="fas fa-gear"></i> KELOLA APLIKASI
                 <i class="fas fa-chevron-down chevron open"></i>
@@ -330,6 +342,10 @@
         { module_key: 'laporan_obat', module_name: 'Penjualan Per Obat' },
         { module_key: 'laporan_laba_rugi', module_name: 'Laba Rugi' },
         { module_key: 'pengeluaran', module_name: 'Pengeluaran (Keuangan)' },
+        { module_key: 'forecasting_stok', module_name: 'Forecasting - Analisis Stok' },
+        { module_key: 'forecasting_pbf', module_name: 'Forecasting - Data PBF' },
+        { module_key: 'forecasting_rekomendasi', module_name: 'Forecasting - Rekomendasi Pesanan' },
+        { module_key: 'forecasting_sp', module_name: 'Forecasting - Surat Pesanan' },
         { module_key: 'kelola_user', module_name: 'Kelola User' },
         { module_key: 'pengaturan_apotek', module_name: 'Identitas Apotek' },
         { module_key: 'reset_data', module_name: 'Reset Data' },

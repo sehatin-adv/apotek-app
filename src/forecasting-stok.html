@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="/logo-icon.png">
-    <title>Identitas Apotek - Sehatin+</title>
+    <title>Analisis Stok - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
@@ -21,13 +21,10 @@
 
         .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
         .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
-        .logo i { color:#4fc3f7; margin-right:10px; }
-
         .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
         .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
         .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
         .menu-item i { width:20px; text-align:center; }
-
         .menu-group { margin-bottom:4px; }
         .menu-group .menu-item { cursor:pointer; }
         .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
@@ -37,7 +34,6 @@
         .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
         .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
         .menu-item .chevron.open { transform:rotate(180deg); }
-
         .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
         .user-info strong { color:white; }
         .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
@@ -46,39 +42,46 @@
         .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
         .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
         .header h2 { font-size:22px; color:#0f1e2e; }
+        .header p { font-size:13px; color:#7a8a9e; margin-top:2px; }
         .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
 
-        .card { background:white; border-radius:16px; padding:24px 28px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; max-width:760px; }
-        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:6px; }
-        .card-subtitle { font-size:13px; color:#7a8a9e; margin-bottom:20px; }
-
-        .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-        .form-group { margin-bottom:14px; }
-        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
-        .form-group input, .form-group textarea { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; background:white; font-family:inherit; }
-        .form-group input:focus, .form-group textarea:focus { border-color:#2d6a9f; outline:none; }
-        .form-group small { display:block; margin-top:4px; color:#7a8a9e; font-size:11px; }
-
-        .logo-preview-wrap { display:flex; align-items:center; gap:16px; margin-bottom:16px; padding:16px; background:#f8fafc; border-radius:12px; border:2px dashed #e8edf3; }
-        .logo-preview-wrap img { height:60px; width:60px; object-fit:contain; background:white; border-radius:10px; padding:4px; border:1px solid #e8edf3; }
-
-        .btn { padding:10px 22px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
-        .btn-primary { background:#2d6a9f; color:white; }
-        .btn-primary:hover { background:#1a4a7a; }
-        .btn-success { background:#28a745; color:white; }
-        .btn-success:hover { background:#1e7e34; }
-
         .info-banner { background:#eaf2fb; border:1px solid #cfe2f3; color:#1a4a7a; padding:12px 16px; border-radius:10px; font-size:13px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start; }
-        .info-banner i { margin-top:2px; }
 
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
-        .toast.error { background:#dc3545; }
-        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        .stat-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+        .stat-card { background:white; border-radius:16px; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); border-left:4px solid #ccc; }
+        .stat-card .label { font-size:12px; color:#7a8a9e; text-transform:uppercase; font-weight:600; letter-spacing:0.4px; }
+        .stat-card .value { font-size:26px; font-weight:800; margin-top:6px; }
+        .stat-card.habis { border-left-color:#dc3545; } .stat-card.habis .value { color:#dc3545; }
+        .stat-card.menipis { border-left-color:#ffc107; } .stat-card.menipis .value { color:#b8860b; }
+        .stat-card.aman { border-left-color:#28a745; } .stat-card.aman .value { color:#28a745; }
+
+        .card { background:white; border-radius:16px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; }
+        .flex-between { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; }
+
+        .btn { padding:8px 18px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+        .btn-outline { background:transparent; border:2px solid #e8edf3; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:6px 14px; font-size:12px; }
+
+        .table-wrap { overflow-x:auto; border:1px solid #eef2f7; border-radius:10px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; }
+        table th { text-align:left; padding:10px 8px; background:#f8fafc; font-weight:600; color:#34495e; border-bottom:2px solid #e8edf3; }
+        table td { padding:8px; border-bottom:1px solid #eef2f7; }
+        table tr:hover { background:#f8fafc; }
+        .badge { display:inline-block; padding:3px 10px; border-radius:30px; font-size:10px; font-weight:700; }
+        .badge-habis { background:#fbe4e6; color:#dc3545; }
+        .badge-menipis { background:#fff3cd; color:#b8860b; }
+        .badge-aman { background:#d4edda; color:#1e7e34; }
+
+        .loading { display:flex; justify-content:center; align-items:center; padding:30px; color:#7a8a9e; gap:10px; }
+        .loading i { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
 
         @media (max-width:768px) {
             .sidebar { width:100%; position:static; height:auto; }
             .main-content { margin-left:0; padding:16px; }
-            .form-grid-2 { grid-template-columns:1fr; }
+            .stat-cards { grid-template-columns:1fr; }
         }
     </style>
 </head>
@@ -147,25 +150,25 @@
             </div>
         </div>
         <div class="menu-group">
-            <div class="menu-item" onclick="toggleDropdown(this)">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
                 <i class="fas fa-chart-line"></i> FORECASTING
-                <i class="fas fa-chevron-down chevron"></i>
+                <i class="fas fa-chevron-down chevron open"></i>
             </div>
-            <div class="sub-menu">
-                <div class="menu-item" data-module="forecasting_stok" onclick="navigate('forecasting-stok.html')"><i class="fas fa-boxes-stacked"></i> Analisis Stok</div>
+            <div class="sub-menu open">
+                <div class="menu-item active" data-module="forecasting_stok" onclick="navigate('forecasting-stok.html')"><i class="fas fa-boxes-stacked"></i> Analisis Stok</div>
                 <div class="menu-item" data-module="forecasting_pbf" onclick="navigate('forecasting-pbf.html')"><i class="fas fa-industry"></i> Data PBF</div>
                 <div class="menu-item" data-module="forecasting_rekomendasi" onclick="navigate('forecasting-rekomendasi.html')"><i class="fas fa-list-check"></i> Rekomendasi Pesanan</div>
                 <div class="menu-item" data-module="forecasting_sp" onclick="navigate('forecasting-sp.html')"><i class="fas fa-file-signature"></i> Surat Pesanan</div>
             </div>
         </div>
         <div class="menu-group">
-            <div class="menu-item active" onclick="toggleDropdown(this)">
+            <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-gear"></i> KELOLA APLIKASI
-                <i class="fas fa-chevron-down chevron open"></i>
+                <i class="fas fa-chevron-down chevron"></i>
             </div>
-            <div class="sub-menu open">
+            <div class="sub-menu">
                 <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
-                <div class="menu-item active" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
                 <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
                 <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
             </div>
@@ -178,104 +181,61 @@
 
     <div class="main-content">
         <div class="header">
-            <h2><i class="fas fa-store"></i> Identitas Apotek</h2>
+            <div>
+                <h2><i class="fas fa-boxes-stacked"></i> Analisis Stok</h2>
+                <p>Deteksi obat yang stoknya menipis/habis, bagian dari modul Forecasting</p>
+            </div>
             <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
         </div>
 
         <div class="info-banner">
             <i class="fas fa-circle-info"></i>
-            <div>Aplikasi ini berjalan di atas platform <strong>Sehatin+</strong>. Data di bawah ini adalah identitas apotek Anda sendiri — akan tampil di halaman login, sidebar, dan (ke depannya) struk/laporan cetak.</div>
+            <div>Data di halaman ini diambil langsung dari <strong>Master Obat</strong> — tidak perlu upload manual lagi. Status "Menipis"/"Habis" dihitung dari kolom <strong>Stok</strong> vs <strong>Stok Minimal</strong> tiap obat (atur stok minimal per obat di halaman Master Obat).</div>
         </div>
 
-        <form id="pengaturanForm" onsubmit="saveSettings(event)">
-            <div class="card">
-                <div class="card-title"><i class="fas fa-image"></i> Logo Apotek</div>
-                <div class="card-subtitle">Opsional. Isi dengan URL gambar logo apotek Anda (mis. link dari Supabase Storage atau hosting gambar lain).</div>
-                <div class="logo-preview-wrap">
-                    <img id="logoPreview" src="/logo-icon.png" alt="preview">
-                    <div style="flex:1;">
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label>URL Logo Apotek</label>
-                            <input type="url" id="fLogoUrl" placeholder="https://.../logo-apotek.png" oninput="updateLogoPreview()">
-                            <small>Kosongkan untuk memakai logo Sehatin+ bawaan.</small>
-                        </div>
-                    </div>
+        <div class="stat-cards">
+            <div class="stat-card habis"><div class="label">Obat Habis</div><div class="value" id="countHabis">0</div></div>
+            <div class="stat-card menipis"><div class="label">Obat Menipis</div><div class="value" id="countMenipis">0</div></div>
+            <div class="stat-card aman"><div class="label">Stok Aman</div><div class="value" id="countAman">0</div></div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <div class="card-title"><i class="fas fa-list"></i> Daftar Stok Obat</div>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="setSortBy(sortBy === 'urgensi' ? 'nama' : 'urgensi')"><i class="fas fa-arrow-up-short-wide"></i> <span id="sortLabel">Urutkan: Urgensi</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="loadStok()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
-
-            <div class="card">
-                <div class="card-title"><i class="fas fa-store"></i> Data Apotek</div>
-                <div class="card-subtitle">Nama dan identitas ini akan tampil di seluruh aplikasi.</div>
-
-                <div class="form-group">
-                    <label>Nama Apotek *</label>
-                    <input type="text" id="fNamaApotek" placeholder="Contoh: Apotek Mendidoha Farma" required>
-                </div>
-                <div class="form-group">
-                    <label>Alamat</label>
-                    <textarea id="fAlamat" rows="2" placeholder="Alamat lengkap apotek"></textarea>
-                </div>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>Telepon</label>
-                        <input type="text" id="fTelepon" placeholder="08xx-xxxx-xxxx">
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="fEmail" placeholder="apotek@domain.com">
-                    </div>
-                </div>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>NPWP</label>
-                        <input type="text" id="fNpwp" placeholder="00.000.000.0-000.000">
-                    </div>
-                    <div class="form-group">
-                        <label>Apoteker Penanggung Jawab</label>
-                        <input type="text" id="fApotekerPj" placeholder="Apt. Nama, S.Farm">
-                    </div>
-                </div>
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>No. SIA (Surat Izin Apotek)</label>
-                        <input type="text" id="fSia" placeholder="SIA/xxx/xxxx">
-                        <small>Dipakai di tanda tangan Surat Pesanan (modul Forecasting)</small>
-                    </div>
-                    <div class="form-group">
-                        <label>No. SIPA Apoteker</label>
-                        <input type="text" id="fSipa" placeholder="SIPA/xxx/xxxx">
-                        <small>Dipakai di tanda tangan Surat Pesanan (modul Forecasting)</small>
-                    </div>
-                </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nama Obat</th><th style="text-align:right;">Stok Saat Ini</th><th style="text-align:right;">Stok Minimum</th><th>Satuan</th><th>Status</th></tr></thead>
+                    <tbody id="stokBody"><tr><td colspan="5" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                </table>
             </div>
+        </div>
 
-            <div style="display:flex;gap:10px;">
-                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan Identitas Apotek</button>
-            </div>
-        </form>
+        <div class="card">
+            <div class="card-title" style="margin-bottom:10px;"><i class="fas fa-arrow-right"></i> Langkah Selanjutnya</div>
+            <p style="font-size:13px;color:#7a8a9e;">Obat yang <strong>Habis</strong> atau <strong>Menipis</strong> bisa langsung dicarikan rekomendasi supplier di halaman <a href="forecasting-rekomendasi.html" style="color:#2d6a9f;font-weight:600;">Rekomendasi Pesanan</a> (pastikan data PBF & katalognya sudah diisi di <a href="forecasting-pbf.html" style="color:#2d6a9f;font-weight:600;">Data PBF</a> terlebih dulu).</p>
+        </div>
     </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
 <script type="module">
     import { supabase, getCurrentUser, signOut } from './supabase.js';
-    import { getPengaturanApotek, savePengaturanApotek, logAudit } from './database.js';
+    import { getObat } from './database.js';
     import { applyBranding } from './branding.js';
+    applyBranding('Analisis Stok');
     import { enforcePermissions } from './permissions.js';
+    enforcePermissions('forecasting_stok');
 
     async function checkAuth() {
         try {
             const { data, error } = await supabase.auth.getSession();
-            if (error || !data?.session) {
-                window.location.href = '/';
-                return false;
-            }
+            if (error || !data?.session) { window.location.href = '/'; return false; }
             return true;
-        } catch(e) {
-            window.location.href = '/';
-            return false;
-        }
+        } catch(e) { window.location.href = '/'; return false; }
     }
     if (!await checkAuth()) { window.location.href = '/'; }
 
@@ -284,80 +244,82 @@
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
         const chevron = el.querySelector('.chevron');
-        if (subMenu) {
-            subMenu.classList.toggle('open');
-            if (chevron) chevron.classList.toggle('open');
-        }
+        if (subMenu) { subMenu.classList.toggle('open'); if (chevron) chevron.classList.toggle('open'); }
     };
 
-    let currentUser = null;
+    let obatData = [];
+    window.sortBy = 'urgensi';
 
-    window.updateLogoPreview = function() {
-        const url = document.getElementById('fLogoUrl').value.trim();
-        document.getElementById('logoPreview').src = url || '/logo-icon.png';
-    };
-
-    async function loadSettings() {
+    async function loadUser() {
         const user = await getCurrentUser();
         if (user) {
-            currentUser = user;
             document.getElementById('userBadge').textContent = user.email || 'admin';
             document.getElementById('usernameDisplay').textContent = user.user_metadata?.full_name || user.email || 'admin';
         }
-
-        const { data } = await getPengaturanApotek();
-        if (data) {
-            document.getElementById('fNamaApotek').value = data.nama_apotek || '';
-            document.getElementById('fAlamat').value = data.alamat || '';
-            document.getElementById('fTelepon').value = data.telepon || '';
-            document.getElementById('fEmail').value = data.email || '';
-            document.getElementById('fNpwp').value = data.npwp || '';
-            document.getElementById('fApotekerPj').value = data.apoteker_pj || '';
-            document.getElementById('fSia').value = data.sia || '';
-            document.getElementById('fSipa').value = data.sipa || '';
-            document.getElementById('fLogoUrl').value = data.logo_url || '';
-            updateLogoPreview();
-        }
     }
 
-    window.saveSettings = async function(e) {
-        e.preventDefault();
-        const payload = {
-            nama_apotek: document.getElementById('fNamaApotek').value.trim(),
-            alamat: document.getElementById('fAlamat').value.trim(),
-            telepon: document.getElementById('fTelepon').value.trim(),
-            email: document.getElementById('fEmail').value.trim(),
-            npwp: document.getElementById('fNpwp').value.trim(),
-            apoteker_pj: document.getElementById('fApotekerPj').value.trim(),
-            sia: document.getElementById('fSia').value.trim(),
-            sipa: document.getElementById('fSipa').value.trim(),
-            logo_url: document.getElementById('fLogoUrl').value.trim() || null
-        };
+    function statusFor(o) {
+        const stok = Number(o.stok) || 0;
+        const minimum = Number(o.stok_minimal) || 0;
+        if (stok <= 0) return 'Habis';
+        if (stok <= minimum) return 'Menipis';
+        return 'Aman';
+    }
 
-        try {
-            const { error } = await savePengaturanApotek(payload);
-            if (error) throw error;
-            showToast('✅ Identitas apotek berhasil disimpan!');
-            await logAudit(currentUser?.id, currentUser?.email, 'UPDATE_PENGATURAN_APOTEK', `Identitas apotek diupdate: ${payload.nama_apotek}`);
-            await applyBranding('Identitas Apotek');
-        } catch(err) {
-            showToast('❌ Gagal menyimpan: ' + err.message, true);
+    window.loadStok = async function() {
+        const tbody = document.getElementById('stokBody');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+        const { data, error } = await getObat();
+        if (error) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#dc3545;">Gagal memuat data obat</td></tr>';
+            return;
         }
+        obatData = (data || []).map(o => ({ ...o, statusStok: statusFor(o) }));
+        renderStok();
     };
 
-    function showToast(message, isError = false) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = 'toast' + (isError ? ' error' : '');
-        toast.style.display = 'block';
-        clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    window.setSortBy = function(val) {
+        window.sortBy = val;
+        document.getElementById('sortLabel').textContent = 'Urutkan: ' + (val === 'urgensi' ? 'Urgensi' : 'Nama');
+        renderStok();
+    };
+
+    function renderStok() {
+        const order = { Habis: 0, Menipis: 1, Aman: 2 };
+        const sorted = [...obatData];
+        if (window.sortBy === 'urgensi') {
+            sorted.sort((a, b) => order[a.statusStok] - order[b.statusStok] || (Number(a.stok) - Number(a.stok_minimal)) - (Number(b.stok) - Number(b.stok_minimal)));
+        } else {
+            sorted.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
+        }
+
+        const habis = obatData.filter(o => o.statusStok === 'Habis').length;
+        const menipis = obatData.filter(o => o.statusStok === 'Menipis').length;
+        const aman = obatData.filter(o => o.statusStok === 'Aman').length;
+        document.getElementById('countHabis').textContent = habis;
+        document.getElementById('countMenipis').textContent = menipis;
+        document.getElementById('countAman').textContent = aman;
+
+        const tbody = document.getElementById('stokBody');
+        if (sorted.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Belum ada data obat. Tambahkan di Master Obat terlebih dahulu.</td></tr>';
+            return;
+        }
+        const badgeClass = { Habis: 'badge-habis', Menipis: 'badge-menipis', Aman: 'badge-aman' };
+        tbody.innerHTML = sorted.map(o => `
+            <tr>
+                <td>${o.nama_obat || '-'}</td>
+                <td style="text-align:right;font-weight:600;">${o.stok || 0}</td>
+                <td style="text-align:right;color:#7a8a9e;">${o.stok_minimal || 0}</td>
+                <td>${o.satuan || '-'}</td>
+                <td><span class="badge ${badgeClass[o.statusStok]}">${o.statusStok}</span></td>
+            </tr>
+        `).join('');
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        applyBranding('Identitas Apotek');
-        enforcePermissions('pengaturan_apotek');
-        loadSettings();
+        loadUser();
+        loadStok();
     });
 </script>
 </body>

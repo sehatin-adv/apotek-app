@@ -1634,3 +1634,114 @@ export async function getAuditLogs(limit = 100) {
         return { data: [], error: e };
     }
 }
+
+// ============================================================
+// FORECASTING - Analisis Stok & Katalog PBF
+// ============================================================
+// Catatan: TIDAK ada tabel "pbf" terpisah - data distributor (nama,
+// alamat, dll) diambil langsung dari tabel supplier yang sudah ada
+// di Master Data (Data Supplier), supaya tidak ada data ganda.
+// Tabel supplier_katalog & supplier_selections cuma nyimpen katalog
+// produk & pilihan pesanan, keduanya menempel ke supplier.id.
+
+// Daftar supplier + katalog produknya masing-masing (buat halaman
+// "Data PBF" di modul Forecasting)
+export async function getSupplierWithKatalog() {
+    try {
+        const { data: suppliers, error: e1 } = await supabase.from('supplier').select('*').order('nama_supplier');
+        if (e1) throw e1;
+        const { data: katalog, error: e2 } = await supabase.from('supplier_katalog').select('*');
+        if (e2) throw e2;
+        const list = (suppliers || []).map(s => ({
+            ...s,
+            products: (katalog || []).filter(k => k.supplier_id === s.id)
+        }));
+        return { data: list, error: null };
+    } catch(e) {
+        console.error('Error getSupplierWithKatalog:', e);
+        return { data: [], error: e };
+    }
+}
+
+// Ganti SELURUH katalog produk milik satu supplier (replace-all,
+// sesuai perilaku upload ulang file Excel katalog dari PBF tsb)
+export async function saveSupplierKatalog(supplierId, products) {
+    try {
+        const { error: delError } = await supabase.from('supplier_katalog').delete().eq('supplier_id', supplierId);
+        if (delError) throw delError;
+        if (products.length === 0) return { error: null };
+        const rows = products.map(p => ({
+            supplier_id: supplierId,
+            nama: p.nama,
+            harga: p.harga || 0,
+            satuan: p.satuan || '',
+            min_order: p.minOrder || 0
+        }));
+        const { error } = await supabase.from('supplier_katalog').insert(rows);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error saveSupplierKatalog:', e);
+        return { error: e };
+    }
+}
+
+// --- Pilihan Pesanan (Rekomendasi -> Surat Pesanan) ---
+export async function getSupplierSelections() {
+    try {
+        const { data, error } = await supabase.from('supplier_selections').select('*');
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getSupplierSelections:', e);
+        return { data: [], error: e };
+    }
+}
+
+export async function saveSupplierSelection(sel) {
+    try {
+        const { error } = await supabase
+            .from('supplier_selections')
+            .upsert({
+                obat_id: sel.obatId,
+                obat_nama: sel.obatNama,
+                supplier_id: sel.supplierId,
+                supplier_nama: sel.supplierNama,
+                produk_id: sel.produkId,
+                produk_nama: sel.produkNama,
+                harga: sel.harga || 0,
+                satuan: sel.satuan || '',
+                qty: sel.qty || 1
+            }, { onConflict: 'obat_id' });
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error saveSupplierSelection:', e);
+        return { error: e };
+    }
+}
+
+export async function deleteSupplierSelection(obatId) {
+    try {
+        const { error } = await supabase.from('supplier_selections').delete().eq('obat_id', obatId);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error deleteSupplierSelection:', e);
+        return { error: e };
+    }
+}
+
+// Reset data forecasting SAJA (katalog & pilihan pesanan) - tidak
+// menghapus data supplier itu sendiri, karena itu data master yang
+// dipakai di tempat lain juga (Pembelian, dll).
+export async function resetForecastingData() {
+    try {
+        await supabase.from('supplier_selections').delete().neq('obat_id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('supplier_katalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        return { error: null };
+    } catch(e) {
+        console.error('Error resetForecastingData:', e);
+        return { error: e };
+    }
+}
