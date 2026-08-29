@@ -1650,11 +1650,19 @@ export async function getSupplierWithKatalog() {
     try {
         const { data: suppliers, error: e1 } = await supabase.from('supplier').select('*').order('nama_supplier');
         if (e1) throw e1;
-        const { data: katalog, error: e2 } = await supabase.from('supplier_katalog').select('*');
-        if (e2) throw e2;
+        // Query katalog terpisah supaya kalau tabel supplier_katalog belum
+        // ada (mis. migration-sehatin.sql belum dijalankan), daftar supplier
+        // tetap bisa tampil (dengan 0 produk) - tidak gagal total.
+        let katalog = [];
+        const { data: katalogData, error: e2 } = await supabase.from('supplier_katalog').select('*');
+        if (e2) {
+            console.error('Error load supplier_katalog (mungkin migration-sehatin.sql belum dijalankan):', e2);
+        } else {
+            katalog = katalogData || [];
+        }
         const list = (suppliers || []).map(s => ({
             ...s,
-            products: (katalog || []).filter(k => k.supplier_id === s.id)
+            products: katalog.filter(k => k.supplier_id === s.id)
         }));
         return { data: list, error: null };
     } catch(e) {
