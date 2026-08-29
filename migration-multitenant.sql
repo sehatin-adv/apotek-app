@@ -432,3 +432,56 @@ $$;
 -- ============================================================
 -- SELESAI (Tenant Provisioning)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 11) PERBAIKAN: kode_obat, kode_supplier, no_faktur harus UNIK PER
+--     TENANT, bukan unik global. Sebelumnya kolom-kolom ini didesain
+--     waktu Sehatin+ masih 1-apotek-1-database, jadi unik secara
+--     GLOBAL di seluruh tabel. Begitu jadi multi-tenant, ini jadi
+--     bug: tenant BARU tidak bisa pakai kode "OBT001" dst kalau kode
+--     itu KEBETULAN sudah dipakai tenant LAIN manapun, padahal
+--     harusnya boleh sama karena beda apotek/beda tenant.
+-- ------------------------------------------------------------
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'obat_kode_obat_key') THEN
+        ALTER TABLE obat DROP CONSTRAINT obat_kode_obat_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'obat_tenant_kode_obat_key') THEN
+        ALTER TABLE obat ADD CONSTRAINT obat_tenant_kode_obat_key UNIQUE (tenant_id, kode_obat);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supplier_kode_supplier_key') THEN
+        ALTER TABLE supplier DROP CONSTRAINT supplier_kode_supplier_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supplier_tenant_kode_supplier_key') THEN
+        ALTER TABLE supplier ADD CONSTRAINT supplier_tenant_kode_supplier_key UNIQUE (tenant_id, kode_supplier);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'penjualan_header_no_faktur_key') THEN
+        ALTER TABLE penjualan_header DROP CONSTRAINT penjualan_header_no_faktur_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'penjualan_header_tenant_no_faktur_key') THEN
+        ALTER TABLE penjualan_header ADD CONSTRAINT penjualan_header_tenant_no_faktur_key UNIQUE (tenant_id, no_faktur);
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pembelian_header_no_faktur_key') THEN
+        ALTER TABLE pembelian_header DROP CONSTRAINT pembelian_header_no_faktur_key;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pembelian_header_tenant_no_faktur_key') THEN
+        ALTER TABLE pembelian_header ADD CONSTRAINT pembelian_header_tenant_no_faktur_key UNIQUE (tenant_id, no_faktur);
+    END IF;
+END $$;
+
+-- ============================================================
+-- SELESAI (Perbaikan Unique Constraint Per-Tenant)
+-- ============================================================
