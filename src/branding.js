@@ -4,6 +4,7 @@
 // Nama & logo APOTEK bisa dikustomisasi lewat menu
 // Kelola Aplikasi > Identitas Apotek, dan disimpan di tabel
 // pengaturan_apotek di Supabase.
+import { supabase } from './supabase.js';
 import { getPengaturanApotek } from './database.js';
 
 export const DEFAULT_APOTEK_NAME = 'Apotek Saya';
@@ -12,6 +13,7 @@ export const DEFAULT_APOTEK_NAME = 'Apotek Saya';
 // - document.title
 // - elemen sidebar dengan id="sidebarApotekName" (nama apotek custom)
 // - elemen sidebar dengan id="sidebarLogo" (logo apotek custom, kalau ada)
+// - banner notifikasi kalau masa berlangganan tenant mau/sudah habis
 export async function applyBranding(pageTitle) {
     let namaApotek = DEFAULT_APOTEK_NAME;
     let logoUrl = null;
@@ -45,5 +47,82 @@ export async function applyBranding(pageTitle) {
         if (loginLogoEl) loginLogoEl.src = logoUrl;
     }
 
+    checkSubscriptionBanner();
+
     return { namaApotek, logoUrl };
+}
+
+// ============================================================
+// NOTIFIKASI MASA BERLANGGANAN
+// Muncul otomatis di semua halaman (lewat applyBranding di atas)
+// kalau tenant lagi Suspended atau masa berlangganannya mau/sudah habis.
+// ============================================================
+async function checkSubscriptionBanner() {
+    try {
+        const { data, error } = await supabase.rpc('get_my_tenant_info');
+        if (error) return; // fungsi belum ada (migration blm dijalankan) atau user blm terhubung tenant - diam saja
+        const info = Array.isArray(data) ? data[0] : data;
+        if (!info) return;
+
+        const expiresAt = info.subscription_expires_at ? new Date(info.subscription_expires_at) : null;
+        const isSuspended = info.status === 'Suspended';
+        const daysLeft = expiresAt ? Math.ceil((expiresAt - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+        const shouldWarn = isSuspended || (daysLeft !== null && daysLeft <= 7);
+        if (!shouldWarn) return;
+
+        let qrisUrl = null;
+        try {
+            const { data: qrisRow } = await supabase.from('platform_settings').select('value').eq('key', 'qris_image_url').maybeSingle();
+            qrisUrl = qrisRow?.value || null;
+        } catch (e) { /* platform_settings mungkin belum ada, abaikan */ }
+
+        renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl });
+    } catch (e) {
+        console.error('Error checkSubscriptionBanner:', e);
+    }
+}
+
+function renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl }) {
+    const mainContent = document.querySelector('.main-content');
+    if (!mainContent) return;
+    if (document.getElementById('subscriptionBanner')) return; // jangan dobel
+
+    const urgent = isSuspended || (daysLeft !== null && daysLeft < 0);
+    const tglStr = expiresAt ? expiresAt.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
+    const message = urgent
+        ? `Langganan Sehatin+ sudah <strong>berakhir</strong>${tglStr ? ' pada ' + tglStr : ''}. Sebagian fitur mungkin terkunci - segera perpanjang.`
+        : `Langganan Sehatin+ akan berakhir dalam <strong>${daysLeft} hari</strong> (${tglStr}). Perpanjang sekarang supaya tidak terputus.`;
+
+    const banner = document.createElement('div');
+    banner.id = 'subscriptionBanner';
+    banner.style.cssText = `background:${urgent ? '#fbe4e6' : '#fff3cd'};border:1px solid ${urgent ? '#f5c6cb' : '#ffe69c'};color:${urgent ? '#842029' : '#664d03'};padding:14px 18px;border-radius:12px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;font-family:'Inter',sans-serif;`;
+    banner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+            <i class="fas fa-triangle-exclamation" style="font-size:18px;"></i>
+            <span>${message}</span>
+        </div>
+        ${qrisUrl ? `<button id="btnShowQris" style="background:${urgent ? '#dc3545' : '#b8860b'};color:white;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">Perpanjang Sekarang</button>` : ''}
+    `;
+    mainContent.insertBefore(banner, mainContent.firstChild);
+
+    const btn = document.getElementById('btnShowQris');
+    if (btn) btn.onclick = () => showQrisModal(qrisUrl);
+}
+
+function showQrisModal(qrisUrl) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Inter\',sans-serif;';
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
+            <h3 style="margin-bottom:6px;color:#0f1e2e;font-size:16px;">Perpanjang Langganan</h3>
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Scan QRIS di bawah, transfer sesuai biaya langganan, lalu konfirmasi ke admin Sehatin+ supaya akses Anda diaktifkan kembali.</p>
+            <img src="${qrisUrl}" alt="QRIS" style="width:100%;border-radius:10px;margin-bottom:14px;border:1px solid #eef2f7;">
+            <button id="btnCloseQris" style="width:100%;padding:10px;background:#2d6a9f;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Tutup</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('btnCloseQris').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 }

@@ -85,6 +85,17 @@
     </div>
 
     <div class="card">
+        <div class="card-title"><i class="fas fa-qrcode"></i> Pengaturan QRIS Perpanjangan</div>
+        <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">URL gambar QRIS statis (dari akun bank/e-wallet merchant Anda) yang ditampilkan di notifikasi perpanjangan langganan semua tenant. Upload gambarnya ke tempat hosting gambar (mis. imgur, atau Supabase Storage), lalu tempel URL-nya di sini.</p>
+        <div class="form-group" style="margin-bottom:10px;">
+            <label>URL Gambar QRIS</label>
+            <input type="url" id="fQrisUrl" placeholder="https://.../qris-sehatin.png">
+        </div>
+        <button class="btn btn-outline" onclick="saveQrisSetting()"><i class="fas fa-save"></i> Simpan QRIS</button>
+        <img id="qrisPreview" src="" alt="" style="display:none;height:100px;margin-top:12px;border-radius:8px;border:1px solid #e8edf3;">
+    </div>
+
+    <div class="card">
         <div class="card-title"><i class="fas fa-plus-circle"></i> Daftarkan Apotek Baru</div>
         <div class="form-group" style="margin-bottom:12px;">
             <label>Nama Apotek</label>
@@ -133,6 +144,7 @@
             sessionStorage.setItem('platformSecret', platformSecret);
             document.getElementById('lockScreen').style.display = 'none';
             document.getElementById('mainWrap').style.display = 'block';
+            loadQrisSetting();
         }
     };
 
@@ -168,6 +180,21 @@
         return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
     }
 
+    function daysUntil(iso) {
+        if (!iso) return null;
+        const diff = new Date(iso) - new Date();
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function subscriptionBadge(t) {
+        if (!t.subscription_expires_at) return '<span style="font-size:11px;color:#9aa8b8;">Tanpa batas</span>';
+        const days = daysUntil(t.subscription_expires_at);
+        const tgl = formatTanggal(t.subscription_expires_at);
+        if (days < 0) return `<span style="font-size:11px;color:#dc3545;font-weight:700;">Kedaluwarsa ${tgl}</span>`;
+        if (days <= 7) return `<span style="font-size:11px;color:#b8860b;font-weight:700;">${tgl} (${days} hari lagi)</span>`;
+        return `<span style="font-size:11px;color:#7a8a9e;">${tgl}</span>`;
+    }
+
     function renderTenants() {
         const wrap = document.getElementById('tenantListWrap');
         if (tenants.length === 0) {
@@ -176,16 +203,19 @@
         }
         wrap.innerHTML = `
             <table>
-                <thead><tr><th>Nama Apotek</th><th>Status</th><th>Terdaftar</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Nama Apotek</th><th>Status</th><th>Masa Berlangganan</th><th>Aksi</th></tr></thead>
                 <tbody>
                     ${tenants.map(t => `
                         <tr>
-                            <td><strong>${t.nama}</strong></td>
+                            <td><strong>${t.nama}</strong><br><span style="font-size:11px;color:#9aa8b8;">Terdaftar ${formatTanggal(t.created_at)}</span></td>
                             <td><span class="status-badge status-${t.status}">${t.status}</span></td>
-                            <td>${formatTanggal(t.created_at)}</td>
-                            <td>
+                            <td>${subscriptionBadge(t)}</td>
+                            <td style="white-space:nowrap;">
+                                <button class="btn btn-outline btn-sm" onclick="openEditTenant('${t.id}')"><i class="fas fa-pen"></i> Edit</button>
+                                <button class="btn btn-success-outline btn-sm" onclick="extendSubscription('${t.id}', 30)"><i class="fas fa-calendar-plus"></i> +30 hari</button>
                                 ${t.status !== 'Aktif' ? `<button class="btn btn-success-outline btn-sm" onclick="setTenantStatus('${t.id}','Aktif')"><i class="fas fa-play"></i> Aktifkan</button>` : ''}
                                 ${t.status !== 'Suspended' ? `<button class="btn btn-danger-outline btn-sm" onclick="setTenantStatus('${t.id}','Suspended')"><i class="fas fa-pause"></i> Bekukan</button>` : ''}
+                                <button class="btn btn-danger-outline btn-sm" onclick="openDeleteTenant('${t.id}')"><i class="fas fa-trash"></i> Hapus</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -202,6 +232,91 @@
         showToast('✅ Status tenant berhasil diubah');
         loadTenants();
     };
+
+    // ---------- Edit tenant (nama + masa berlangganan) ----------
+    window.openEditTenant = function(tenantId) {
+        const t = tenants.find(x => x.id === tenantId);
+        if (!t) return;
+        const namaBaru = prompt('Nama apotek:', t.nama);
+        if (namaBaru === null) return;
+        if (namaBaru.trim() && namaBaru.trim() !== t.nama) {
+            callPlatformApi('update-tenant-name', { tenant_id: tenantId, nama: namaBaru.trim() }).then(({ error }) => {
+                if (error) { showToast('❌ ' + error, true); return; }
+                showToast('✅ Nama tenant diubah');
+                loadTenants();
+            });
+        }
+        openSubscriptionPrompt(tenantId, t);
+    };
+
+    function openSubscriptionPrompt(tenantId, t) {
+        const current = t.subscription_expires_at ? t.subscription_expires_at.split('T')[0] : '';
+        const input = prompt('Masa berlangganan sampai tanggal (YYYY-MM-DD), kosongkan utk tanpa batas:', current);
+        if (input === null) return;
+        const expires_at = input.trim() ? input.trim() : null;
+        const reactivate = expires_at && new Date(expires_at) > new Date();
+        callPlatformApi('update-tenant-subscription', { tenant_id: tenantId, expires_at, reactivate }).then(({ error }) => {
+            if (error) { showToast('❌ ' + error, true); return; }
+            showToast('✅ Masa berlangganan diperbarui' + (reactivate ? ' & tenant otomatis diaktifkan' : ''));
+            loadTenants();
+        });
+    }
+
+    window.extendSubscription = async function(tenantId, days) {
+        const t = tenants.find(x => x.id === tenantId);
+        if (!t) return;
+        const base = (t.subscription_expires_at && new Date(t.subscription_expires_at) > new Date()) ? new Date(t.subscription_expires_at) : new Date();
+        base.setDate(base.getDate() + days);
+        const expires_at = base.toISOString().split('T')[0];
+        const { error } = await callPlatformApi('update-tenant-subscription', { tenant_id: tenantId, expires_at, reactivate: true });
+        if (error) { showToast('❌ ' + error, true); return; }
+        showToast(`✅ Langganan diperpanjang ${days} hari & tenant diaktifkan`);
+        loadTenants();
+    };
+
+    // ---------- Hapus tenant ----------
+    window.openDeleteTenant = function(tenantId) {
+        const t = tenants.find(x => x.id === tenantId);
+        if (!t) return;
+        const typed = prompt(`Tindakan ini PERMANEN - seluruh data apotek "${t.nama}" (obat, penjualan, user, dst) akan terhapus dan TIDAK BISA dikembalikan.\n\nKetik ulang persis nama apotek untuk konfirmasi:`);
+        if (typed === null) return;
+        if (typed !== t.nama) {
+            showToast('⚠️ Nama tidak cocok, penghapusan dibatalkan', true);
+            return;
+        }
+        deleteTenant(tenantId, typed);
+    };
+
+    async function deleteTenant(tenantId, confirmNama) {
+        showToast('⏳ Menghapus tenant, mohon tunggu...');
+        const { error } = await callPlatformApi('delete-tenant', { tenant_id: tenantId, confirm_nama: confirmNama });
+        if (error) { showToast('❌ ' + error, true); return; }
+        showToast('🗑️ Tenant berhasil dihapus permanen');
+        loadTenants();
+    }
+
+    // ---------- QRIS ----------
+    window.saveQrisSetting = async function() {
+        const url = document.getElementById('fQrisUrl').value.trim();
+        const { error } = await callPlatformApi('set-qris-setting', { qris_image_url: url });
+        if (error) { showToast('❌ ' + error, true); return; }
+        showToast('✅ Pengaturan QRIS disimpan');
+        updateQrisPreview(url);
+    };
+
+    function updateQrisPreview(url) {
+        const img = document.getElementById('qrisPreview');
+        if (url) { img.src = url; img.style.display = 'block'; }
+        else { img.style.display = 'none'; }
+    }
+
+    async function loadQrisSetting() {
+        const { data } = await callPlatformApi('get-qris-setting', {});
+        if (data) {
+            document.getElementById('fQrisUrl').value = data;
+            updateQrisPreview(data);
+        }
+    }
 
     window.provisionTenant = async function() {
         const nama_apotek = document.getElementById('fNamaApotek').value.trim();
@@ -255,6 +370,7 @@
             if (ok) {
                 document.getElementById('lockScreen').style.display = 'none';
                 document.getElementById('mainWrap').style.display = 'block';
+                loadQrisSetting();
             } else {
                 sessionStorage.removeItem('platformSecret');
             }

@@ -106,7 +106,7 @@ export async function onRequestPost(context) {
     // admin di app_users manapun - supaya admin satu apotek tidak bisa
     // bikin/lihat/matikan apotek lain.
     // ============================================================
-    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status'];
+    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting'];
     if (PLATFORM_ACTIONS.includes(action)) {
         if (!env.PLATFORM_ADMIN_SECRET) {
             return new Response(JSON.stringify({ error: 'PLATFORM_ADMIN_SECRET belum diset di Cloudflare Pages.' }), { status: 500, headers: CORS_HEADERS });
@@ -136,6 +136,97 @@ export async function onRequestPost(context) {
                 const data = await res.json();
                 if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status tenant.' }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'update-tenant-name') {
+                const { tenant_id, nama } = body;
+                if (!tenant_id || !nama || !nama.trim()) {
+                    return new Response(JSON.stringify({ error: 'tenant_id dan nama wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenant_id}`, {
+                    method: 'PATCH',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ nama: nama.trim() })
+                });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah nama tenant.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'update-tenant-subscription') {
+                // expires_at: string tanggal ISO (mis. "2026-12-31"), atau null utk hapus batas.
+                // Kalau diisi tanggal di masa depan, status juga otomatis dibalikin ke
+                // "Aktif" (buat kasus "tandai sudah bayar" - langsung aktif lagi seketika).
+                const { tenant_id, expires_at, reactivate } = body;
+                if (!tenant_id) {
+                    return new Response(JSON.stringify({ error: 'tenant_id wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const patchBody = { subscription_expires_at: expires_at || null };
+                if (reactivate) patchBody.status = 'Aktif';
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenant_id}`, {
+                    method: 'PATCH',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify(patchBody)
+                });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah masa berlangganan.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'delete-tenant') {
+                const { tenant_id, confirm_nama } = body;
+                if (!tenant_id) {
+                    return new Response(JSON.stringify({ error: 'tenant_id wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                // Ambil data tenant dulu buat verifikasi nama konfirmasi
+                const tenantCheckRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenant_id}&select=nama`, { headers: serviceHeaders });
+                const tenantCheckData = await tenantCheckRes.json();
+                const tenantNama = tenantCheckData?.[0]?.nama;
+                if (!tenantNama) {
+                    return new Response(JSON.stringify({ error: 'Tenant tidak ditemukan.' }), { status: 404, headers: CORS_HEADERS });
+                }
+                if (confirm_nama !== tenantNama) {
+                    return new Response(JSON.stringify({ error: 'Nama konfirmasi tidak cocok. Ketik ulang nama tenant persis sama.' }), { status: 400, headers: CORS_HEADERS });
+                }
+
+                // 1. Ambil semua auth_user_id staff tenant ini, hapus akun loginnya satu-satu
+                const usersRes = await fetch(`${env.SUPABASE_URL}/rest/v1/app_users?tenant_id=eq.${tenant_id}&select=auth_user_id`, { headers: serviceHeaders });
+                const usersData = await usersRes.json();
+                for (const u of (usersData || [])) {
+                    if (u.auth_user_id) {
+                        await fetch(`${adminApiBase}/users/${u.auth_user_id}`, { method: 'DELETE', headers: serviceHeaders }).catch(() => {});
+                    }
+                }
+
+                // 2. Hapus seluruh data tenant lewat fungsi cascade di database
+                const rpcRes = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/delete_tenant_cascade`, {
+                    method: 'POST',
+                    headers: serviceHeaders,
+                    body: JSON.stringify({ p_tenant_id: tenant_id })
+                });
+                if (!rpcRes.ok) {
+                    const rpcErr = await rpcRes.json().catch(() => ({}));
+                    return new Response(JSON.stringify({ error: 'Akun login staff terhapus, tapi gagal menghapus data tenant: ' + (rpcErr.message || '') }), { status: rpcRes.status, headers: CORS_HEADERS });
+                }
+
+                return new Response(JSON.stringify({ ok: true }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'get-qris-setting') {
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings?key=eq.qris_image_url&select=value`, { headers: serviceHeaders });
+                const data = await res.json();
+                return new Response(JSON.stringify({ data: data?.[0]?.value || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'set-qris-setting') {
+                const { qris_image_url } = body;
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings`, {
+                    method: 'POST',
+                    headers: { ...serviceHeaders, 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify({ key: 'qris_image_url', value: qris_image_url || '' })
+                });
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal menyimpan pengaturan QRIS.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ ok: true }), { headers: CORS_HEADERS });
             }
 
             if (action === 'provision-tenant') {

@@ -294,6 +294,120 @@ AS $$
     LIMIT 1;
 $$;
 
+-- ------------------------------------------------------------
+-- 9) MASA BERLANGGANAN TENANT + NOTIFIKASI PERPANJANGAN + QRIS
+-- ------------------------------------------------------------
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
+
+-- Pengaturan platform (key-value sederhana) - dipakai buat simpan URL
+-- gambar QRIS statis yang ditampilkan di notifikasi perpanjangan semua
+-- tenant. Bukan data milik tenant tertentu, jadi tidak perlu tenant_id.
+CREATE TABLE IF NOT EXISTS platform_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
+-- Semua orang yang login boleh BACA (buat nampilin QRIS di notifikasi),
+-- tapi TIDAK ada policy INSERT/UPDATE/DELETE - itu cuma lewat endpoint
+-- server yang dijaga PLATFORM_ADMIN_SECRET.
+DROP POLICY IF EXISTS "Anyone authenticated can read platform settings" ON platform_settings;
+CREATE POLICY "Anyone authenticated can read platform settings" ON platform_settings
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+-- get_my_tenant_id() dipisah jadi 2 versi:
+-- - get_my_tenant_id_raw(): SELALU balikin tenant_id user yg login,
+--   TIDAK PEDULI status/masa berlangganan. Dipakai HANYA supaya user
+--   yang tenant-nya sudah dibekukan/expired tetap bisa lihat info
+--   tenant-nya sendiri (nama apotek, tanggal jatuh tempo) buat
+--   ditampilkan di notifikasi "perpanjang langganan" - kalau tidak,
+--   begitu expired dia juga tidak akan bisa lihat KENAPA dia
+--   terkunci.
+-- - get_my_tenant_id(): versi ketat (dipakai semua tabel data bisnis)
+--   yang balikin NULL kalau statusnya Suspended ATAU masa
+--   berlangganan sudah lewat - inilah yang benar2 mengunci akses data.
+CREATE OR REPLACE FUNCTION get_my_tenant_id_raw()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT tenant_id FROM app_users WHERE auth_user_id = auth.uid() LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION get_my_tenant_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT au.tenant_id
+    FROM app_users au
+    JOIN tenants t ON t.id = au.tenant_id
+    WHERE au.auth_user_id = auth.uid()
+    AND t.status IN ('Aktif', 'Trial')
+    AND (t.subscription_expires_at IS NULL OR t.subscription_expires_at > NOW())
+    LIMIT 1;
+$$;
+
+-- Fungsi kecil buat ditanya lewat RPC dari aplikasi: "info langganan
+-- tenant SAYA apa?" - selalu bisa dipanggil siapa saja yang login,
+-- walau tenant-nya lagi terkunci (pakai raw lookup di dalamnya).
+CREATE OR REPLACE FUNCTION get_my_tenant_info()
+RETURNS TABLE(tenant_id UUID, nama TEXT, status TEXT, subscription_expires_at TIMESTAMPTZ)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT t.id, t.nama, t.status, t.subscription_expires_at
+    FROM app_users au
+    JOIN tenants t ON t.id = au.tenant_id
+    WHERE au.auth_user_id = auth.uid()
+    LIMIT 1;
+$$;
+
+-- Ganti policy tenants: pakai versi RAW (bukan yg ketat) supaya baris
+-- tenant sendiri tetap kebaca walau sedang terkunci/expired.
+DROP POLICY IF EXISTS "Users can read own tenant" ON tenants;
+CREATE POLICY "Users can read own tenant" ON tenants
+    FOR SELECT USING (id = get_my_tenant_id_raw());
+
+-- ------------------------------------------------------------
+-- 10) HAPUS TENANT (cascade rapi, lewat 1 fungsi biar aman & konsisten)
+-- ------------------------------------------------------------
+CREATE OR REPLACE FUNCTION delete_tenant_cascade(p_tenant_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    DELETE FROM penjualan_detail WHERE tenant_id = p_tenant_id;
+    DELETE FROM retur_detail WHERE tenant_id = p_tenant_id;
+    DELETE FROM pembelian_detail WHERE tenant_id = p_tenant_id;
+    DELETE FROM kartu_stok WHERE tenant_id = p_tenant_id;
+    DELETE FROM stok_opname WHERE tenant_id = p_tenant_id;
+    DELETE FROM shift_history WHERE tenant_id = p_tenant_id;
+    DELETE FROM penjualan_header WHERE tenant_id = p_tenant_id;
+    DELETE FROM retur_penjualan WHERE tenant_id = p_tenant_id;
+    DELETE FROM pembelian_header WHERE tenant_id = p_tenant_id;
+    DELETE FROM supplier_selections WHERE tenant_id = p_tenant_id;
+    DELETE FROM supplier_katalog WHERE tenant_id = p_tenant_id;
+    DELETE FROM pengeluaran WHERE tenant_id = p_tenant_id;
+    DELETE FROM kategori_obat WHERE tenant_id = p_tenant_id;
+    DELETE FROM audit_log WHERE tenant_id = p_tenant_id;
+    DELETE FROM user_permissions WHERE tenant_id = p_tenant_id;
+    DELETE FROM pengaturan_apotek WHERE tenant_id = p_tenant_id;
+    DELETE FROM obat WHERE tenant_id = p_tenant_id;
+    DELETE FROM supplier WHERE tenant_id = p_tenant_id;
+    DELETE FROM apoteker WHERE tenant_id = p_tenant_id;
+    DELETE FROM app_users WHERE tenant_id = p_tenant_id;
+    DELETE FROM tenants WHERE id = p_tenant_id;
+END;
+$$;
+
 -- ============================================================
 -- SELESAI (Tenant Provisioning)
 -- ============================================================
