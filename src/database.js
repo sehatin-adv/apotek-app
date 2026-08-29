@@ -1753,3 +1753,47 @@ export async function resetForecastingData() {
         return { error: e };
     }
 }
+
+// ============================================================
+// KATEGORI OBAT (Jenis & Golongan yang bisa ditambah/dihapus)
+// ============================================================
+export async function getKategoriObat(tipe) {
+    try {
+        const { data, error } = await supabase
+            .from('kategori_obat')
+            .select('*')
+            .eq('tipe', tipe)
+            .order('nama');
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getKategoriObat:', e);
+        return { data: [], error: e };
+    }
+}
+
+export async function addKategoriObat(tipe, nama) {
+    try {
+        const { data, error } = await supabase
+            .from('kategori_obat')
+            .insert({ tipe, nama: nama.trim() })
+            .select()
+            .single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error addKategoriObat:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function deleteKategoriObat(id) {
+    try {
+        const { error } = await supabase.from('kategori_obat').delete().eq('id', id);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error deleteKategoriObat:', e);
+        return { error: e };
+    }
+}

@@ -167,3 +167,39 @@ ALTER TABLE pengaturan_apotek ADD COLUMN IF NOT EXISTS sipa TEXT;
 -- ============================================================
 -- SELESAI (Forecasting)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 5) KATEGORI OBAT — Jenis & Golongan yang bisa ditambah/dihapus
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS kategori_obat (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tipe TEXT NOT NULL CHECK (tipe IN ('jenis', 'golongan')),
+    nama TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (tipe, nama)
+);
+
+ALTER TABLE kategori_obat ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow authenticated users full access" ON kategori_obat;
+CREATE POLICY "Allow authenticated users full access" ON kategori_obat
+    FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+
+-- Isi default (nilai yang sebelumnya hardcode di dropdown) supaya
+-- tidak kosong saat pertama kali dipakai. Aman dijalankan ulang.
+INSERT INTO kategori_obat (tipe, nama) VALUES
+    ('jenis', 'Generik'), ('jenis', 'Patented'), ('jenis', 'Herbal'), ('jenis', 'Alat Kesehatan'),
+    ('golongan', 'Bebas'), ('golongan', 'Terbatas'), ('golongan', 'Keras'), ('golongan', 'Narkotika'), ('golongan', 'Prekursor')
+ON CONFLICT (tipe, nama) DO NOTHING;
+
+-- ============================================================
+-- SELESAI (Kategori Obat)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 6) STOK MAKSIMAL di Master Obat
+-- ------------------------------------------------------------
+ALTER TABLE obat ADD COLUMN IF NOT EXISTS stok_maksimal INTEGER;
+
+-- ============================================================
+-- SELESAI (Stok Maksimal)
+-- ============================================================

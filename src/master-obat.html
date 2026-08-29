@@ -263,7 +263,7 @@
                     </div>
                     <div class="form-group">
                         <label>Satuan</label>
-                        <select id="satuanObat">
+                        <select id="satuanObat" onchange="applyDefaultStokMinimal()">
                             <option value="Tablet">Tablet</option>
                             <option value="Kapsul">Kapsul</option>
                             <option value="Sirup">Sirup</option>
@@ -291,23 +291,17 @@
                         <span style="font-size:11px;color:#7a8a9e;">Batas bawah utk peringatan "Menipis" (dipakai di modul Forecasting)</span>
                     </div>
                     <div class="form-group">
-                        <label>Jenis</label>
-                        <select id="jenisObat">
-                            <option value="Generik">Generik</option>
-                            <option value="Patented">Patented</option>
-                            <option value="Herbal">Herbal</option>
-                            <option value="Alat Kesehatan">Alat Kesehatan</option>
-                        </select>
+                        <label>Stok Maksimal</label>
+                        <input type="number" id="stokMaksimalObat" placeholder="Opsional" min="0">
+                        <span style="font-size:11px;color:#7a8a9e;">Batas atas kapasitas stok (opsional, buat referensi restock)</span>
                     </div>
                     <div class="form-group">
-                        <label>Golongan</label>
-                        <select id="golonganObat">
-                            <option value="Bebas">Bebas</option>
-                            <option value="Terbatas">Terbatas</option>
-                            <option value="Keras">Keras</option>
-                            <option value="Narkotika">Narkotika</option>
-                            <option value="Prekursor">Prekursor</option>
-                        </select>
+                        <label>Jenis <button type="button" onclick="openKategoriModal('jenis')" style="background:none;border:none;color:#2d6a9f;cursor:pointer;font-size:11px;font-weight:600;padding:0;margin-left:4px;"><i class="fas fa-pen"></i> Kelola</button></label>
+                        <select id="jenisObat"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Golongan <button type="button" onclick="openKategoriModal('golongan')" style="background:none;border:none;color:#2d6a9f;cursor:pointer;font-size:11px;font-weight:600;padding:0;margin-left:4px;"><i class="fas fa-pen"></i> Kelola</button></label>
+                        <select id="golonganObat"></select>
                     </div>
                     <div class="form-group">
                         <label>Status</label>
@@ -383,10 +377,25 @@
     </div>
 </div>
 
+<!-- MODAL KELOLA KATEGORI (Jenis / Golongan) -->
+<div class="modal-overlay" id="kategoriModal" style="display:none;position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:1000;justify-content:center;align-items:center;padding:20px;">
+    <div style="background:white;border-radius:18px;padding:24px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 id="kategoriModalTitle" style="font-size:16px;color:#0f1e2e;">Kelola Jenis</h3>
+            <button onclick="closeKategoriModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <input type="text" id="kategoriInput" placeholder="Nama baru..." style="flex:1;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addKategoriItem();}">
+            <button class="btn btn-primary btn-sm" onclick="addKategoriItem()"><i class="fas fa-plus"></i> Tambah</button>
+        </div>
+        <div id="kategoriList" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
-    import { getObat, saveObat, deleteObat } from './database.js';
+    import { getObat, saveObat, deleteObat, getKategoriObat, addKategoriObat, deleteKategoriObat } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Master Obat');
     import { enforcePermissions } from './permissions.js';
@@ -496,11 +505,118 @@
     };
 
     // ============================================================
+    // KATEGORI OBAT (Jenis & Golongan - bisa ditambah/dihapus)
+    // ============================================================
+    let kategoriJenis = [];
+    let kategoriGolongan = [];
+    let activeKategoriTipe = 'jenis';
+
+    async function loadKategoriObat() {
+        const [jenisRes, golonganRes] = await Promise.all([
+            getKategoriObat('jenis'),
+            getKategoriObat('golongan')
+        ]);
+        kategoriJenis = jenisRes.data || [];
+        kategoriGolongan = golonganRes.data || [];
+        // Fallback kalau tabel kategori_obat belum ada / kosong (migration belum jalan)
+        if (kategoriJenis.length === 0) kategoriJenis = [{ id: null, nama: 'Generik' }, { id: null, nama: 'Patented' }, { id: null, nama: 'Herbal' }, { id: null, nama: 'Alat Kesehatan' }];
+        if (kategoriGolongan.length === 0) kategoriGolongan = [{ id: null, nama: 'Bebas' }, { id: null, nama: 'Terbatas' }, { id: null, nama: 'Keras' }, { id: null, nama: 'Narkotika' }, { id: null, nama: 'Prekursor' }];
+        renderKategoriSelects();
+    }
+
+    function renderKategoriSelects() {
+        const jenisSelect = document.getElementById('jenisObat');
+        const golonganSelect = document.getElementById('golonganObat');
+        const prevJenis = jenisSelect.value;
+        const prevGolongan = golonganSelect.value;
+        jenisSelect.innerHTML = kategoriJenis.map(k => `<option value="${k.nama}">${k.nama}</option>`).join('');
+        golonganSelect.innerHTML = kategoriGolongan.map(k => `<option value="${k.nama}">${k.nama}</option>`).join('');
+        if (prevJenis && kategoriJenis.some(k => k.nama === prevJenis)) jenisSelect.value = prevJenis;
+        if (prevGolongan && kategoriGolongan.some(k => k.nama === prevGolongan)) golonganSelect.value = prevGolongan;
+    }
+
+    window.openKategoriModal = function(tipe) {
+        activeKategoriTipe = tipe;
+        document.getElementById('kategoriModalTitle').textContent = 'Kelola ' + (tipe === 'jenis' ? 'Jenis' : 'Golongan');
+        document.getElementById('kategoriInput').value = '';
+        renderKategoriList();
+        document.getElementById('kategoriModal').style.display = 'flex';
+    };
+    window.closeKategoriModal = function() {
+        document.getElementById('kategoriModal').style.display = 'none';
+    };
+
+    function renderKategoriList() {
+        const list = activeKategoriTipe === 'jenis' ? kategoriJenis : kategoriGolongan;
+        const wrap = document.getElementById('kategoriList');
+        if (list.length === 0) {
+            wrap.innerHTML = '<p style="font-size:12px;color:#9aa8b8;">Belum ada data.</p>';
+            return;
+        }
+        wrap.innerHTML = list.map(k => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f8fafc;border-radius:8px;font-size:13px;">
+                <span>${k.nama}</span>
+                <button onclick="removeKategoriItem('${k.id}')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;" ${k.id ? '' : 'disabled title="Jalankan migration-sehatin.sql dulu supaya bisa dihapus"'}><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    }
+
+    window.addKategoriItem = async function() {
+        const input = document.getElementById('kategoriInput');
+        const nama = input.value.trim();
+        if (!nama) return;
+        const list = activeKategoriTipe === 'jenis' ? kategoriJenis : kategoriGolongan;
+        if (list.some(k => k.nama.toLowerCase() === nama.toLowerCase())) {
+            showToast('⚠️ "' + nama + '" sudah ada di daftar', true);
+            return;
+        }
+        const { data, error } = await addKategoriObat(activeKategoriTipe, nama);
+        if (error) { showToast('❌ Gagal menambah: ' + error.message, true); return; }
+        list.push(data);
+        list.sort((a, b) => a.nama.localeCompare(b.nama));
+        input.value = '';
+        renderKategoriList();
+        renderKategoriSelects();
+        showToast('✅ "' + nama + '" berhasil ditambahkan');
+    };
+
+    window.removeKategoriItem = async function(id) {
+        if (!id || id === 'null') return;
+        if (!confirm('Hapus item ini dari daftar? (obat yang sudah pakai nilai ini tidak ikut berubah)')) return;
+        const { error } = await deleteKategoriObat(id);
+        if (error) { showToast('❌ Gagal menghapus: ' + error.message, true); return; }
+        kategoriJenis = kategoriJenis.filter(k => k.id !== id);
+        kategoriGolongan = kategoriGolongan.filter(k => k.id !== id);
+        renderKategoriList();
+        renderKategoriSelects();
+        showToast('🗑️ Berhasil dihapus');
+    };
+
+    // ============================================================
+    // STOK MINIMAL OTOMATIS BERDASARKAN SATUAN
+    // ============================================================
+    const DEFAULT_STOK_MINIMAL = {
+        'Tablet': 20,
+        'Kapsul': 20,
+        'Sirup': 1,
+        'Botol': 1,
+        'Salep': 1,
+        'Strip': 1,
+        'Ampul': 1
+    };
+    window.applyDefaultStokMinimal = function() {
+        const satuan = document.getElementById('satuanObat').value;
+        const nilai = DEFAULT_STOK_MINIMAL[satuan] !== undefined ? DEFAULT_STOK_MINIMAL[satuan] : 1;
+        document.getElementById('stokMinimalObat').value = nilai;
+    };
+
+    // ============================================================
     // CRUD - SUPABASE
     // ============================================================
     window.resetForm = function() {
         document.getElementById('editIndex').value = '';
         document.getElementById('obatForm').reset();
+        applyDefaultStokMinimal();
         document.getElementById('kodeObat').focus();
     };
 
@@ -515,6 +631,7 @@
             harga_jual: Number(document.getElementById('hargaJual').value) || 0,
             stok: Number(document.getElementById('stokObat').value) || 0,
             stok_minimal: Number(document.getElementById('stokMinimalObat').value) || 0,
+            stok_maksimal: document.getElementById('stokMaksimalObat').value !== '' ? Number(document.getElementById('stokMaksimalObat').value) : null,
             jenis: document.getElementById('jenisObat').value,
             golongan: document.getElementById('golonganObat').value,
             status: document.getElementById('statusObat').value
@@ -522,6 +639,11 @@
 
         if (!data.kode_obat || !data.nama_obat) {
             showToast('⚠️ Kode dan Nama Obat wajib diisi!', true);
+            return;
+        }
+
+        if (data.stok_maksimal !== null && data.stok_maksimal < data.stok_minimal) {
+            showToast('⚠️ Stok Maksimal tidak boleh lebih kecil dari Stok Minimal!', true);
             return;
         }
 
@@ -569,6 +691,7 @@
         document.getElementById('hargaJual').value = o.harga_jual || '';
         document.getElementById('stokObat').value = o.stok || 0;
         document.getElementById('stokMinimalObat').value = (o.stok_minimal !== undefined && o.stok_minimal !== null) ? o.stok_minimal : 10;
+        document.getElementById('stokMaksimalObat').value = (o.stok_maksimal !== undefined && o.stok_maksimal !== null) ? o.stok_maksimal : '';
         document.getElementById('jenisObat').value = o.jenis || 'Generik';
         document.getElementById('golonganObat').value = o.golongan || 'Bebas';
         document.getElementById('statusObat').value = o.status || 'Aktif';
@@ -757,6 +880,7 @@
     // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
+        loadKategoriObat();
         loadObat();
     });
 </script>
