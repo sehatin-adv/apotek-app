@@ -134,7 +134,7 @@ export async function onRequestPost(context) {
                     body: JSON.stringify({ status })
                 });
                 const data = await res.json();
-                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status tenant.' }), { status: res.status, headers: CORS_HEADERS });
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status tenant: ' + (data.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
             }
 
@@ -149,7 +149,7 @@ export async function onRequestPost(context) {
                     body: JSON.stringify({ nama: nama.trim() })
                 });
                 const data = await res.json();
-                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah nama tenant.' }), { status: res.status, headers: CORS_HEADERS });
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah nama tenant: ' + (data.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
             }
 
@@ -169,7 +169,7 @@ export async function onRequestPost(context) {
                     body: JSON.stringify(patchBody)
                 });
                 const data = await res.json();
-                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah masa berlangganan.' }), { status: res.status, headers: CORS_HEADERS });
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah masa berlangganan: ' + (data.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
             }
 
@@ -225,7 +225,10 @@ export async function onRequestPost(context) {
                     headers: { ...serviceHeaders, 'Prefer': 'resolution=merge-duplicates' },
                     body: JSON.stringify({ key: 'qris_image_url', value: qris_image_url || '' })
                 });
-                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal menyimpan pengaturan QRIS.' }), { status: res.status, headers: CORS_HEADERS });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    return new Response(JSON.stringify({ error: 'Gagal menyimpan pengaturan QRIS: ' + (errData.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
+                }
                 return new Response(JSON.stringify({ ok: true }), { headers: CORS_HEADERS });
             }
 
