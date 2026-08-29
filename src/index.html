@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Apotek Mendidoha Farma</title>
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Login - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
@@ -43,8 +44,8 @@
 <body>
     <div class="login-container">
         <div class="brand">
-            <i class="fas fa-prescription-bottle"></i>
-            <h1>Mendidoha Farma</h1>
+            <img src="/logo-full.png" alt="Sehatin+" style="max-width:200px;width:100%;height:auto;">
+            <p id="loginApotekName" style="margin-top:10px;font-weight:700;color:#0f1e2e;font-size:16px;">Apotek Saya</p>
             <p>Apotek Management System</p>
         </div>
         <div id="loginForm">
@@ -83,13 +84,14 @@
             </div>
         </div>
         <div class="support-info">
-            <strong>NOMOR SUPPORT VMEDIS BERGANTI</strong><br>
-            Member Support Team: <strong>085101973000</strong>
+            Didukung oleh <strong>Sehatin+</strong>
         </div>
     </div>
     
     <script type="module">
         import { supabase, signIn, signUp } from './supabase.js';
+        import { applyBranding } from './branding.js';
+        applyBranding();
         
         window.login = async function() {
             const email = document.getElementById('email').value;

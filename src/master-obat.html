@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Obat - Apotek Mendidoha Farma</title>
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Master Obat - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script type="importmap">
         {
             "imports": {
@@ -46,6 +48,8 @@
             border-left-color: #4fc3f7;
             color: white;
         }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
         .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
         .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
         .menu-item .chevron.open { transform: rotate(180deg); }
@@ -134,29 +138,35 @@
 <body>
 <div class="app-layout">
     <div class="sidebar">
-        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
-        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="logo" style="display:flex;align-items:center;gap:10px;">
+            <img id="sidebarLogo" src="/logo-icon.png" alt="Sehatin+" style="height:32px;width:32px;object-fit:contain;border-radius:7px;flex-shrink:0;background:#fff;padding:2px;">
+            <div style="display:flex;flex-direction:column;line-height:1.25;overflow:hidden;">
+                <span style="font-size:15px;font-weight:800;">Sehatin+</span>
+                <span id="sidebarApotekName" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Apotek Saya</span>
+            </div>
+        </div>
+        <div class="menu-item" data-module="dashboard" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
         <div class="menu-group">
             <div class="menu-item active" onclick="toggleDropdown(this)">
                 <i class="fas fa-database"></i> MASTER DATA
                 <i class="fas fa-chevron-down chevron open"></i>
             </div>
             <div class="sub-menu open">
-                <div class="menu-item active" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
-                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
-                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+                <div class="menu-item active" data-module="master_obat" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" data-module="master_supplier" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
             </div>
         </div>
-        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
-                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
-                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+                <div class="menu-item" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
             </div>
         </div>
         <div class="menu-group">
@@ -165,9 +175,9 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
-                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
-                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+                <div class="menu-item" data-module="shift" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" data-module="kasir" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" data-module="retur_penjualan" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
             </div>
         </div>
         <div class="menu-group">
@@ -176,9 +186,29 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
-                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
-                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+                <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-wallet"></i> KEUANGAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pengeluaran" onclick="navigate('pengeluaran.html')"><i class="fas fa-money-bill-wave"></i> Pengeluaran</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
             </div>
         </div>
         <div class="user-info">
@@ -261,10 +291,11 @@
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
                     <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
                     <button type="reset" class="btn btn-outline" onclick="resetForm()"><i class="fas fa-undo"></i> Reset</button>
+                    <button type="button" class="btn btn-outline" onclick="downloadTemplate()"><i class="fas fa-download"></i> Download Template</button>
                     <div class="file-upload-wrap">
-                        <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel</label>
+                        <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel/CSV</label>
                         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status</span>
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status. Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
                     </div>
                 </div>
             </form>
@@ -317,6 +348,10 @@
 
 <script type="module">
     import { getObat, saveObat, deleteObat } from './database.js';
+    import { applyBranding } from './branding.js';
+    applyBranding('Master Obat');
+    import { enforcePermissions } from './permissions.js';
+    enforcePermissions('master_obat');
     
     // ============================================================
     // NAVIGATION
@@ -514,45 +549,95 @@
     };
 
     // ============================================================
-    // IMPORT EXCEL
+    // IMPORT EXCEL / CSV
+    // Pakai library SheetJS supaya bisa baca file .xlsx/.xls asli
+    // (bukan cuma CSV), dan parsing kolomnya jauh lebih tahan
+    // banting - nggak rusak kalau ada koma di dalam nama obat,
+    // dan format harga ala Indonesia (mis. "15.000") dibaca benar
+    // sebagai 15000, bukan salah kebaca jadi 15.
     // ============================================================
+    function parseRupiah(val) {
+        if (typeof val === 'number') return Math.round(val);
+        if (val === null || val === undefined || val === '') return 0;
+        // Buang semua karakter selain digit (Rp, titik ribuan, koma, spasi dibuang semua)
+        const digitsOnly = String(val).replace(/[^0-9]/g, '');
+        return digitsOnly ? parseInt(digitsOnly, 10) : 0;
+    }
+
+    function parseAngka(val) {
+        if (typeof val === 'number') return Math.round(val);
+        if (val === null || val === undefined || val === '') return 0;
+        const digitsOnly = String(val).replace(/[^0-9]/g, '');
+        return digitsOnly ? parseInt(digitsOnly, 10) : 0;
+    }
+
+    window.downloadTemplate = function() {
+        const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status'];
+        const contoh = [
+            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif'],
+            ['OBT002', 'Amoxicillin 500mg', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif']
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...contoh]);
+        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template Obat');
+        XLSX.writeFile(wb, 'Template_Import_Obat.xlsx');
+    };
+
     window.importExcel = function(event) {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = async function(e) {
             try {
-                const text = e.target.result;
-                const lines = text.split('\n').filter(line => line.trim());
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[firstSheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+
                 let startIndex = 0;
-                const firstLine = lines[0].toLowerCase();
-                if (firstLine.includes('kode') || firstLine.includes('nama') || firstLine.includes('satuan')) {
-                    startIndex = 1;
-                }
-                let imported = 0;
-                const newData = [];
-                for (let i = startIndex; i < lines.length; i++) {
-                    const cols = lines[i].split(',').map(c => c.trim());
-                    if (cols.length >= 2) {
-                        const data = {
-                            kode_obat: cols[0] || `OBT${String(obatData.length + 1).padStart(3, '0')}`,
-                            nama_obat: cols[1] || 'Obat Baru',
-                            satuan: cols[2] || 'Tablet',
-                            harga_beli: Number(cols[3]) || 0,
-                            harga_jual: Number(cols[4]) || 0,
-                            stok: Number(cols[5]) || 0,
-                            jenis: cols[6] || 'Generik',
-                            golongan: cols[7] || 'Bebas',
-                            status: cols[8] || 'Aktif'
-                        };
-                        if (!obatData.find(o => o.kode_obat === data.kode_obat)) {
-                            newData.push(data);
-                            imported++;
-                        }
+                if (rows.length > 0) {
+                    const firstRowText = rows[0].join('|').toLowerCase();
+                    if (firstRowText.includes('kode') || firstRowText.includes('nama') || firstRowText.includes('satuan')) {
+                        startIndex = 1;
                     }
                 }
+
+                let imported = 0;
+                let skipped = 0;
+                const newData = [];
+                for (let i = startIndex; i < rows.length; i++) {
+                    const cols = rows[i];
+                    if (!cols || cols.length === 0) continue;
+                    const namaObat = String(cols[1] || '').trim();
+                    if (!namaObat) continue; // baris kosong, lewati
+
+                    const kodeObat = String(cols[0] || '').trim() || `OBT${String(obatData.length + newData.length + 1).padStart(3, '0')}`;
+                    const item = {
+                        kode_obat: kodeObat,
+                        nama_obat: namaObat,
+                        satuan: String(cols[2] || 'Tablet').trim() || 'Tablet',
+                        harga_beli: parseRupiah(cols[3]),
+                        harga_jual: parseRupiah(cols[4]),
+                        stok: parseAngka(cols[5]),
+                        jenis: String(cols[6] || 'Generik').trim() || 'Generik',
+                        golongan: String(cols[7] || 'Bebas').trim() || 'Bebas',
+                        status: String(cols[8] || 'Aktif').trim() || 'Aktif'
+                    };
+
+                    const sudahAda = obatData.find(o => o.kode_obat === item.kode_obat) || newData.find(o => o.kode_obat === item.kode_obat);
+                    if (sudahAda) {
+                        skipped++;
+                        continue;
+                    }
+                    newData.push(item);
+                    imported++;
+                }
+
                 if (imported === 0) {
-                    showToast('⚠️ Tidak ada data yang diimport.', true);
+                    showToast('⚠️ Tidak ada data baru yang diimport' + (skipped > 0 ? ` (${skipped} kode obat sudah ada sebelumnya).` : '. Cek lagi isi filenya.'), true);
+                    event.target.value = '';
                     return;
                 }
 
@@ -565,14 +650,15 @@
                 localStorage.setItem('obat', JSON.stringify(obatData));
                 renderTable(obatData);
                 updateTotal(obatData.length);
-                showToast(`✅ Berhasil import ${imported} data obat!`);
+                showToast(`✅ Berhasil import ${imported} data obat!` + (skipped > 0 ? ` (${skipped} dilewati krn kode obat sudah ada)` : ''));
                 event.target.value = '';
             } catch(error) {
-                showToast('❌ Gagal import file. Pastikan format CSV benar!', true);
+                showToast('❌ Gagal import file: ' + error.message, true);
                 console.error(error);
+                event.target.value = '';
             }
         };
-        reader.readAsText(file);
+        reader.readAsArrayBuffer(file);
     };
 
     // ============================================================

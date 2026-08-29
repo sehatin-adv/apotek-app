@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Identitas Apotek - Sehatin+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; }
+        .app-layout { display:flex; min-height:100vh; }
+
+        .sidebar { width:250px; background:#0f1e2e; color:white; padding:20px 0; position:fixed; height:100vh; overflow-y:auto; }
+        .logo { padding:0 24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.06); }
+        .logo i { color:#4fc3f7; margin-right:10px; }
+
+        .menu-item { padding:10px 24px; display:flex; align-items:center; gap:14px; cursor:pointer; color:rgba(255,255,255,0.6); font-size:14px; font-weight:500; border-left:3px solid transparent; transition:0.15s; }
+        .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item.active { background:rgba(255,255,255,0.08); color:white; border-left-color:#4fc3f7; }
+        .menu-item i { width:20px; text-align:center; }
+
+        .menu-group { margin-bottom:4px; }
+        .menu-group .menu-item { cursor:pointer; }
+        .sub-menu { max-height:0; overflow:hidden; transition:max-height 0.3s ease; background:rgba(255,255,255,0.03); }
+        .sub-menu.open { max-height:600px; }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
+        .sub-menu .menu-item:hover { background:rgba(255,255,255,0.05); color:white; }
+        .menu-item .chevron { margin-left:auto; transition:transform 0.3s; font-size:12px; }
+        .menu-item .chevron.open { transform:rotate(180deg); }
+
+        .user-info { padding:16px 24px; border-top:1px solid rgba(255,255,255,0.06); margin-top:20px; font-size:13px; color:rgba(255,255,255,0.5); }
+        .user-info strong { color:white; }
+        .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
+        .btn-logout:hover { background:rgba(255,255,255,0.2); }
+
+        .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
+        .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .header h2 { font-size:22px; color:#0f1e2e; }
+        .user-badge { background:white; padding:8px 18px; border-radius:30px; font-size:13px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+
+        .card { background:white; border-radius:16px; padding:24px 28px; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px; max-width:760px; }
+        .card-title { font-size:16px; font-weight:700; color:#0f1e2e; margin-bottom:6px; }
+        .card-subtitle { font-size:13px; color:#7a8a9e; margin-bottom:20px; }
+
+        .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .form-group { margin-bottom:14px; }
+        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
+        .form-group input, .form-group textarea { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; transition:0.2s; background:white; font-family:inherit; }
+        .form-group input:focus, .form-group textarea:focus { border-color:#2d6a9f; outline:none; }
+        .form-group small { display:block; margin-top:4px; color:#7a8a9e; font-size:11px; }
+
+        .logo-preview-wrap { display:flex; align-items:center; gap:16px; margin-bottom:16px; padding:16px; background:#f8fafc; border-radius:12px; border:2px dashed #e8edf3; }
+        .logo-preview-wrap img { height:60px; width:60px; object-fit:contain; background:white; border-radius:10px; padding:4px; border:1px solid #e8edf3; }
+
+        .btn { padding:10px 22px; border:none; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:0.15s; }
+        .btn-primary { background:#2d6a9f; color:white; }
+        .btn-primary:hover { background:#1a4a7a; }
+        .btn-success { background:#28a745; color:white; }
+        .btn-success:hover { background:#1e7e34; }
+
+        .info-banner { background:#eaf2fb; border:1px solid #cfe2f3; color:#1a4a7a; padding:12px 16px; border-radius:10px; font-size:13px; margin-bottom:20px; display:flex; gap:10px; align-items:flex-start; }
+        .info-banner i { margin-top:2px; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast.error { background:#dc3545; }
+        @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+        @media (max-width:768px) {
+            .sidebar { width:100%; position:static; height:auto; }
+            .main-content { margin-left:0; padding:16px; }
+            .form-grid-2 { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-layout">
+    <div class="sidebar">
+        <div class="logo" style="display:flex;align-items:center;gap:10px;">
+            <img id="sidebarLogo" src="/logo-icon.png" alt="Sehatin+" style="height:32px;width:32px;object-fit:contain;border-radius:7px;flex-shrink:0;background:#fff;padding:2px;">
+            <div style="display:flex;flex-direction:column;line-height:1.25;overflow:hidden;">
+                <span style="font-size:15px;font-weight:800;">Sehatin+</span>
+                <span id="sidebarApotekName" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Apotek Saya</span>
+            </div>
+        </div>
+        <div class="menu-item" data-module="dashboard" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-database"></i> MASTER DATA
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="master_obat" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" data-module="master_supplier" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+            </div>
+        </div>
+        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-boxes"></i> STOK
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-cash-register"></i> PENJUALAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="shift" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" data-module="kasir" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" data-module="retur_penjualan" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-file-alt"></i> LAPORAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-wallet"></i> KEUANGAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pengeluaran" onclick="navigate('pengeluaran.html')"><i class="fas fa-money-bill-wave"></i> Pengeluaran</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item active" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron open"></i>
+            </div>
+            <div class="sub-menu open">
+                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item active" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
+            </div>
+        </div>
+        <div class="user-info">
+            <i class="fas fa-user-circle"></i> <strong id="usernameDisplay">admin</strong><br>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h2><i class="fas fa-store"></i> Identitas Apotek</h2>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+        </div>
+
+        <div class="info-banner">
+            <i class="fas fa-circle-info"></i>
+            <div>Aplikasi ini berjalan di atas platform <strong>Sehatin+</strong>. Data di bawah ini adalah identitas apotek Anda sendiri — akan tampil di halaman login, sidebar, dan (ke depannya) struk/laporan cetak.</div>
+        </div>
+
+        <form id="pengaturanForm" onsubmit="saveSettings(event)">
+            <div class="card">
+                <div class="card-title"><i class="fas fa-image"></i> Logo Apotek</div>
+                <div class="card-subtitle">Opsional. Isi dengan URL gambar logo apotek Anda (mis. link dari Supabase Storage atau hosting gambar lain).</div>
+                <div class="logo-preview-wrap">
+                    <img id="logoPreview" src="/logo-icon.png" alt="preview">
+                    <div style="flex:1;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>URL Logo Apotek</label>
+                            <input type="url" id="fLogoUrl" placeholder="https://.../logo-apotek.png" oninput="updateLogoPreview()">
+                            <small>Kosongkan untuk memakai logo Sehatin+ bawaan.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fas fa-store"></i> Data Apotek</div>
+                <div class="card-subtitle">Nama dan identitas ini akan tampil di seluruh aplikasi.</div>
+
+                <div class="form-group">
+                    <label>Nama Apotek *</label>
+                    <input type="text" id="fNamaApotek" placeholder="Contoh: Apotek Mendidoha Farma" required>
+                </div>
+                <div class="form-group">
+                    <label>Alamat</label>
+                    <textarea id="fAlamat" rows="2" placeholder="Alamat lengkap apotek"></textarea>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Telepon</label>
+                        <input type="text" id="fTelepon" placeholder="08xx-xxxx-xxxx">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="fEmail" placeholder="apotek@domain.com">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>NPWP</label>
+                        <input type="text" id="fNpwp" placeholder="00.000.000.0-000.000">
+                    </div>
+                    <div class="form-group">
+                        <label>Apoteker Penanggung Jawab</label>
+                        <input type="text" id="fApotekerPj" placeholder="Apt. Nama, S.Farm">
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan Identitas Apotek</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { supabase, getCurrentUser, signOut } from './supabase.js';
+    import { getPengaturanApotek, savePengaturanApotek, logAudit } from './database.js';
+    import { applyBranding } from './branding.js';
+    import { enforcePermissions } from './permissions.js';
+
+    async function checkAuth() {
+        try {
+            const { data, error } = await supabase.auth.getSession();
+            if (error || !data?.session) {
+                window.location.href = '/';
+                return false;
+            }
+            return true;
+        } catch(e) {
+            window.location.href = '/';
+            return false;
+        }
+    }
+    if (!await checkAuth()) { window.location.href = '/'; }
+
+    window.navigate = function(page) { window.location.href = page; };
+    window.logout = async function() { await signOut(); localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    window.toggleDropdown = function(el) {
+        const subMenu = el.parentElement.querySelector('.sub-menu');
+        const chevron = el.querySelector('.chevron');
+        if (subMenu) {
+            subMenu.classList.toggle('open');
+            if (chevron) chevron.classList.toggle('open');
+        }
+    };
+
+    let currentUser = null;
+
+    window.updateLogoPreview = function() {
+        const url = document.getElementById('fLogoUrl').value.trim();
+        document.getElementById('logoPreview').src = url || '/logo-icon.png';
+    };
+
+    async function loadSettings() {
+        const user = await getCurrentUser();
+        if (user) {
+            currentUser = user;
+            document.getElementById('userBadge').textContent = user.email || 'admin';
+            document.getElementById('usernameDisplay').textContent = user.user_metadata?.full_name || user.email || 'admin';
+        }
+
+        const { data } = await getPengaturanApotek();
+        if (data) {
+            document.getElementById('fNamaApotek').value = data.nama_apotek || '';
+            document.getElementById('fAlamat').value = data.alamat || '';
+            document.getElementById('fTelepon').value = data.telepon || '';
+            document.getElementById('fEmail').value = data.email || '';
+            document.getElementById('fNpwp').value = data.npwp || '';
+            document.getElementById('fApotekerPj').value = data.apoteker_pj || '';
+            document.getElementById('fLogoUrl').value = data.logo_url || '';
+            updateLogoPreview();
+        }
+    }
+
+    window.saveSettings = async function(e) {
+        e.preventDefault();
+        const payload = {
+            nama_apotek: document.getElementById('fNamaApotek').value.trim(),
+            alamat: document.getElementById('fAlamat').value.trim(),
+            telepon: document.getElementById('fTelepon').value.trim(),
+            email: document.getElementById('fEmail').value.trim(),
+            npwp: document.getElementById('fNpwp').value.trim(),
+            apoteker_pj: document.getElementById('fApotekerPj').value.trim(),
+            logo_url: document.getElementById('fLogoUrl').value.trim() || null
+        };
+
+        try {
+            const { error } = await savePengaturanApotek(payload);
+            if (error) throw error;
+            showToast('✅ Identitas apotek berhasil disimpan!');
+            await logAudit(currentUser?.id, currentUser?.email, 'UPDATE_PENGATURAN_APOTEK', `Identitas apotek diupdate: ${payload.nama_apotek}`);
+            await applyBranding('Identitas Apotek');
+        } catch(err) {
+            showToast('❌ Gagal menyimpan: ' + err.message, true);
+        }
+    };
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.className = 'toast' + (isError ? ' error' : '');
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        applyBranding('Identitas Apotek');
+        enforcePermissions('pengaturan_apotek');
+        loadSettings();
+    });
+</script>
+</body>
+</html>

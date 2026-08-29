@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stok Opname - Apotek Mendidoha Farma</title>
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Stok Opname - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
@@ -46,6 +47,8 @@
             border-left-color: #4fc3f7;
             color: white;
         }
+        .sub-menu .menu-item { padding-left:58px; font-size:13px; border-left:3px solid transparent; }
+        .sub-menu .menu-item.active { background:rgba(255,255,255,0.05); border-left-color:#4fc3f7; color:white; }
         .sub-menu .menu-item:hover { background: rgba(255,255,255,0.05); color:white; }
         .menu-item .chevron { margin-left:auto; transition: transform 0.3s; font-size:12px; }
         .menu-item .chevron.open { transform: rotate(180deg); }
@@ -151,29 +154,35 @@
 <body>
 <div class="app-layout">
     <div class="sidebar">
-        <div class="logo"><i class="fas fa-prescription-bottle"></i>Mendidoha Farma</div>
-        <div class="menu-item" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
+        <div class="logo" style="display:flex;align-items:center;gap:10px;">
+            <img id="sidebarLogo" src="/logo-icon.png" alt="Sehatin+" style="height:32px;width:32px;object-fit:contain;border-radius:7px;flex-shrink:0;background:#fff;padding:2px;">
+            <div style="display:flex;flex-direction:column;line-height:1.25;overflow:hidden;">
+                <span style="font-size:15px;font-weight:800;">Sehatin+</span>
+                <span id="sidebarApotekName" style="font-size:10px;font-weight:500;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Apotek Saya</span>
+            </div>
+        </div>
+        <div class="menu-item" data-module="dashboard" onclick="navigate('dashboard.html')"><i class="fas fa-th-large"></i> Dashboard</div>
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-database"></i> MASTER DATA
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
-                <div class="menu-item" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
-                <div class="menu-item" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
+                <div class="menu-item" data-module="master_obat" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Master Obat</div>
+                <div class="menu-item" data-module="master_supplier" onclick="navigate('master-supplier.html')"><i class="fas fa-truck"></i> Data Supplier</div>
+                <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
             </div>
         </div>
-        <div class="menu-item" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
         <div class="menu-group">
             <div class="menu-item active" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
                 <i class="fas fa-chevron-down chevron open"></i>
             </div>
             <div class="sub-menu open">
-                <div class="menu-item active" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
-                <div class="menu-item" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
-                <div class="menu-item" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
+                <div class="menu-item active" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
             </div>
         </div>
         <div class="menu-group">
@@ -182,9 +191,9 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
-                <div class="menu-item" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
-                <div class="menu-item" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
+                <div class="menu-item" data-module="shift" onclick="navigate('shift.html')"><i class="fas fa-clock"></i> Buka/Tutup Shift</div>
+                <div class="menu-item" data-module="kasir" onclick="navigate('kasir.html')"><i class="fas fa-cart-plus"></i> Kasir</div>
+                <div class="menu-item" data-module="retur_penjualan" onclick="navigate('retur-penjualan.html')"><i class="fas fa-undo-alt"></i> Retur Penjualan</div>
             </div>
         </div>
         <div class="menu-group">
@@ -193,9 +202,29 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
-                <div class="menu-item" onclick="navigate('laporan-harian.html')"><i class="fas fa-calendar-day"></i> Penjualan Harian</div>
-                <div class="menu-item" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
-                <div class="menu-item" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+                <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
+                <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-wallet"></i> KEUANGAN
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pengeluaran" onclick="navigate('pengeluaran.html')"><i class="fas fa-money-bill-wave"></i> Pengeluaran</div>
+            </div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-gear"></i> KELOLA APLIKASI
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+                <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
+                <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
+                <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
             </div>
         </div>
         <div class="user-info">
@@ -289,6 +318,10 @@
 <script type="module">
     import { supabase } from './supabase.js';
     import { getObat, getStokOpname, saveStokOpname } from './database.js';
+    import { applyBranding } from './branding.js';
+    applyBranding('Stok Opname');
+    import { enforcePermissions } from './permissions.js';
+    enforcePermissions('stok_opname');
 
     // ============================================================
     // AUTH CHECK
@@ -745,7 +778,7 @@
             html += `<tr><td>${idx+1}</td><td>${item.kode_obat||'-'}</td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td class="right">${item.snapshot_stok}</td><td class="right">${item.stok_sistem}</td><td class="right">${item.stok_fisik||0}</td><td class="right">${selisih}</td></tr>`;
         });
         html += `</tbody><tfoot><tr class="total-row"><td colspan="6" class="right">TOTAL</td><td class="right">${record.items.reduce((sum,i)=>sum+(i.stok_fisik||0),0)}</td><td class="right">${record.total_selisih}</td></tr></tfoot></table>
-        <div class="footer">Dicetak: ${new Date().toLocaleString()} | Mendidoha Farma</div>
+        <div class="footer">Dicetak: ${new Date().toLocaleString()} | ${window.__apotekName || 'Sehatin+'}</div>
         <script>window.print();setTimeout(function(){window.close();},1000);<\/script></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=700');
         if (win) { win.document.write(html); win.document.close(); } else { alert('⚠️ Mohon izinkan popup untuk mencetak!'); }

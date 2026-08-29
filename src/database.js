@@ -1110,40 +1110,98 @@ export async function getLaporanLabaRugi(bulan, tahun) {
 
         const { data: penjualan, error: err1 } = await supabase
             .from('penjualan_header')
-            .select('total')
+            .select('id, total')
             .gte('tanggal', startDate)
             .lte('tanggal', endDate);
+        if (err1) throw err1;
 
         const { data: retur, error: err2 } = await supabase
             .from('retur_penjualan')
             .select('total_retur')
             .gte('tanggal_retur', startDate)
             .lte('tanggal_retur', endDate);
+        if (err2) throw err2;
 
-        const { data: detail, error: err3 } = await supabase
-            .from('penjualan_detail')
-            .select('obat_id, jumlah')
-            .gte('penjualan_header.tanggal', startDate)
-            .lte('penjualan_header.tanggal', endDate);
-
+        // ============================================================
+        // HPP (Harga Pokok Penjualan)
+        // Dihitung dari detail transaksi penjualan pada periode ini,
+        // dikalikan harga beli RATA-RATA obat dari histori PEMBELIAN
+        // ke distributor (pembelian_detail.harga_beli) — bukan dari
+        // obat.harga_beli, karena field itu cuma snapshot harga
+        // terkini di master obat dan bisa berubah kapan saja.
+        // ============================================================
         let totalHPP = 0;
-        if (detail && detail.length > 0) {
-            const obatIds = detail.map(d => d.obat_id);
-            const { data: obatList } = await supabase
-                .from('obat')
-                .select('id, harga_beli')
-                .in('id', obatIds);
-            const hppMap = {};
-            obatList.forEach(o => hppMap[o.id] = o.harga_beli);
-            detail.forEach(d => {
-                totalHPP += (d.jumlah * (hppMap[d.obat_id] || 0));
-            });
+        const penjualanIds = (penjualan || []).map(p => p.id);
+        if (penjualanIds.length > 0) {
+            const { data: detail, error: err3 } = await supabase
+                .from('penjualan_detail')
+                .select('obat_id, jumlah')
+                .in('penjualan_id', penjualanIds);
+            if (err3) throw err3;
+
+            if (detail && detail.length > 0) {
+                const obatIds = [...new Set(detail.map(d => d.obat_id).filter(Boolean))];
+
+                // Rata-rata tertimbang (weighted average) harga beli per obat
+                // dari SELURUH histori pembelian obat tsb ke distributor.
+                const { data: pembelianDetail, error: err4 } = await supabase
+                    .from('pembelian_detail')
+                    .select('obat_id, jumlah, harga_beli')
+                    .in('obat_id', obatIds);
+                if (err4) throw err4;
+
+                const costMap = {}; // obat_id -> { qty, cost }
+                (pembelianDetail || []).forEach(pb => {
+                    if (!pb.obat_id) return;
+                    if (!costMap[pb.obat_id]) costMap[pb.obat_id] = { qty: 0, cost: 0 };
+                    costMap[pb.obat_id].qty += Number(pb.jumlah) || 0;
+                    costMap[pb.obat_id].cost += (Number(pb.jumlah) || 0) * (Number(pb.harga_beli) || 0);
+                });
+
+                // Fallback ke obat.harga_beli hanya utk obat yang belum
+                // pernah punya histori pembelian sama sekali (mis. stok awal).
+                const obatIdsNoPembelian = obatIds.filter(id => !costMap[id] || costMap[id].qty === 0);
+                let fallbackHargaMap = {};
+                if (obatIdsNoPembelian.length > 0) {
+                    const { data: obatFallback } = await supabase
+                        .from('obat')
+                        .select('id, harga_beli')
+                        .in('id', obatIdsNoPembelian);
+                    (obatFallback || []).forEach(o => fallbackHargaMap[o.id] = o.harga_beli || 0);
+                }
+
+                const avgHppMap = {};
+                obatIds.forEach(id => {
+                    avgHppMap[id] = (costMap[id] && costMap[id].qty > 0)
+                        ? (costMap[id].cost / costMap[id].qty)
+                        : (fallbackHargaMap[id] || 0);
+                });
+
+                detail.forEach(d => {
+                    totalHPP += (Number(d.jumlah) || 0) * (avgHppMap[d.obat_id] || 0);
+                });
+            }
         }
 
-        const totalPenjualan = penjualan ? penjualan.reduce((sum, p) => sum + p.total, 0) : 0;
-        const totalRetur = retur ? retur.reduce((sum, r) => sum + r.total_retur, 0) : 0;
+        const totalPenjualan = penjualan ? penjualan.reduce((sum, p) => sum + (Number(p.total) || 0), 0) : 0;
+        const totalRetur = retur ? retur.reduce((sum, r) => sum + (Number(r.total_retur) || 0), 0) : 0;
         const penjualanBersih = totalPenjualan - totalRetur;
         const labaKotor = penjualanBersih - totalHPP;
+
+        // ============================================================
+        // Biaya Operasional — diambil dari modul Keuangan (Pengeluaran)
+        // pada periode yang sama, supaya Laba Rugi selalu sinkron
+        // dengan data pengeluaran apotek.
+        // ============================================================
+        const { data: pengeluaran, error: err5 } = await supabase
+            .from('pengeluaran')
+            .select('nominal')
+            .gte('tanggal', startDate)
+            .lte('tanggal', endDate);
+        if (err5) console.error('Error load pengeluaran utk laba rugi:', err5);
+        const biayaOperasional = pengeluaran ? pengeluaran.reduce((sum, p) => sum + (Number(p.nominal) || 0), 0) : 0;
+
+        const labaBersih = labaKotor - biayaOperasional;
 
         return {
             total_penjualan: totalPenjualan,
@@ -1151,8 +1209,8 @@ export async function getLaporanLabaRugi(bulan, tahun) {
             penjualan_bersih: penjualanBersih,
             total_hpp: totalHPP,
             laba_kotor: labaKotor,
-            biaya_operasional: 0,
-            laba_bersih: labaKotor
+            biaya_operasional: biayaOperasional,
+            laba_bersih: labaBersih
         };
     } catch(e) {
         console.error('Error getLaporanLabaRugi:', e);
@@ -1165,6 +1223,84 @@ export async function getLaporanLabaRugi(bulan, tahun) {
             biaya_operasional: 0,
             laba_bersih: 0
         };
+    }
+}
+
+// ============================================================
+// KEUANGAN - PENGELUARAN (Modul Keuangan)
+// ============================================================
+export async function getPengeluaran(startDate, endDate) {
+    try {
+        let query = supabase.from('pengeluaran').select('*').order('tanggal', { ascending: false }).order('created_at', { ascending: false });
+        if (startDate) query = query.gte('tanggal', startDate);
+        if (endDate) query = query.lte('tanggal', endDate);
+        const { data, error } = await query;
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getPengeluaran:', e);
+        return { data: [], error: e };
+    }
+}
+
+export async function savePengeluaran(pengeluaranData) {
+    try {
+        const { data, error } = await supabase
+            .from('pengeluaran')
+            .upsert(pengeluaranData, { onConflict: 'id' })
+            .select();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error savePengeluaran:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function deletePengeluaran(id) {
+    try {
+        const { error } = await supabase
+            .from('pengeluaran')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error deletePengeluaran:', e);
+        return { error: e };
+    }
+}
+
+// ============================================================
+// PENGATURAN APOTEK (Identitas Apotek - Rebranding Sehatin+)
+// ============================================================
+export async function getPengaturanApotek() {
+    try {
+        const { data, error } = await supabase
+            .from('pengaturan_apotek')
+            .select('*')
+            .eq('id', 1)
+            .maybeSingle();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getPengaturanApotek:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function savePengaturanApotek(settingsData) {
+    try {
+        const { data, error } = await supabase
+            .from('pengaturan_apotek')
+            .upsert({ id: 1, ...settingsData }, { onConflict: 'id' })
+            .select()
+            .single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error savePengaturanApotek:', e);
+        return { data: null, error: e };
     }
 }
 // ============================================================
@@ -1206,6 +1342,7 @@ export async function getUserById(id) {
 export async function createUser(userData) {
     try {
         // 1. Buat user di Supabase Auth menggunakan Service Role Key
+        let authUserId = null;
         const { data: authData, error: authError } = await adminCreateUser(
             userData.email,
             userData.password,
@@ -1214,14 +1351,41 @@ export async function createUser(userData) {
                 role: userData.role || 'staff'
             }
         );
-        
-        if (authError) throw authError;
+
+        if (authError) {
+            // Kalau emailnya udah kedaftar di Supabase Auth tapi baris
+            // app_users-nya nggak pernah kebuat (mis. sisa percobaan lama
+            // sebelum bug RLS getUsers() diperbaiki), jangan langsung gagal -
+            // cari auth user yg sudah ada dan sambungkan ke app_users.
+            const alreadyRegistered = (authError.message || '').toLowerCase().includes('already been registered')
+                || (authError.message || '').toLowerCase().includes('already registered');
+            if (!alreadyRegistered) throw authError;
+
+            const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+            if (listError) throw authError; // gagal cari, lempar error asli aja
+
+            const match = listData?.users?.find(u => (u.email || '').toLowerCase() === userData.email.toLowerCase());
+            if (!match) throw authError;
+            authUserId = match.id;
+
+            // Pastikan belum ada baris app_users utk auth user ini
+            const { data: existingAppUser } = await supabase
+                .from('app_users')
+                .select('id')
+                .eq('auth_user_id', authUserId)
+                .maybeSingle();
+            if (existingAppUser) {
+                throw new Error('Email ini sudah terdaftar sebagai user aplikasi. Coba refresh halaman Kelola User - user-nya mungkin sudah ada di tabel.');
+            }
+        } else {
+            authUserId = authData.user.id;
+        }
         
         // 2. Insert ke app_users
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabase
             .from('app_users')
             .insert({
-                auth_user_id: authData.user.id,
+                auth_user_id: authUserId,
                 username: userData.username || userData.email,
                 email: userData.email,
                 nama: userData.nama,
@@ -1244,7 +1408,7 @@ export async function createUser(userData) {
                 can_delete: p.can_delete || false
             }));
             
-            const { error: permError } = await supabaseAdmin
+            const { error: permError } = await supabase
                 .from('user_permissions')
                 .insert(permData);
             
@@ -1268,7 +1432,7 @@ export async function updateUser(id, userData) {
         if (userData.role) updateData.role = userData.role;
         if (userData.status) updateData.status = userData.status;
         
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabase
             .from('app_users')
             .update(updateData)
             .eq('id', id)
@@ -1280,7 +1444,7 @@ export async function updateUser(id, userData) {
         // Update permissions
         if (userData.permissions) {
             // Delete existing
-            await supabaseAdmin
+            await supabase
                 .from('user_permissions')
                 .delete()
                 .eq('user_id', id);
@@ -1295,7 +1459,7 @@ export async function updateUser(id, userData) {
                 can_delete: p.can_delete || false
             }));
             
-            const { error: permError } = await supabaseAdmin
+            const { error: permError } = await supabase
                 .from('user_permissions')
                 .insert(permData);
             
@@ -1322,7 +1486,7 @@ export async function deleteUser(id) {
         if (userError) throw userError;
         
         // Delete from app_users
-        const { error } = await supabaseAdmin
+        const { error } = await supabase
             .from('app_users')
             .delete()
             .eq('id', id);
