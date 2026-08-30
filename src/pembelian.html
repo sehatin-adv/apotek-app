@@ -1485,6 +1485,17 @@
                 showToast(`⚠️ Item #${i+1}: Jumlah harus lebih dari 0!`, true);
                 return;
             }
+            // PENTING: kalau kode_obat kosong (item hasil scan yang belum
+            // dicocokkan ke Master Obat), pembelian TETAP bisa tersimpan
+            // ke database, TAPI stok obat & catatan Kartu Stok DIAM-DIAM
+            // TIDAK ikut ter-update (karena tidak jelas obat mana yang
+            // dimaksud). Ini bahaya - transaksi kelihatan "berhasil" tapi
+            // stoknya tidak benar-benar bertambah. Makanya sekarang wajib
+            // dicocokkan dulu sebelum boleh simpan.
+            if (!item.kode_obat) {
+                showToast(`⚠️ Item #${i+1} ("${item.nama_obat}") belum dicocokkan ke Master Obat! Klik tombol "Cocokkan Master" di bawah nama obatnya dulu, kalau tidak stoknya tidak akan ikut bertambah.`, true);
+                return;
+            }
         }
         
         let totalSubtotal = 0;
