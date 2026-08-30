@@ -1156,7 +1156,7 @@ export async function getLaporanLabaRugi(bulan, tahun) {
 
         const { data: retur, error: err2 } = await supabase
             .from('retur_penjualan')
-            .select('total_retur')
+            .select('id, total_retur')
             .gte('tanggal_retur', startDate)
             .lte('tanggal_retur', endDate);
         if (err2) throw err2;
@@ -1219,6 +1219,28 @@ export async function getLaporanLabaRugi(bulan, tahun) {
                 detail.forEach(d => {
                     totalHPP += (Number(d.jumlah) || 0) * (avgHppMap[d.obat_id] || 0);
                 });
+
+                // ============================================================
+                // KURANGI HPP dari obat yang DIRETUR - kalau sebuah penjualan
+                // diretur, barangnya kembali ke stok dan tidak benar-benar
+                // "terjual" secara ekonomis, jadi biaya pokoknya (HPP) juga
+                // harus dikeluarkan dari perhitungan, bukan cuma pendapatannya
+                // saja yang dikurangi lewat total_retur. Sebelumnya HPP tetap
+                // dihitung penuh dari SEMUA penjualan (termasuk yang sudah
+                // diretur), jadi Laba Kotor bisa minus kalau ada retur besar.
+                // ============================================================
+                const returIds = (retur || []).map(r => r.id).filter(Boolean);
+                if (returIds.length > 0) {
+                    const { data: returDetail, error: err3b } = await supabase
+                        .from('retur_detail')
+                        .select('obat_id, jumlah_retur')
+                        .in('retur_id', returIds);
+                    if (!err3b && returDetail) {
+                        returDetail.forEach(rd => {
+                            totalHPP -= (Number(rd.jumlah_retur) || 0) * (avgHppMap[rd.obat_id] || 0);
+                        });
+                    }
+                }
             }
         }
 

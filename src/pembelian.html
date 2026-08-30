@@ -311,7 +311,7 @@
         <div class="card">
             <div class="flex-between" style="margin-bottom:10px;">
                 <div class="card-title" style="margin-bottom:0;"><i class="fas fa-file-invoice"></i> Data Faktur Pembelian</div>
-                <button class="btn btn-primary btn-sm" onclick="openScanModal()"><i class="fas fa-camera"></i> Scan Faktur AI</button>
+                <button class="btn btn-primary" onclick="openScanModal()" style="font-size:32px;padding:20px 34px;font-weight:800;border-radius:16px;box-shadow:0 8px 20px rgba(45,106,159,0.35);"><i class="fas fa-camera" style="font-size:36px;"></i> Scan Faktur AI</button>
             </div>
             <div class="form-grid-3">
                 <div class="form-group">
@@ -636,6 +636,54 @@
     let supplierMaster = [];
     let itemCounter = 0;
     let lastSavedData = null;
+
+    // ============================================================
+    // DRAFT OTOMATIS (localStorage) - supaya kalau tidak sengaja pindah
+    // ke modul lain saat sedang input pembelian, data yang sudah
+    // diketik/discan TIDAK hilang. Sama seperti mekanisme cache di
+    // Rekomendasi Pesanan (Forecasting).
+    // ============================================================
+    const DRAFT_KEY = 'sehatin_pembelian_draft';
+    const DRAFT_HEADER_FIELDS = ['noFaktur', 'tanggalFaktur', 'pilihSupplier', 'pilihGudang', 'jenisPembelian', 'pilihKas', 'noFakturPajak', 'ppnPercent'];
+
+    function saveDraft() {
+        try {
+            if (items.length === 0) { clearDraft(); return; }
+            const header = {};
+            DRAFT_HEADER_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) header[id] = el.value;
+            });
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ header, items, savedAt: Date.now() }));
+        } catch(e) {
+            console.error('Gagal simpan draft pembelian:', e);
+        }
+    }
+
+    function clearDraft() {
+        try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+    }
+
+    function restoreDraft() {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return;
+            const draft = JSON.parse(raw);
+            if (!draft || !draft.items || draft.items.length === 0) return;
+
+            DRAFT_HEADER_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && draft.header && draft.header[id] !== undefined) el.value = draft.header[id];
+            });
+            items = draft.items;
+            itemCounter = items.reduce((max, it) => Math.max(max, it.id || 0), 0);
+            renderItems();
+            hitungTotal();
+            showToast('📝 Draft pembelian yang belum disimpan berhasil dipulihkan');
+        } catch(e) {
+            console.error('Gagal memulihkan draft pembelian:', e);
+        }
+    }
     
     // LOAD MASTER DATA
     async function loadMasterData() {
@@ -830,6 +878,7 @@
     
     // RENDER ITEMS
     function renderItems() {
+        saveDraft();
         const tbody = document.getElementById('itemTableBody');
         const tfoot = document.getElementById('itemTableFoot');
         
@@ -860,7 +909,10 @@
                 </td>
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="nama_obat" value="${item.nama_obat || ''}" style="min-width:120px;">
-                    ${(item._fromScan && !item.obat_id) ? `<button type="button" onclick="openCocokkanMaster(${index})" style="display:block;margin-top:3px;font-size:10px;color:#2d6a9f;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;"><i class="fas fa-link"></i> Cocokkan Master</button>` : ''}
+                    ${item._fromScan ? (!item.obat_id
+                        ? `<button type="button" onclick="openCocokkanMaster(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-link"></i> Cocokkan Master</button>`
+                        : `<button type="button" onclick="batalkanCocokkanMaster(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;font-weight:600;color:#7a8a9e;background:white;border:2px solid #e8edf3;border-radius:8px;padding:5px 11px;cursor:pointer;"><i class="fas fa-rotate-left"></i> Kembalikan</button>`
+                    ) : ''}
                 </td>
                 <td>
                     <input type="number" class="editable" data-index="${index}" data-field="jumlah" value="${item.jumlah}" min="0" step="any">
@@ -869,13 +921,14 @@
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="satuan" value="${item.satuan || 'Tablet'}" style="width:70px;">
                     ${item._fromScan ? `
-                        <button type="button" onclick="toggleKonversiSatuan(${index})" style="display:block;margin-top:3px;font-size:10px;color:#2d6a9f;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;"><i class="fas fa-arrows-rotate"></i> Konversi</button>
+                        <button type="button" onclick="toggleKonversiSatuan(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-arrows-rotate"></i> Konversi</button>
                         ${item._showKonversi ? `
-                            <div style="margin-top:4px;display:flex;align-items:center;gap:3px;flex-wrap:wrap;">
-                                <span style="font-size:10px;">=</span>
-                                <input type="number" id="konversiQty_${index}" value="${item.konversi_qty || ''}" placeholder="qty" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #e8edf3;border-radius:4px;">
-                                <span style="font-size:10px;">${item.satuan_kecil_master || 'Tablet'}</span>
-                                <button type="button" onclick="terapkanKonversi(${index})" style="font-size:9px;background:#2d6a9f;color:white;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;">OK</button>
+                            <div style="margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;padding:7px;">
+                                <span style="font-size:11px;">=</span>
+                                <input type="number" id="konversiQty_${index}" value="${item.konversi_qty || ''}" placeholder="qty" step="any" style="width:55px;padding:4px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:5px;">
+                                <span style="font-size:11px;font-weight:600;">${item.satuan_kecil_master || 'Tablet'}</span>
+                                <button type="button" onclick="terapkanKonversi(${index})" style="font-size:11px;font-weight:700;background:#28a745;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;">OK</button>
+                                <button type="button" onclick="batalKonversi(${index})" style="font-size:11px;font-weight:700;background:white;color:#7a8a9e;border:1px solid #e8edf3;border-radius:5px;padding:5px 10px;cursor:pointer;">Batal</button>
                             </div>
                         ` : ''}
                     ` : ''}
@@ -1080,6 +1133,14 @@
         closeCocokkanMaster();
         showToast('✅ Item dicocokkan ke "' + matched.nama_obat + '"');
     };
+    window.batalkanCocokkanMaster = function(index) {
+        if (!confirm('Batalkan kecocokan ke Master Obat untuk item ini?')) return;
+        items[index].obat_id = null;
+        items[index].kode_obat = '';
+        renderItems();
+        hitungTotal();
+        showToast('↩️ Kecocokan dibatalkan, silakan cocokkan ulang kalau perlu');
+    };
 
     // ============================================================
     // KONVERSI SATUAN (khusus item hasil Scan Faktur AI - faktur PBF
@@ -1117,9 +1178,13 @@
             item.jumlah_asli = item.jumlah;
         }
 
+        // TIDAK dibulatkan sama sekali - nilai desimal hasil konversi
+        // (baik jumlah maupun harga per unit) ditulis apa adanya, sesuai
+        // permintaan. Pembulatan cuma bikin selisih kecil menumpuk kalau
+        // dikonversi bolak-balik atau dipakai hitungan lebih lanjut.
         item.konversi_qty = konversiQty;
-        item.jumlah = Math.round(item.jumlah_asli * konversiQty * 100) / 100;
-        item.harga_beli = Math.round(item.harga_beli_asli / konversiQty);
+        item.jumlah = item.jumlah_asli * konversiQty;
+        item.harga_beli = item.harga_beli_asli / konversiQty;
         item.satuan = satuanKecil;
         item._showKonversi = false;
 
@@ -1127,6 +1192,10 @@
         renderItems();
         hitungTotal();
         showToast(`✅ Dikonversi: ${item.jumlah_asli} ${item.satuan_asli} = ${item.jumlah} ${satuanKecil}`);
+    };
+    window.batalKonversi = function(index) {
+        items[index]._showKonversi = false;
+        renderItems();
     };
 
     // ============================================================
@@ -1350,11 +1419,19 @@
         let totalJumlah = 0;
         
         items.forEach(item => {
+            const jumlah = Number(item.jumlah) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            totalPPN += Number(item.hpp - item.harga_beli) || 0;
-            totalHPP += Number(item.hpp) || 0;
-            totalJumlah += Number(item.jumlah) || 0;
+            // PENTING: item.hpp itu HARGA PER SATUAN (per tablet/box/dst),
+            // BUKAN total untuk baris itu - jadi wajib dikalikan jumlah
+            // beli dulu sebelum dijumlahkan ke total. Sebelumnya tidak
+            // dikalikan sama sekali, jadi PPN & HPP total jauh lebih kecil
+            // dari yang sebenarnya untuk item dengan jumlah beli > 1 -
+            // inilah penyebab total di aplikasi beda dengan total di
+            // faktur fisik PBF.
+            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
+            totalHPP += (Number(item.hpp) || 0) * jumlah;
+            totalJumlah += jumlah;
         });
         
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
@@ -1415,10 +1492,13 @@
         let totalPPN = 0;
         let totalHPP = 0;
         items.forEach(item => {
+            const jumlah = Number(item.jumlah) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            totalPPN += Number(item.hpp - item.harga_beli) || 0;
-            totalHPP += Number(item.hpp) || 0;
+            // item.hpp per satuan - wajib dikalikan jumlah, sama seperti
+            // perbaikan di hitungTotal() (lihat catatan di sana).
+            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
+            totalHPP += (Number(item.hpp) || 0) * jumlah;
         });
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
         
@@ -1461,20 +1541,20 @@
             await loadMasterData();
             renderItems();
             hitungTotal();
+            clearDraft();
             
             setTimeout(() => {
                 resetFormSilent();
             }, 500);
         } catch(e) {
-            console.log('Error saving:', e);
-            showSuccess('✅ Pembelian Disimpan (Offline)!', 
-                'Data pembelian No. ' + noFaktur + ' telah disimpan secara offline.',
-                'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
-            );
-            
-            setTimeout(() => {
-                resetFormSilent();
-            }, 500);
+            // PENTING: dulu di sini ada fallback "berhasil (offline)" yang
+            // menyembunyikan error asli DAN mereset form - persis pola bug
+            // yang dulu ditemukan di Retur Penjualan (data terlihat "sukses"
+            // padahal tidak pernah benar2 tersimpan ke server). Sekarang
+            // error asli ditampilkan, form TIDAK direset (draft tetap
+            // tersimpan otomatis) supaya tidak ada data yang hilang.
+            console.error('Error saving pembelian:', e);
+            showToast('❌ Gagal menyimpan pembelian ke server: ' + (e.message || JSON.stringify(e)), true);
         }
     };
     
@@ -1508,6 +1588,7 @@
         itemCounter = 0;
         renderItems();
         hitungTotal();
+        clearDraft();
         showToast('🔄 Form direset');
     }
     
@@ -1534,9 +1615,10 @@
         let totalDiskon = 0;
         let totalPPN = 0;
         dataToPrint.forEach(item => {
+            const jumlah = Number(item.jumlah) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            totalPPN += Number(item.hpp - item.harga_beli) || 0;
+            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
         });
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
         
@@ -1672,8 +1754,18 @@
     
     // INIT
     document.addEventListener('DOMContentLoaded', function() {
-        loadMasterData();
-        
+        loadMasterData().then(() => {
+            restoreDraft();
+        });
+
+        // Simpan draft juga kalau field header (No Faktur, Supplier, dst)
+        // diubah, bukan cuma pas ada perubahan di daftar item.
+        const draftHeaderFields = ['noFaktur', 'tanggalFaktur', 'pilihSupplier', 'pilihGudang', 'jenisPembelian', 'pilihKas', 'noFakturPajak'];
+        draftHeaderFields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', saveDraft);
+        });
+
         document.addEventListener('click', function(e) {
             if (!e.target.closest('#searchObat') && !e.target.closest('#saranObat')) {
                 document.getElementById('saranObat').style.display = 'none';
