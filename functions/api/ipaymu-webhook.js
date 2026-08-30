@@ -4,15 +4,13 @@
 // setiap ada perubahan status pembayaran, ke URL yang kita kasih
 // sebagai "notifyUrl" saat bikin transaksi.
 //
-// CATATAN JUJUR: format persis payload notifikasi iPaymu belum bisa
-// saya pastikan 100% dari dokumentasi publik saat kode ini ditulis.
-// Makanya kode ini didesain DEFENSIF:
-// - payload mentah SELALU disimpan ke kolom raw_webhook_payload,
-//   apapun formatnya - supaya begitu ada 1 transaksi sungguhan lewat
-//   sandbox, kita bisa lihat persis isinya dan pastikan/perbaiki
-//   logika deteksi sukses di bawah kalau perlu.
-// - Deteksi "field mana referenceId, field mana status sukses" coba
-//   beberapa kemungkinan nama field sekaligus.
+// Format payload DIKONFIRMASI lewat uji coba nyata (fitur "Tes Notify"
+// di dashboard iPaymu Sandbox), dikirim sebagai
+// application/x-www-form-urlencoded, contoh isinya:
+//   { trx_id: 228250, reference_id: "SEHATIN-...", status: "berhasil",
+//     status_code: 1, settlement_status: "settled", ... }
+// Kode di bawah tetap ada fallback ke nama field lain jaga-jaga kalau
+// ada varian channel pembayaran (bukan cuma QRIS) yang formatnya beda.
 
 function serviceHeadersOf(env) {
     return {
@@ -31,6 +29,7 @@ export async function onRequestPost(context) {
     const serviceHeaders = serviceHeadersOf(env);
 
     // Baca payload - coba JSON dulu, fallback ke form-urlencoded/multipart
+    // (iPaymu mengirim application/x-www-form-urlencoded, dikonfirmasi lewat uji coba nyata)
     let payload = {};
     const contentType = request.headers.get('content-type') || '';
     try {
@@ -47,25 +46,28 @@ export async function onRequestPost(context) {
         } catch (e2) { /* biarkan payload kosong */ }
     }
 
-    // Coba beberapa kemungkinan nama field. iPaymu konsisten pakai
-    // PascalCase di respons Direct API (Status, TransactionId,
-    // ReferenceId) - diprioritaskan duluan, dengan fallback ke variasi
-    // lain jaga-jaga kalau notifikasi webhook beda format dari respons API.
-    const referenceId = payload.ReferenceId || payload.referenceId || payload.reference_id || payload.reference || payload.trx_id_merchant || null;
-    const statusRaw = payload.Status ?? payload.status ?? payload.status_code ?? payload.transaction_status ?? null;
-    const trxId = payload.TransactionId || payload.trx_id || payload.trxId || payload.transactionId || payload.TrxId || null;
+    // Nama field DIKONFIRMASI dari payload asli iPaymu (lowercase
+    // snake_case), dengan fallback ke variasi lain jaga-jaga.
+    const referenceId = payload.reference_id || payload.ReferenceId || payload.referenceId || payload.reference || payload.trx_id_merchant || null;
+    const trxId = payload.trx_id || payload.TransactionId || payload.trxId || payload.transactionId || null;
+    // Sinyal sukses dicek dari 3 sudut sekaligus (status text "berhasil",
+    // status_code numerik 1, DAN settlement_status "settled") - kalau
+    // salah satu cocok, dianggap sukses. Ini lebih tahan banting daripada
+    // cuma andalkan satu field saja.
+    const statusText = String(payload.status ?? '').toLowerCase();
+    const statusCode = payload.status_code ?? payload.transaction_status_code ?? null;
+    const settlementStatus = String(payload.settlement_status ?? '').toLowerCase();
 
     // Simpan payload mentah dulu apapun hasilnya, buat debugging/verifikasi manual
     if (referenceId) {
         await fetch(`${env.SUPABASE_URL}/rest/v1/subscription_payments?reference_id=eq.${referenceId}`, {
             method: 'PATCH',
             headers: serviceHeaders,
-            body: JSON.stringify({ raw_webhook_payload: JSON.stringify(payload), ipaymu_trx_id: trxId })
+            body: JSON.stringify({ raw_webhook_payload: JSON.stringify(payload), ipaymu_trx_id: trxId ? String(trxId) : null })
         }).catch(() => {});
     }
 
-    const statusStr = String(statusRaw ?? '').toLowerCase();
-    const isSuccess = statusRaw !== null && (statusStr === '1' || statusStr.includes('berhasil') || statusStr.includes('success') || statusStr === 'settled' || statusStr === 'paid');
+    const isSuccess = statusText === 'berhasil' || statusText === 'success' || String(statusCode) === '1' || settlementStatus === 'settled' || settlementStatus === 'paid';
 
     if (referenceId && isSuccess) {
         try {
