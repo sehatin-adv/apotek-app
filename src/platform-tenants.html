@@ -89,7 +89,7 @@
         <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Nominal ini yang ditampilkan ke apotek sebagai jumlah yang harus ditransfer. <strong>Catatan:</strong> menurut aturan Bank Indonesia, biaya MDR payment gateway (kalau nanti pakai Xendit dsb, ~0,7%) tidak boleh dibebankan ke pembayar - jadi potongan itu akan mengurangi penerimaan Anda sendiri, bukan menambah nominal yang perlu ditransfer apotek.</p>
         <div class="form-group" style="margin-bottom:10px;">
             <label>Harga Langganan per Bulan (Rp)</label>
-            <input type="number" id="fSubscriptionPrice" placeholder="50000" min="0">
+            <input type="text" inputmode="numeric" id="fSubscriptionPrice" placeholder="50000 (angka saja, tanpa titik/koma)">
         </div>
         <button class="btn btn-outline" onclick="saveSubscriptionPrice()"><i class="fas fa-save"></i> Simpan Harga</button>
     </div>
@@ -308,16 +308,21 @@
 
     // ---------- Harga langganan ----------
     window.saveSubscriptionPrice = async function() {
-        const price = document.getElementById('fSubscriptionPrice').value.trim();
-        if (!price) { showToast('⚠️ Isi harga dulu', true); return; }
+        const raw = document.getElementById('fSubscriptionPrice').value.trim();
+        // Buang semua karakter selain digit - supaya walau user tetap
+        // ngetik titik/koma/"Rp" secara refleks, yang tersimpan tetap
+        // angka bersih (mis. "50.352" atau "Rp 50.352" -> "50352").
+        const price = raw.replace(/[^0-9]/g, '');
+        if (!price) { showToast('⚠️ Isi harga dulu (angka saja)', true); return; }
         const { error } = await callPlatformApi('set-setting', { key: 'subscription_price', value: price });
         if (error) { showToast('❌ ' + error, true); return; }
-        showToast('✅ Harga langganan disimpan');
+        document.getElementById('fSubscriptionPrice').value = price;
+        showToast('✅ Harga langganan disimpan: Rp ' + Number(price).toLocaleString('id-ID'));
     };
 
     async function loadSubscriptionPrice() {
         const { data } = await callPlatformApi('get-setting', { key: 'subscription_price' });
-        if (data) document.getElementById('fSubscriptionPrice').value = data;
+        if (data) document.getElementById('fSubscriptionPrice').value = String(data).replace(/[^0-9]/g, '');
     }
 
     // ---------- QRIS ----------

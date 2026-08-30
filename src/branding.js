@@ -89,8 +89,14 @@ async function checkSubscriptionBanner() {
 }
 
 function formatRupiah(v) {
-    const n = Number(v);
-    if (!v || isNaN(n)) return null;
+    // Parser angka Rupiah gaya Indonesia (titik = pemisah ribuan, BUKAN
+    // desimal) - sama seperti di ipaymu-create-payment.js, supaya nilai
+    // seperti "50.352" (kalau kebetulan tersimpan begitu) tetap terbaca
+    // benar sebagai 50352, bukan salah kebaca jadi 50.
+    if (!v) return null;
+    const digitsOnly = String(v).replace(/[^0-9]/g, '');
+    if (!digitsOnly) return null;
+    const n = parseInt(digitsOnly, 10);
     return 'Rp ' + n.toLocaleString('id-ID');
 }
 

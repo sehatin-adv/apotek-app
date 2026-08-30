@@ -50,6 +50,15 @@ async function ipaymuHeaders(method, va, apiKey, bodyObj) {
 function ipaymuBaseUrl(mode) {
     return mode === 'production' ? 'https://my.ipaymu.com/api/v2' : 'https://sandbox.ipaymu.com/api/v2';
 }
+// Parser angka Rupiah gaya Indonesia (titik = pemisah ribuan, BUKAN
+// desimal) - buang semua karakter selain digit sebelum konversi.
+// Ini juga otomatis "membetulkan" nilai lama yang kebetulan tersimpan
+// keliru (mis. "50.352" -> tetap benar jadi 50352, bukan 50).
+function parseRupiahAmount(val) {
+    if (typeof val === 'number') return Math.round(val);
+    const digitsOnly = String(val || '').replace(/[^0-9]/g, '');
+    return digitsOnly ? parseInt(digitsOnly, 10) : 0;
+}
 
 export async function onRequestOptions() {
     return new Response(null, { headers: CORS_HEADERS });
@@ -105,7 +114,7 @@ export async function onRequestPost(context) {
         // 3. Ambil harga langganan dari platform_settings
         const priceRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings?key=eq.subscription_price&select=value`, { headers: serviceHeaders });
         const priceRows = await priceRes.json();
-        const amount = Number(priceRows?.[0]?.value) || 0;
+        const amount = parseRupiahAmount(priceRows?.[0]?.value);
         if (amount <= 0) {
             return new Response(JSON.stringify({ error: 'Harga langganan belum diatur oleh pemilik platform.', step: 'get-price' }), { status: 400, headers: CORS_HEADERS });
         }
