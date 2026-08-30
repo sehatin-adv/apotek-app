@@ -1037,7 +1037,13 @@ export async function savePembelian(header, details) {
                         .from('obat')
                         .update({ stok: stokBaru })
                         .eq('id', obatData.id);
-                    await supabase
+                    // PENTING: error dari insert ini dulu TIDAK PERNAH dicek
+                    // sama sekali - kalau gagal (apa pun sebabnya), kode
+                    // diam saja lanjut ke item berikutnya, jadi stok obat
+                    // bertambah normal tapi jejak riwayatnya di Kartu Stok
+                    // hilang tanpa jejak. Sekarang errornya di-log supaya
+                    // ketahuan penyebabnya kalau terulang.
+                    const { error: kartuStokError } = await supabase
                         .from('kartu_stok')
                         .insert({
                             obat_id: obatData.id,
@@ -1050,6 +1056,9 @@ export async function savePembelian(header, details) {
                             masuk: item.jumlah || 0,
                             sisa_stok: stokBaru
                         });
+                    if (kartuStokError) {
+                        console.error('Gagal insert kartu_stok utk item ' + item.kode_obat + ':', kartuStokError);
+                    }
                 }
             }
         }
