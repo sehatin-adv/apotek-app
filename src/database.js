@@ -554,12 +554,16 @@ export async function getShiftAktif(username) {
         const { data, error } = await query;
 
         if (error) throw error;
-        
+
+        // PENTING: kalau SERVER bilang user ini TIDAK punya shift terbuka
+        // (data kosong), itu jawaban yang VALID dan HARUS dipercaya apa
+        // adanya - JANGAN fallback ke cache localStorage di sini, karena
+        // cache itu browser-wide (bukan per-user) dan bisa berisi shift
+        // milik USER LAIN yang pernah login di komputer/browser yang sama,
+        // bikin salah kira "kasir sudah terbuka" padahal itu punya orang
+        // lain. Fallback localStorage HANYA dipakai kalau server benar2
+        // tidak bisa dihubungi (lihat blok catch di bawah), bukan di sini.
         if (!data || data.length === 0) {
-            const local = localStorage.getItem('shift_aktif');
-            if (local) {
-                return { data: JSON.parse(local), error: null };
-            }
             return { data: null, error: null };
         }
 
@@ -567,9 +571,15 @@ export async function getShiftAktif(username) {
         return { data: data[0], error: null };
     } catch(e) {
         console.error('Error getShiftAktif:', e);
+        // Fallback ke cache lokal HANYA kalau server benar2 tidak
+        // terhubung (network error dsb), DAN cuma dipakai kalau cache itu
+        // memang milik user yang sama (kalau username diketahui).
         const local = localStorage.getItem('shift_aktif');
         if (local) {
-            return { data: JSON.parse(local), error: null };
+            const cached = JSON.parse(local);
+            if (!username || cached.username === username) {
+                return { data: cached, error: null };
+            }
         }
         return { data: null, error: e };
     }

@@ -356,7 +356,7 @@
                 </div>
                 <div class="form-group">
                     <label>PPN (%)</label>
-                    <input type="number" id="ppnPercent" value="11" min="0" max="100" step="0.1" onchange="hitungTotal()" oninput="hitungTotal()">
+                    <input type="number" id="ppnPercent" value="11" min="0" max="100" step="0.1" onchange="recalculateAllItemsForPPN()" oninput="recalculateAllItemsForPPN()">
                 </div>
             </div>
         </div>
@@ -937,6 +937,18 @@
     };
     
     // HITUNG TOTAL
+    // Dipanggil saat field PPN (%) di bagian atas diubah - hitung ulang
+    // HPP & harga jual SEMUA item yang sudah ada di keranjang, bukan
+    // cuma total ringkasannya saja. Dulu ini yang bikin PPN "tidak
+    // berfungsi" kalau diubah setelah item sudah ditambahkan.
+    window.recalculateAllItemsForPPN = function() {
+        for (let i = 0; i < items.length; i++) {
+            recalculateItem(i);
+        }
+        renderItems();
+        hitungTotal();
+    };
+
     function hitungTotal() {
         let totalSubtotal = 0;
         let totalDiskon = 0;

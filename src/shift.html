@@ -366,22 +366,15 @@
             // HITUNG ULANG TUTUP SHIFT - PAKAI DATA DARI SUPABASE
             await hitungTutupShift();
         } else {
-            // Fallback ke localStorage
-            const savedShift = localStorage.getItem('shift_aktif');
-            if (savedShift) {
-                shiftAktif = JSON.parse(savedShift);
-                const statusBadge = document.getElementById('statusBadge');
-                statusBadge.textContent = 'Shift ' + shiftAktif.shift + ' - Aktif';
-                statusBadge.className = 'badge badge-success';
-                document.getElementById('shiftInfo').textContent = 'Shift ' + shiftAktif.shift + ' dibuka pada ' + shiftAktif.tanggal + ' oleh ' + shiftAktif.username;
-                document.getElementById('bukaShiftCard').style.display = 'none';
-                document.getElementById('tutupShiftCard').style.display = 'block';
-                
-                // Hitung dari localStorage
-                hitungTutupShiftLocal();
-            } else {
-                resetAllShiftData();
-            }
+            // TIDAK ADA fallback localStorage di sini lagi - dulu ada, dan
+            // itu bug: localStorage 'shift_aktif' itu browser-wide (bukan
+            // per-user), jadi kalau user LAIN pernah buka shift di
+            // komputer yang sama, ini bisa salah tampilkan shift MILIK
+            // ORANG LAIN sebagai "shift Anda sedang aktif". getShiftAktif()
+            // di atas sudah otoritatif (sudah benar per-user, dengan
+            // fallback jaringannya SENDIRI yang aman) - kalau dia bilang
+            // tidak ada shift, ya percaya saja, jangan dicek ulang di sini.
+            resetAllShiftData();
         }
     }
 

@@ -716,28 +716,17 @@
                 showToast('⛔ ' + error.message, true);
                 return;
             }
-            // Fallback ke localStorage
-            const history = JSON.parse(localStorage.getItem('retur_penjualan') || '[]');
-            returnData.id = 'RET-' + Date.now();
-            returnData.created_at = new Date().toISOString();
-            history.push(returnData);
-            localStorage.setItem('retur_penjualan', JSON.stringify(history));
-            returnHistory = history;
-            
-            // Update stok lokal
-            const obatMaster = JSON.parse(localStorage.getItem('obat') || '[]');
-            itemsToReturn.forEach(item => {
-                const obat = obatMaster.find(o => o.kode_obat === item.kode_obat);
-                if (obat) {
-                    obat.stok = (Number(obat.stok) || 0) + Number(item.jumlah_retur);
-                }
-            });
-            localStorage.setItem('obat', JSON.stringify(obatMaster));
-            
-            showToast('✅ Retur berhasil (offline)! Stok telah diperbarui.');
-        } else {
-            showToast('✅ Retur berhasil diproses! Stok telah diperbarui.');
+            // PENTING: dulu di sini ada fallback diam-diam ke localStorage
+            // yang menampilkan "berhasil (offline)" - itu MENYEMBUNYIKAN
+            // error asli dan bikin retur TIDAK PERNAH benar-benar tersimpan
+            // di server (makanya tidak pernah nyambung ke kartu stok/shift).
+            // Sekarang errornya ditampilkan apa adanya supaya jelas kalau
+            // gagal, dan TIDAK dianggap "berhasil".
+            showToast('❌ Gagal menyimpan retur ke server: ' + (error.message || JSON.stringify(error)), true);
+            return;
         }
+
+        showToast('✅ Retur berhasil diproses! Stok telah diperbarui.');
 
         resetDetail();
         loadRiwayat();

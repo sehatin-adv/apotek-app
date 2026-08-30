@@ -692,21 +692,18 @@
                 data.id = editId;
                 const { error } = await saveObat(data);
                 if (error) throw error;
-                const index = obatData.findIndex(o => o.id === editId);
-                if (index !== -1) obatData[index] = data;
                 showToast('✅ Data obat berhasil diupdate!');
             } else {
                 const { data: result, error } = await saveObat(data);
                 if (error) throw error;
-                data.id = result[0].id;
-                obatData.push(data);
                 showToast('✅ Data obat berhasil ditambahkan!');
             }
 
-            localStorage.setItem('obat', JSON.stringify(obatData));
-            renderTable(obatData);
-            updateTotal(obatData.length);
             resetForm();
+            // Ambil ulang data SEGAR dari server (bukan cuma tempel di array
+            // memori) - supaya tampilan tabel dijamin selalu sinkron dengan
+            // yang benar-benar tersimpan, tidak peduli penyebab pastinya.
+            await loadObat();
         } catch(e) {
             showToast('❌ Gagal menyimpan data: ' + e.message, true);
         }
