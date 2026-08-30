@@ -80,7 +80,10 @@ export async function onRequestPost(context) {
             }
         };
 
-        const model = 'gemini-2.5-flash';
+        // Model diupdate ke gemini-3.6-flash - versi sebelumnya
+        // (gemini-2.5-flash) sudah tidak tersedia lagi utk user baru
+        // per pesan error resmi dari Gemini API.
+        const model = 'gemini-3.6-flash';
         const geminiRes = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
             {
