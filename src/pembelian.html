@@ -853,6 +853,15 @@
                 }
                 if (idx >= 0 && idx < items.length) {
                     items[idx][field] = value;
+                    // Kalau yang baru diubah itu HARGA JUAL langsung (bukan
+                    // margin), kosongkan dulu margin_persen supaya
+                    // recalculateItem() tahu harus MENURUNKAN margin dari
+                    // harga jual baru ini, bukan malah menimpa harga jual
+                    // dengan hasil hitungan dari margin lama (itu penyebab
+                    // "harga jual kembali ke semula" sebelumnya).
+                    if (field === 'harga_jual') {
+                        items[idx].margin_persen = 0;
+                    }
                     recalculateItem(idx);
                     renderItems();
                     hitungTotal();
