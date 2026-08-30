@@ -584,7 +584,7 @@
 
 <script type="module">
     import { supabase } from './supabase.js';
-    import { getObat, getSupplier, savePembelian } from './database.js';
+    import { getObat, getSupplier, savePembelian, saveObat } from './database.js';
     import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Pembelian');
@@ -909,10 +909,7 @@
                 </td>
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="nama_obat" value="${item.nama_obat || ''}" style="min-width:120px;">
-                    ${item._fromScan ? (!item.obat_id
-                        ? `<button type="button" onclick="openCocokkanMaster(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-link"></i> Cocokkan Master</button>`
-                        : `<button type="button" onclick="batalkanCocokkanMaster(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;font-weight:600;color:#7a8a9e;background:white;border:2px solid #e8edf3;border-radius:8px;padding:5px 11px;cursor:pointer;"><i class="fas fa-rotate-left"></i> Kembalikan</button>`
-                    ) : ''}
+                    ${item._fromScan ? `<button type="button" onclick="openCocokkanMaster(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-link"></i> Cocokkan Master</button>` : ''}
                 </td>
                 <td>
                     <input type="number" class="editable" data-index="${index}" data-field="jumlah" value="${item.jumlah}" min="0" step="any">
@@ -1126,8 +1123,15 @@
         if (cocokkanTargetIndex === null) return;
         const matched = obatMaster.find(o => String(o.id) === String(obatId));
         if (!matched) return;
+        // PENTING: dulu cuma obat_id & kode_obat yang diupdate, nama_obat
+        // dibiarkan tetap pakai teks mentah hasil scan - jadi kode-nya
+        // sudah benar tersambung ke Master, tapi NAMA yang tertulis di
+        // tabel tidak ikut berubah jadi nama resmi Master Obat. Sekarang
+        // nama_obat (dan satuan, biar konsisten) ikut ditimpa pakai data
+        // dari Master yang dipilih.
         items[cocokkanTargetIndex].obat_id = matched.id;
         items[cocokkanTargetIndex].kode_obat = matched.kode_obat;
+        items[cocokkanTargetIndex].nama_obat = matched.nama_obat;
         renderItems();
         hitungTotal();
         closeCocokkanMaster();
@@ -1298,7 +1302,7 @@
         ` + listEl.innerHTML;
     }
 
-    window.applyScanResults = function() {
+    window.applyScanResults = async function() {
         if (!scanExtractedData) return;
         try {
             if (document.getElementById('scanNoFaktur').value) {
@@ -1312,10 +1316,6 @@
             }
             const namaPbfScan = document.getElementById('scanNamaPbf').textContent;
             if (namaPbfScan && namaPbfScan !== '(tidak terbaca)') {
-                // PENTING: id field Supplier yang benar adalah "pilihSupplier",
-                // sebelumnya salah tulis "supplierId" (tidak ada elemennya) -
-                // itu bikin seluruh fungsi ini berhenti diam2 kena error
-                // sebelum sempat menerapkan item apapun.
                 const supplierSelect = document.getElementById('pilihSupplier');
                 if (supplierSelect) {
                     let bestSupplier = null, bestScore = 0;
@@ -1333,21 +1333,25 @@
             const namaInputs = document.querySelectorAll('.scan-item-nama');
             const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
             let jumlahDitambahkan = 0;
+            let jumlahDibuatBaru = 0;
 
-            namaInputs.forEach(input => {
+            // Dipakai buat generate kode_obat unik kalau perlu bikin obat
+            // baru lebih dari 1 dalam satu proses scan yang sama (supaya
+            // tidak bentrok walau dibuat di detik/milidetik yang sama).
+            let autoKodeCounter = 0;
+
+            for (const input of Array.from(namaInputs)) {
                 const i = input.dataset.i;
                 const namaObat = input.value.trim();
-                if (!namaObat) return;
+                if (!namaObat) continue;
                 const jumlah = Number(document.querySelector(`.scan-item-jml[data-i="${i}"]`).value) || 0;
                 const satuan = document.querySelector(`.scan-item-satuan[data-i="${i}"]`).value.trim() || 'Tablet';
                 const hargaBeliAsli = Number(document.querySelector(`.scan-item-harga[data-i="${i}"]`).value) || 0;
                 const noBatch = document.querySelector(`.scan-item-batch[data-i="${i}"]`)?.value.trim() || '';
                 const tanggalEd = document.querySelector(`.scan-item-ed[data-i="${i}"]`)?.value || '';
                 const diskonPersen = Number(document.querySelector(`.scan-item-diskon[data-i="${i}"]`)?.value) || 0;
-                if (jumlah <= 0) return;
+                if (jumlah <= 0) continue;
 
-                // Harga beli dipakai buat hitung HPP = harga SETELAH diskon PBF
-                // (kalau ada diskon per item, itu yang jadi biaya riil per unit)
                 const hargaBeli = diskonPersen > 0
                     ? Math.round(hargaBeliAsli - (hargaBeliAsli * diskonPersen / 100))
                     : hargaBeliAsli;
@@ -1357,13 +1361,46 @@
                     const score = matchScore(namaObat, o.nama_obat);
                     if (score > bestScore) { bestScore = score; bestMatch = o; }
                 });
-                const matched = bestScore >= 55 ? bestMatch : null;
+                let matched = bestScore >= 55 ? bestMatch : null;
 
                 const defaultMargin = 25;
                 const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
                 const hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
                 const subtotalAsli = jumlah * hargaBeliAsli;
                 const diskonNominal = diskonPersen > 0 ? Math.round(subtotalAsli * diskonPersen / 100) : 0;
+
+                // Kalau tidak ketemu padanannya di Master Obat, LANGSUNG
+                // buatkan sebagai obat baru (bukan dibiarkan kosong) -
+                // supaya Simpan Pembelian tidak pernah terhalang. Tombol
+                // "Cocokkan Master" tetap muncul di tabel item nanti kalau
+                // ternyata mau disambungkan ulang ke obat yang sudah ada.
+                if (!matched) {
+                    autoKodeCounter++;
+                    const kodeBaru = 'OBT-' + Date.now() + '-' + autoKodeCounter;
+                    const obatBaruData = {
+                        kode_obat: kodeBaru,
+                        nama_obat: namaObat,
+                        satuan: satuan,
+                        jenis: 'Generik',
+                        golongan: 'Bebas',
+                        harga_beli: hargaBeli,
+                        harga_jual: hargaJualDefault,
+                        stok: 0,
+                        stok_minimal: 10,
+                        status: 'Aktif'
+                    };
+                    try {
+                        const { data: result, error: obatBaruError } = await saveObat(obatBaruData);
+                        if (!obatBaruError && result && result[0]) {
+                            obatBaruData.id = result[0].id;
+                            obatMaster.push(obatBaruData);
+                            matched = obatBaruData;
+                            jumlahDibuatBaru++;
+                        }
+                    } catch (eObat) {
+                        console.error('Gagal membuat obat baru otomatis utk "' + namaObat + '":', eObat);
+                    }
+                }
 
                 items.push({
                     id: ++itemCounter,
@@ -1386,12 +1423,13 @@
                     ketentuan_retur: ''
                 });
                 jumlahDitambahkan++;
-            });
+            }
 
             renderItems();
             hitungTotal();
             closeScanModal();
-            showToast(`✅ ${jumlahDitambahkan} item dari faktur berhasil ditambahkan - cek lagi kode obat & harga sebelum simpan!`);
+            const infoBaru = jumlahDibuatBaru > 0 ? ` (${jumlahDibuatBaru} otomatis dibuat sebagai obat baru)` : '';
+            showToast(`✅ ${jumlahDitambahkan} item dari faktur berhasil ditambahkan${infoBaru} - cek lagi kode obat & harga sebelum simpan!`);
         } catch(e) {
             console.error('Error applyScanResults:', e);
             showToast('❌ Gagal menerapkan hasil scan: ' + e.message, true);
