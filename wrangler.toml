@@ -36,3 +36,7 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # IPAYMU_MODE boleh var biasa (bukan secret) karena bukan rahasia -
 # isi "sandbox" (default kalau tidak diisi) atau "production":
 #   npx wrangler pages secret put IPAYMU_MODE
+
+# OPSIONAL - Integrasi Scan Faktur AI (Google Gemini Vision). Dapatkan
+# API key gratis dari aistudio.google.com/apikey:
+#   npx wrangler pages secret put GEMINI_API_KEY

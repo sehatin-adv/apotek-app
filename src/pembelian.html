@@ -309,7 +309,10 @@
         </div>
         
         <div class="card">
-            <div class="card-title"><i class="fas fa-file-invoice"></i> Data Faktur Pembelian</div>
+            <div class="flex-between" style="margin-bottom:10px;">
+                <div class="card-title" style="margin-bottom:0;"><i class="fas fa-file-invoice"></i> Data Faktur Pembelian</div>
+                <button class="btn btn-primary btn-sm" onclick="openScanModal()"><i class="fas fa-camera"></i> Scan Faktur AI</button>
+            </div>
             <div class="form-grid-3">
                 <div class="form-group">
                     <label>No. Faktur *</label>
@@ -510,11 +513,67 @@
     </div>
 </div>
 
+<!-- MODAL SCAN FAKTUR AI -->
+<div class="modal-overlay" id="scanModal" style="display:none;position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:1100;justify-content:center;align-items:center;padding:20px;">
+    <div style="background:white;border-radius:18px;padding:24px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <h3 style="font-size:16px;color:#0f1e2e;"><i class="fas fa-camera" style="color:#2d6a9f;"></i> Scan Faktur AI</h3>
+            <button onclick="closeScanModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+
+        <div id="scanStepUpload">
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Foto atau upload gambar faktur pembelian - AI akan coba baca datanya. <strong>Selalu cek ulang hasilnya</strong> sebelum disimpan, karena AI bisa salah baca (tulisan tangan, foto buram, dsb).</p>
+            <input type="file" id="scanFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleScanFileSelected(event)">
+            <div onclick="document.getElementById('scanFileInput').click()" style="border:2px dashed #cbd5e1;border-radius:12px;padding:32px;text-align:center;cursor:pointer;color:#7a8a9e;">
+                <i class="fas fa-camera" style="font-size:32px;margin-bottom:10px;display:block;color:#2d6a9f;"></i>
+                Klik untuk ambil foto / pilih gambar faktur
+            </div>
+            <img id="scanPreviewImg" style="display:none;width:100%;border-radius:10px;margin-top:14px;max-height:240px;object-fit:contain;background:#f0f2f7;">
+        </div>
+
+        <div id="scanStepLoading" style="display:none;text-align:center;padding:30px 0;">
+            <i class="fas fa-spinner fa-spin" style="font-size:28px;color:#2d6a9f;margin-bottom:12px;display:block;"></i>
+            <p style="font-size:13px;color:#7a8a9e;">AI sedang membaca faktur, mohon tunggu...</p>
+        </div>
+
+        <div id="scanStepReview" style="display:none;">
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:10px;"><i class="fas fa-triangle-exclamation" style="color:#b8860b;"></i> Cek dulu hasil bacaan AI di bawah, betulkan kalau ada yang salah, baru klik Terapkan.</p>
+            <div class="form-grid-3" style="margin-bottom:10px;">
+                <div class="form-group">
+                    <label>No. Faktur</label>
+                    <input type="text" id="scanNoFaktur">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Faktur</label>
+                    <input type="date" id="scanTanggal">
+                </div>
+                <div class="form-group">
+                    <label>No. Faktur Pajak</label>
+                    <input type="text" id="scanNoFakturPajak">
+                </div>
+            </div>
+            <div style="font-size:12px;color:#7a8a9e;margin-bottom:8px;">PBF terbaca: <strong id="scanNamaPbf">-</strong> (pilih manual di Supplier kalau tidak otomatis cocok)</div>
+            <div id="scanItemsList" style="max-height:280px;overflow-y:auto;border:1px solid #eef2f7;border-radius:10px;"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button class="btn btn-outline" onclick="backToScanUpload()" style="flex:1;"><i class="fas fa-rotate-left"></i> Ulangi</button>
+                <button class="btn btn-success" onclick="applyScanResults()" style="flex:2;"><i class="fas fa-check"></i> Terapkan ke Form</button>
+            </div>
+        </div>
+
+        <div id="scanStepError" style="display:none;text-align:center;padding:20px 0;">
+            <i class="fas fa-circle-exclamation" style="font-size:28px;color:#dc3545;margin-bottom:10px;display:block;"></i>
+            <p style="font-size:13px;color:#dc3545;margin-bottom:14px;" id="scanErrorText"></p>
+            <button class="btn btn-outline" onclick="backToScanUpload()">Coba Lagi</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
     import { supabase } from './supabase.js';
     import { getObat, getSupplier, savePembelian } from './database.js';
+    import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Pembelian');
     import { enforcePermissions } from './permissions.js';
@@ -943,6 +1002,173 @@
             hitungTotal();
             showToast('🗑️ Semua item dihapus');
         }
+    };
+
+    // ============================================================
+    // SCAN FAKTUR AI
+    // ============================================================
+    let scanExtractedData = null;
+
+    window.openScanModal = function() {
+        document.getElementById('scanModal').style.display = 'flex';
+        backToScanUpload();
+    };
+    window.closeScanModal = function() {
+        document.getElementById('scanModal').style.display = 'none';
+    };
+    window.backToScanUpload = function() {
+        document.getElementById('scanStepUpload').style.display = 'block';
+        document.getElementById('scanStepLoading').style.display = 'none';
+        document.getElementById('scanStepReview').style.display = 'none';
+        document.getElementById('scanStepError').style.display = 'none';
+        document.getElementById('scanFileInput').value = '';
+        document.getElementById('scanPreviewImg').style.display = 'none';
+    };
+
+    window.handleScanFileSelected = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const dataUrl = e.target.result;
+            document.getElementById('scanPreviewImg').src = dataUrl;
+            document.getElementById('scanPreviewImg').style.display = 'block';
+
+            document.getElementById('scanStepUpload').style.display = 'none';
+            document.getElementById('scanStepLoading').style.display = 'block';
+
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const res = await fetch('/api/scan-invoice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session?.access_token || ''}`
+                    },
+                    body: JSON.stringify({ image_base64: dataUrl })
+                });
+                const result = await res.json();
+                if (!res.ok || result.error) {
+                    throw new Error(result.error || 'Gagal membaca faktur.');
+                }
+                scanExtractedData = result.data;
+                showScanReview(scanExtractedData);
+            } catch (err) {
+                document.getElementById('scanStepLoading').style.display = 'none';
+                document.getElementById('scanStepError').style.display = 'block';
+                document.getElementById('scanErrorText').textContent = err.message || 'Terjadi kesalahan saat membaca faktur.';
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function showScanReview(data) {
+        document.getElementById('scanStepLoading').style.display = 'none';
+        document.getElementById('scanStepReview').style.display = 'block';
+
+        document.getElementById('scanNoFaktur').value = data.no_faktur || '';
+        document.getElementById('scanTanggal').value = data.tanggal_faktur || '';
+        document.getElementById('scanNoFakturPajak').value = data.no_faktur_pajak || '';
+        document.getElementById('scanNamaPbf').textContent = data.nama_pbf || '(tidak terbaca)';
+
+        const listEl = document.getElementById('scanItemsList');
+        const scanItems = data.items || [];
+        if (scanItems.length === 0) {
+            listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#7a8a9e;font-size:13px;">Tidak ada item yang berhasil terbaca dari gambar ini.</div>';
+            return;
+        }
+        listEl.innerHTML = scanItems.map((item, i) => `
+            <div style="display:grid;grid-template-columns:2fr 70px 90px 90px;gap:6px;padding:8px 10px;border-bottom:1px solid #eef2f7;align-items:center;">
+                <input type="text" class="scan-item-nama" data-i="${i}" value="${(item.nama_obat || '').replace(/"/g,'&quot;')}" style="padding:5px 8px;border:1px solid #e8edf3;border-radius:6px;font-size:12px;">
+                <input type="number" class="scan-item-jml" data-i="${i}" value="${item.jumlah || 0}" style="padding:5px 6px;border:1px solid #e8edf3;border-radius:6px;font-size:12px;">
+                <input type="text" class="scan-item-satuan" data-i="${i}" value="${(item.satuan || '').replace(/"/g,'&quot;')}" style="padding:5px 6px;border:1px solid #e8edf3;border-radius:6px;font-size:12px;">
+                <input type="number" class="scan-item-harga" data-i="${i}" value="${item.harga_satuan || 0}" style="padding:5px 6px;border:1px solid #e8edf3;border-radius:6px;font-size:12px;">
+            </div>
+        `).join('');
+        listEl.innerHTML = `
+            <div style="display:grid;grid-template-columns:2fr 70px 90px 90px;gap:6px;padding:6px 10px;background:#f8fafc;font-size:10px;font-weight:700;color:#7a8a9e;text-transform:uppercase;">
+                <div>Nama Obat</div><div>Jml</div><div>Satuan</div><div>Harga/Unit</div>
+            </div>
+        ` + listEl.innerHTML;
+    }
+
+    window.applyScanResults = function() {
+        if (!scanExtractedData) return;
+
+        if (document.getElementById('scanNoFaktur').value) {
+            document.getElementById('noFaktur').value = document.getElementById('scanNoFaktur').value;
+        }
+        if (document.getElementById('scanTanggal').value) {
+            document.getElementById('tanggalFaktur').value = document.getElementById('scanTanggal').value;
+        }
+        if (document.getElementById('scanNoFakturPajak').value) {
+            document.getElementById('noFakturPajak').value = document.getElementById('scanNoFakturPajak').value;
+        }
+        const namaPbfScan = document.getElementById('scanNamaPbf').textContent;
+        if (namaPbfScan && namaPbfScan !== '(tidak terbaca)') {
+            const supplierSelect = document.getElementById('supplierId');
+            let bestSupplier = null, bestScore = 0;
+            Array.from(supplierSelect.options).forEach(opt => {
+                if (!opt.value) return;
+                const score = matchScore(namaPbfScan, opt.textContent);
+                if (score > bestScore) { bestScore = score; bestSupplier = opt; }
+            });
+            if (bestSupplier && bestScore >= 40) {
+                supplierSelect.value = bestSupplier.value;
+            }
+        }
+
+        const namaInputs = document.querySelectorAll('.scan-item-nama');
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        let jumlahDitambahkan = 0;
+
+        namaInputs.forEach(input => {
+            const i = input.dataset.i;
+            const namaObat = input.value.trim();
+            if (!namaObat) return;
+            const jumlah = Number(document.querySelector(`.scan-item-jml[data-i="${i}"]`).value) || 0;
+            const satuan = document.querySelector(`.scan-item-satuan[data-i="${i}"]`).value.trim() || 'Tablet';
+            const hargaBeli = Number(document.querySelector(`.scan-item-harga[data-i="${i}"]`).value) || 0;
+            if (jumlah <= 0) return;
+
+            let bestMatch = null, bestScore = 0;
+            obatMaster.forEach(o => {
+                const score = matchScore(namaObat, o.nama_obat);
+                if (score > bestScore) { bestScore = score; bestMatch = o; }
+            });
+            const matched = bestScore >= 55 ? bestMatch : null;
+
+            const defaultMargin = 25;
+            const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
+            const hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
+
+            items.push({
+                id: ++itemCounter,
+                obat_id: matched ? matched.id : null,
+                kode_obat: matched ? matched.kode_obat : '',
+                nama_obat: matched ? matched.nama_obat : namaObat,
+                satuan: satuan,
+                jumlah: jumlah,
+                harga_beli: hargaBeli,
+                subtotal: jumlah * hargaBeli,
+                diskon_persen: 0,
+                diskon_nominal: 0,
+                hpp: Math.round(hppPerItem),
+                margin_persen: defaultMargin,
+                harga_jual: hargaJualDefault,
+                diskon_jual_persen: 0,
+                tanggal_exp: '',
+                no_batch: '',
+                ketentuan_retur: ''
+            });
+            jumlahDitambahkan++;
+        });
+
+        renderItems();
+        hitungTotal();
+        closeScanModal();
+        showToast(`✅ ${jumlahDitambahkan} item dari faktur berhasil ditambahkan - cek lagi kode obat & harga sebelum simpan!`);
     };
     
     // HITUNG TOTAL
