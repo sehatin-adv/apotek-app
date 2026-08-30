@@ -525,3 +525,32 @@ CREATE POLICY "Users can read own tenant payments" ON subscription_payments
 -- ============================================================
 -- SELESAI (Integrasi iPaymu)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 14) PERBAIKAN: app_users & user_permissions HARUS tetap bisa dibaca
+--     PEMILIKNYA SENDIRI walau tenant-nya lagi Suspended/expired.
+-- ------------------------------------------------------------
+-- Sebelumnya app_users & user_permissions ikut policy "Tenant isolation"
+-- yg pakai get_my_tenant_id() (versi ketat, ngecek subscription_expires_at
+-- & status). Efeknya: begitu tenant expired, user bahkan tidak bisa baca
+-- app_users MILIK SENDIRI - permissions.js jadi salah kesimpulan "akun
+-- tidak terhubung tenant" (padahal terhubung, cuma lagi terkunci), dan
+-- fitur "lihat kenapa saya terkunci & cara perpanjang" ikut rusak.
+--
+-- Perbaikannya: app_users & user_permissions pakai get_my_tenant_id_raw()
+-- (versi yg TIDAK cek subscription/status) - supaya user tetap bisa lihat
+-- info akun & role-nya sendiri kapan pun, walau tenant-nya terkunci.
+-- Data BISNIS (obat, penjualan, dst) TETAP terkunci normal seperti biasa
+-- lewat get_my_tenant_id() versi ketat di tabel-tabel lain - ini HANYA
+-- utk 2 tabel identitas/akses ini.
+DROP POLICY IF EXISTS "Tenant isolation" ON app_users;
+CREATE POLICY "Tenant isolation" ON app_users
+    FOR ALL USING (tenant_id = get_my_tenant_id_raw()) WITH CHECK (tenant_id = get_my_tenant_id_raw());
+
+DROP POLICY IF EXISTS "Tenant isolation" ON user_permissions;
+CREATE POLICY "Tenant isolation" ON user_permissions
+    FOR ALL USING (tenant_id = get_my_tenant_id_raw()) WITH CHECK (tenant_id = get_my_tenant_id_raw());
+
+-- ============================================================
+-- SELESAI (Perbaikan Akses app_users saat Tenant Terkunci)
+-- ============================================================
