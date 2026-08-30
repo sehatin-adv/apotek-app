@@ -1005,9 +1005,16 @@ export async function getPembelian() {
 
 export async function savePembelian(header, details) {
     try {
+        // PENTING: "header" yang dikirim dari halaman Pembelian masih
+        // menyertakan field "items" (dipakai ulang di parameter kedua
+        // fungsi ini) - itu HARUS dibuang dulu sebelum insert ke tabel
+        // pembelian_header, karena tabel itu tidak punya kolom "items"
+        // (detailnya masuk ke pembelian_detail terpisah). Ini persis
+        // bug yang sama seperti kasus retur_penjualan sebelumnya.
+        const { items: _itemsIgnored, ...headerClean } = header;
         const { data: headerData, error: headerError } = await supabase
             .from('pembelian_header')
-            .insert(header)
+            .insert(headerClean)
             .select();
         if (headerError) throw headerError;
 
