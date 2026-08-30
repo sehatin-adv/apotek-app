@@ -47,11 +47,13 @@ export async function onRequestPost(context) {
         } catch (e2) { /* biarkan payload kosong */ }
     }
 
-    // Coba beberapa kemungkinan nama field (dokumentasi publik iPaymu
-    // tidak selalu konsisten soal nama field notifikasi ini persis apa)
-    const referenceId = payload.referenceId || payload.reference_id || payload.reference || payload.trx_id_merchant || null;
-    const statusRaw = payload.status ?? payload.Status ?? payload.status_code ?? payload.transaction_status ?? null;
-    const trxId = payload.trx_id || payload.trxId || payload.transactionId || payload.TrxId || null;
+    // Coba beberapa kemungkinan nama field. iPaymu konsisten pakai
+    // PascalCase di respons Direct API (Status, TransactionId,
+    // ReferenceId) - diprioritaskan duluan, dengan fallback ke variasi
+    // lain jaga-jaga kalau notifikasi webhook beda format dari respons API.
+    const referenceId = payload.ReferenceId || payload.referenceId || payload.reference_id || payload.reference || payload.trx_id_merchant || null;
+    const statusRaw = payload.Status ?? payload.status ?? payload.status_code ?? payload.transaction_status ?? null;
+    const trxId = payload.TransactionId || payload.trx_id || payload.trxId || payload.transactionId || payload.TrxId || null;
 
     // Simpan payload mentah dulu apapun hasilnya, buat debugging/verifikasi manual
     if (referenceId) {

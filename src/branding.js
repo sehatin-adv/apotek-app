@@ -180,13 +180,21 @@ async function createDynamicQris() {
         });
         if (!res.ok) return null;
         const result = await res.json();
-        const ipaymuData = result?.data?.ipaymu;
-        if (!ipaymuData) return null;
-        // Nama field respons QRIS iPaymu belum 100% dipastikan - coba
-        // beberapa kemungkinan field yang lazim dipakai.
-        const d = ipaymuData.Data || ipaymuData.data || ipaymuData;
-        const qrImage = d?.QrImage || d?.qrImage || d?.QrUrl || d?.qrUrl || d?.Url || d?.url || null;
-        return qrImage || null;
+        // Format respons iPaymu (dikonfirmasi lewat uji coba nyata):
+        // { data: { ipaymu: { Status, Success, Data: { QrImage, QrString, ... } } } }
+        //
+        // CATATAN: field "QrImage" dari iPaymu TERNYATA bukan file gambar,
+        // tapi link ke HALAMAN WEB yang menampilkan QR (content-type nya
+        // text/html, dan halamannya set X-Frame-Options: SAMEORIGIN jadi
+        // tidak bisa ditanam via <img> ataupun <iframe> dari domain lain).
+        // Solusinya: pakai "QrString" (teks mentah kode QR-nya) dan
+        // generate gambar QR-nya sendiri lewat layanan gratis goqr.me -
+        // ini lebih andal krn tidak bergantung sama sekali ke cara iPaymu
+        // nge-host halaman QR-nya.
+        const d = result?.data?.ipaymu?.Data;
+        const qrString = d?.QrString || null;
+        if (!qrString) return null;
+        return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
     } catch (e) {
         console.error('Error createDynamicQris:', e);
         return null;
