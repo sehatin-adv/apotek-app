@@ -125,7 +125,7 @@
 
         .empty-state { text-align:center; color:#7a8a9e; padding:30px; }
 
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:440px; font-size:16px; line-height:1.4; }
         .toast.error { background:#dc3545; }
         .toast.warning { background:#ffc107; color:#212529; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
@@ -694,6 +694,7 @@
             tanggal_retur: tglRetur,
             jam_retur: jamRetur,
             shift_retur: shiftAktif ? shiftAktif.shift : 'Tidak Ada Shift',
+            petugas: currentUserDisplayName,
             pelanggan: selectedTransaction.pelanggan || 'Umum',
             total_retur: hitungTotalRetur(),
             items: itemsToReturn.map(item => ({
@@ -825,9 +826,27 @@
     }
 
     // ============================================================
+    // USER YANG SEDANG LOGIN
+    // ============================================================
+    let currentUserDisplayName = 'admin';
+    async function loadCurrentUserRetur() {
+        try {
+            const user = await getCurrentUser();
+            if (user) {
+                currentUserDisplayName = user.user_metadata?.full_name || user.email || 'admin';
+                document.getElementById('userBadge').textContent = user.email || currentUserDisplayName;
+                document.getElementById('usernameDisplay').textContent = currentUserDisplayName;
+            }
+        } catch(e) {
+            console.error('Error loadCurrentUserRetur:', e);
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', async function() {
+        await loadCurrentUserRetur();
         await loadData();
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('searchTglAwal').value = today;

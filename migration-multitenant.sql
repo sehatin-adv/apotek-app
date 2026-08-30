@@ -485,3 +485,43 @@ END $$;
 -- ============================================================
 -- SELESAI (Perbaikan Unique Constraint Per-Tenant)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 12) KOLOM petugas DI retur_penjualan (siapa yang memproses retur -
+--     dipakai utk sistem shift per-user)
+-- ------------------------------------------------------------
+ALTER TABLE retur_penjualan ADD COLUMN IF NOT EXISTS petugas TEXT;
+
+-- ============================================================
+-- SELESAI (Kolom Petugas Retur)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 13) INTEGRASI IPAYMU - tabel pelacakan pembayaran perpanjangan
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS subscription_payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    reference_id TEXT UNIQUE NOT NULL,
+    amount INTEGER NOT NULL,
+    days_to_extend INTEGER DEFAULT 30,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed', 'expired')),
+    ipaymu_trx_id TEXT,
+    qr_data TEXT,
+    raw_webhook_payload TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    paid_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_payments_tenant ON subscription_payments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_payments_reference ON subscription_payments(reference_id);
+
+ALTER TABLE subscription_payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can read own tenant payments" ON subscription_payments;
+CREATE POLICY "Users can read own tenant payments" ON subscription_payments
+    FOR SELECT USING (tenant_id = get_my_tenant_id_raw());
+-- Tidak ada policy INSERT/UPDATE/DELETE dari client - semua penulisan
+-- ke tabel ini lewat functions/api/ipaymu-*.js pakai service role.
+
+-- ============================================================
+-- SELESAI (Integrasi iPaymu)
+-- ============================================================

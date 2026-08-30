@@ -238,9 +238,9 @@ export async function getPenjualanByNoFaktur(noFaktur) {
 export async function savePenjualan(header, details) {
     try {
         // ============================================================
-        // 1. AMBIL SHIFT AKTIF
+        // 1. AMBIL SHIFT AKTIF (milik kasir yang sedang transaksi)
         // ============================================================
-        const { data: shiftAktif, error: shiftError } = await getShiftAktif();
+        const { data: shiftAktif, error: shiftError } = await getShiftAktif(header.kasir);
         if (shiftError) throw shiftError;
         
         if (!shiftAktif) {
@@ -385,9 +385,9 @@ export async function getReturByNoFaktur(noFaktur) {
 export async function saveRetur(returData, detailRetur) {
     try {
         // ============================================================
-        // 1. AMBIL SHIFT AKTIF
+        // 1. AMBIL SHIFT AKTIF (milik petugas yang memproses retur)
         // ============================================================
-        const { data: shiftAktif, error: shiftError } = await getShiftAktif();
+        const { data: shiftAktif, error: shiftError } = await getShiftAktif(returData.petugas);
         if (shiftError) throw shiftError;
         
         if (!shiftAktif) {
@@ -537,14 +537,21 @@ export async function getKartuStok(obatId, tglAwal, tglAkhir) {
 // ============================================================
 // SHIFT - DIPERBAIKI
 // ============================================================
-export async function getShiftAktif() {
+export async function getShiftAktif(username) {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('shift_history')
             .select('*')
             .eq('status', 'Buka')
             .order('waktu_buka', { ascending: false })
             .limit(1);
+        // Kalau username disebutkan, shift dicari KHUSUS milik user ini -
+        // supaya tiap kasir bisa punya shift sendiri-sendiri secara
+        // bersamaan (dulu semua user "berbagi" 1 shift global, jadi kalau
+        // user A sudah buka shift, user B dikira shift-nya juga sudah
+        // kebuka padahal itu punya orang lain).
+        if (username) query = query.eq('username', username);
+        const { data, error } = await query;
 
         if (error) throw error;
         
@@ -570,11 +577,14 @@ export async function getShiftAktif() {
 
 export async function bukaShift(data) {
     try {
-        // Cek apakah ada shift yang masih buka
+        // Cek apakah USER INI SENDIRI masih punya shift yang terbuka
+        // (bukan cek global) - supaya user lain tetap bisa buka shift
+        // sendiri walau ada user lain yang shift-nya masih aktif.
         const { data: existing, error: checkError } = await supabase
             .from('shift_history')
             .select('id')
             .eq('status', 'Buka')
+            .eq('username', data.user)
             .limit(1);
 
         if (checkError) throw checkError;
@@ -582,7 +592,7 @@ export async function bukaShift(data) {
         if (existing && existing.length > 0) {
             return { 
                 data: null, 
-                error: { message: 'Masih ada shift yang aktif! Tutup shift terlebih dahulu.' }
+                error: { message: 'Anda masih punya shift yang aktif! Tutup shift itu terlebih dahulu sebelum buka shift baru.' }
             };
         }
 

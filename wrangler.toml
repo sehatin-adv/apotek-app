@@ -27,3 +27,12 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # functions/api/telegram-webhook.js buat cara pakainya):
 #   npx wrangler pages secret put TELEGRAM_BOT_TOKEN
 #   npx wrangler pages secret put TELEGRAM_AUTHORIZED_USER_ID
+
+# OPSIONAL - Integrasi iPaymu (QRIS dinamis + auto-perpanjang saat
+# pelanggan bayar). VA dan API Key didapat dari dashboard iPaymu >
+# menu Integrasi. PAKAI YANG SANDBOX DULU buat uji coba:
+#   npx wrangler pages secret put IPAYMU_VA
+#   npx wrangler pages secret put IPAYMU_API_KEY
+# IPAYMU_MODE boleh var biasa (bukan secret) karena bukan rahasia -
+# isi "sandbox" (default kalau tidak diisi) atau "production":
+#   npx wrangler pages secret put IPAYMU_MODE

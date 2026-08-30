@@ -38,6 +38,11 @@
         .btn-logout { background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 16px; border-radius:8px; cursor:pointer; margin-top:8px; font-size:12px; }
         .btn-logout:hover { background:rgba(255,255,255,0.2); }
 
+        .btn { padding:9px 16px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; border:none; }
+        .btn-outline { background:white; border:2px solid #e8edf3; color:#34495e; }
+        .btn-outline:hover { background:#f0f2f7; }
+        .btn-sm { padding:6px 12px; font-size:12px; }
+
         .main-content { margin-left:250px; flex:1; padding:24px 32px; min-height:100vh; }
         .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
         .header h2 { font-size:22px; color:#0f1e2e; }
@@ -81,7 +86,19 @@
         .loading i { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
 
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:1100; font-size:13px; max-width:350px; }
+        .progress-overlay { display:none; position:fixed; inset:0; background:rgba(15,30,46,0.55); z-index:1000; justify-content:center; align-items:center; padding:20px; }
+        .progress-overlay.active { display:flex; }
+        .progress-box { background:white; border-radius:20px; padding:32px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+        .progress-box i.spin-icon { font-size:32px; color:#2d6a9f; animation: spin 1s linear infinite; margin-bottom:14px; display:inline-block; }
+        .progress-box h3 { font-size:16px; color:#0f1e2e; margin-bottom:6px; }
+        .progress-box p { font-size:13px; color:#7a8a9e; margin-bottom:18px; }
+        .progress-bar-track { width:100%; height:10px; background:#eef2f7; border-radius:10px; overflow:hidden; margin-bottom:10px; }
+        .progress-bar-fill { height:100%; background:linear-gradient(90deg,#2d6a9f,#4fc3f7); border-radius:10px; width:0%; transition:width 0.15s ease; }
+        .progress-status { font-size:12px; color:#34495e; font-weight:600; }
+        .progress-done i { color:#28a745; }
+        .progress-error i { color:#dc3545; }
+
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:1100; font-size:16px; max-width:440px; line-height:1.4; }
         .toast.error { background:#dc3545; }
 
         @media (max-width:768px) {
@@ -190,12 +207,25 @@
                 <h2><i class="fas fa-list-check"></i> Rekomendasi Pesanan</h2>
                 <p>Cocokkan obat yang menipis/habis dengan katalog PBF, bagian dari modul Forecasting</p>
             </div>
-            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="btn btn-outline btn-sm" onclick="refreshPencocokan()" title="Paksa hitung ulang, lewati cache"><i class="fas fa-rotate"></i> Refresh Pencocokan</button>
+                <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+            </div>
         </div>
 
         <div id="contentWrap">
             <div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>
         </div>
+    </div>
+</div>
+
+<div class="progress-overlay" id="progressOverlay">
+    <div class="progress-box">
+        <div id="progressIconWrap"><i class="fas fa-spinner spin-icon" id="progressIcon"></i></div>
+        <h3 id="progressTitle">Mencocokkan Obat...</h3>
+        <p id="progressSubtitle">Mohon tunggu, jangan tutup halaman ini.</p>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progressBarFill"></div></div>
+        <div class="progress-status" id="progressStatus">0 / 0</div>
     </div>
 </div>
 
@@ -241,14 +271,112 @@
         }
     }
 
+    // ============================================================
+    // PROGRESS MODAL
+    // ============================================================
+    function showProgress(title, subtitle) {
+        document.getElementById('progressTitle').textContent = title || 'Memproses...';
+        document.getElementById('progressSubtitle').textContent = subtitle || 'Mohon tunggu, jangan tutup halaman ini.';
+        document.getElementById('progressIcon').className = 'fas fa-spinner spin-icon';
+        document.getElementById('progressIcon').style.animation = '';
+        document.getElementById('progressIconWrap').className = '';
+        document.getElementById('progressBarFill').style.width = '0%';
+        document.getElementById('progressStatus').textContent = '';
+        document.getElementById('progressOverlay').classList.add('active');
+    }
+    function updateProgress(done, total, label) {
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        document.getElementById('progressBarFill').style.width = pct + '%';
+        document.getElementById('progressStatus').textContent = label || `${done} / ${total} (${pct}%)`;
+    }
+    function finishProgress(success, message, autoHideMs) {
+        document.getElementById('progressIcon').className = success ? 'fas fa-circle-check spin-icon' : 'fas fa-circle-exclamation spin-icon';
+        document.getElementById('progressIcon').style.animation = 'none';
+        document.getElementById('progressIconWrap').className = success ? 'progress-done' : 'progress-error';
+        document.getElementById('progressTitle').textContent = success ? 'Selesai!' : 'Gagal';
+        document.getElementById('progressSubtitle').textContent = message || '';
+        document.getElementById('progressBarFill').style.width = '100%';
+        if (autoHideMs !== null) {
+            setTimeout(() => {
+                document.getElementById('progressOverlay').classList.remove('active');
+                document.getElementById('progressIcon').style.animation = '';
+            }, autoHideMs || 900);
+        }
+    }
+    window.closeProgressManual = function() {
+        document.getElementById('progressOverlay').classList.remove('active');
+    };
+
+    // ============================================================
+    // CACHE HASIL PENCOCOKAN (localStorage)
+    // Supaya begitu pindah ke modul lain lalu kembali ke halaman ini,
+    // hasil pencocokan yang sudah dihitung TIDAK diproses ulang dari
+    // nol - cukup dipakai lagi kalau data obat/katalog PBF belum
+    // berubah sama sekali. Kalau ada yang berubah (stok obat berubah,
+    // katalog di-upload ulang, dst), otomatis dihitung ulang.
+    // ============================================================
+    const MATCH_CACHE_KEY = 'sehatin_forecasting_match_cache';
+    const MATCH_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 jam, jaga-jaga
+
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+        }
+        return hash.toString(36);
+    }
+
+    // "Sidik jari" data yang dipakai buat hitung kecocokan - kalau ini
+    // berubah, cache dianggap basi dan dihitung ulang otomatis.
+    function computeDataFingerprint(obatList, productList) {
+        const obatSig = obatList.map(o => `${o.id}:${o.stok}:${o.stok_minimal}`).sort().join(',');
+        const productSig = productList.map(p => `${p.id}:${p.nama}:${p.harga}`).sort().join(',');
+        return simpleHash(obatSig + '|' + productSig);
+    }
+
+    function loadMatchCache() {
+        try {
+            const raw = localStorage.getItem(MATCH_CACHE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed.savedAt || (Date.now() - parsed.savedAt) > MATCH_CACHE_MAX_AGE_MS) return null;
+            return parsed;
+        } catch(e) {
+            return null;
+        }
+    }
+
+    function saveMatchCache(fingerprint, matches) {
+        try {
+            localStorage.setItem(MATCH_CACHE_KEY, JSON.stringify({ fingerprint, matches, savedAt: Date.now() }));
+        } catch(e) {
+            console.error('Gagal simpan cache pencocokan (mungkin localStorage penuh):', e);
+        }
+    }
+
+    window.refreshPencocokan = function() {
+        try { localStorage.removeItem(MATCH_CACHE_KEY); } catch(e) {}
+        showToast('🔄 Menghitung ulang pencocokan...');
+        loadAll();
+    };
+
     async function loadAll() {
         const wrap = document.getElementById('contentWrap');
         wrap.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>';
 
-        const [obatRes, pbfRes, selRes] = await Promise.all([getObat(), getSupplierWithKatalog(), getSupplierSelections()]);
-        const obatData = obatRes.data || [];
-        const pbfs = pbfRes.data || [];
-        const selArr = selRes.data || [];
+        let obatData = [], pbfs = [], selArr = [];
+        try {
+            const [obatRes, pbfRes, selRes] = await Promise.all([getObat(), getSupplierWithKatalog(), getSupplierSelections()]);
+            if (obatRes.error) throw obatRes.error;
+            if (pbfRes.error) throw pbfRes.error;
+            obatData = obatRes.data || [];
+            pbfs = pbfRes.data || [];
+            selArr = selRes.data || [];
+        } catch(e) {
+            wrap.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>Gagal memuat data: ${(e.message || e).toString().replace(/</g,'&lt;')}</div>`;
+            showToast('❌ Gagal memuat data: ' + (e.message || e), true);
+            return;
+        }
 
         needReorder = obatData.filter(o => {
             const stok = Number(o.stok) || 0;
@@ -269,16 +397,46 @@
         selections = {};
         selArr.forEach(s => { selections[s.obat_id] = s; });
 
-        // Hitung matching sekali di awal (bukan tiap render, biar nggak berat)
+        // ============================================================
+        // Hitung kecocokan obat<->katalog PBF - TAPI cek cache dulu.
+        // Kalau data yg relevan (stok obat, isi katalog) belum berubah
+        // sejak terakhir dihitung, pakai hasil cache langsung - tidak
+        // ada proses ulang, tidak ada progress bar, instan.
+        // ============================================================
         matchesByItemId = {};
-        if (allProducts.length > 0) {
-            needReorder.forEach(item => {
-                matchesByItemId[item.id] = allProducts
-                    .map(prod => ({ ...prod, score: matchScore(item.nama_obat, prod.nama) }))
-                    .filter(p => p.score >= 25)
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 4);
-            });
+        if (allProducts.length > 0 && needReorder.length > 0) {
+            const fingerprint = computeDataFingerprint(needReorder, allProducts);
+            const cached = loadMatchCache();
+
+            if (cached && cached.fingerprint === fingerprint) {
+                matchesByItemId = cached.matches;
+            } else {
+                const totalKerja = needReorder.length * allProducts.length;
+                const perlu_progress = totalKerja > 3000; // katalog besar - tampilkan progress bar
+                if (perlu_progress) showProgress('Mencocokkan Obat...', `Mencari rekomendasi supplier untuk ${needReorder.length} obat dari ${allProducts.length} produk PBF`);
+
+                try {
+                    for (let i = 0; i < needReorder.length; i++) {
+                        const item = needReorder[i];
+                        matchesByItemId[item.id] = allProducts
+                            .map(prod => ({ ...prod, score: matchScore(item.nama_obat, prod.nama) }))
+                            .filter(p => p.score >= 25)
+                            .sort((a, b) => b.score - a.score)
+                            .slice(0, 4);
+
+                        if (perlu_progress) {
+                            updateProgress(i + 1, needReorder.length, `Mencocokkan "${item.nama_obat}" (${i + 1}/${needReorder.length})`);
+                            // Kasih jeda ke browser tiap beberapa item biar UI tetap responsif
+                            if (i % 2 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+                        }
+                    }
+                    if (perlu_progress) finishProgress(true, 'Pencocokan selesai!', 700);
+                    saveMatchCache(fingerprint, matchesByItemId);
+                } catch(e) {
+                    finishProgress(false, 'Gagal mencocokkan: ' + (e.message || e), null);
+                    showToast('❌ Gagal mencocokkan obat: ' + (e.message || e), true);
+                }
+            }
         }
 
         renderContent(obatData.length, pbfs.length);

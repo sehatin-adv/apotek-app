@@ -213,7 +213,7 @@
         .tips-box p { font-size:13px; color:#4a6274; line-height:1.5; max-width:640px; }
         .tips-box .tips-illustration { flex-shrink:0; opacity:0.9; }
 
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:440px; font-size:16px; line-height:1.4; }
         .toast.error { background:#dc3545; }
         .toast.warning { background:#ffc107; color:#212529; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
@@ -393,7 +393,7 @@
                 </div>
                 <div class="form-group">
                     <label>User</label>
-                    <input type="text" id="userKasir" value="admin" disabled>
+                    <input type="text" id="userKasir" value="" disabled>
                 </div>
             </div>
             <div class="form-grid-3 form-row">
@@ -607,7 +607,7 @@
 <div class="toast" id="toastKasir"></div>
 
 <script type="module">
-    import { supabase } from './supabase.js';
+    import { supabase, getCurrentUser } from './supabase.js';
     import { getObat, savePenjualan } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Kasir');
@@ -741,17 +741,34 @@
     // CEK SHIFT
     // ============================================================
     let shiftAktif = null;
+    let currentUserDisplayNameKasir = 'admin';
     
-    function cekShiftAktif() {
-        const savedShift = localStorage.getItem('shift_aktif');
-        if (savedShift) {
-            shiftAktif = JSON.parse(savedShift);
-            document.getElementById('shiftKasir').value = shiftAktif.shift + ' - ' + shiftAktif.tanggal;
-            return true;
-        } else {
-            document.getElementById('modalShiftRequired').classList.add('active');
-            return false;
+    async function cekShiftAktif() {
+        try {
+            const { data, error } = await getShiftAktif(currentUserDisplayNameKasir);
+            if (data) {
+                shiftAktif = data;
+                localStorage.setItem('shift_aktif', JSON.stringify(data));
+                document.getElementById('shiftKasir').value = shiftAktif.shift + ' - ' + shiftAktif.tanggal;
+                document.getElementById('modalShiftRequired').classList.remove('active');
+                return true;
+            }
+        } catch(e) {
+            console.error('Error cekShiftAktif, coba cache lokal:', e);
+            // Fallback ke cache lokal HANYA kalau memang milik user yang sedang login
+            const savedShift = localStorage.getItem('shift_aktif');
+            if (savedShift) {
+                const cached = JSON.parse(savedShift);
+                if (cached.username === currentUserDisplayNameKasir) {
+                    shiftAktif = cached;
+                    document.getElementById('shiftKasir').value = shiftAktif.shift + ' - ' + shiftAktif.tanggal;
+                    document.getElementById('modalShiftRequired').classList.remove('active');
+                    return true;
+                }
+            }
         }
+        document.getElementById('modalShiftRequired').classList.add('active');
+        return false;
     }
     
     // ============================================================
@@ -1029,7 +1046,7 @@
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
         document.getElementById('bayarSemua').checked = false;
-        document.getElementById('cashKasir').value = '50,000';
+        document.getElementById('cashKasir').value = '50.000';
         hitungKembalianKasir();
     };
     
@@ -1037,7 +1054,7 @@
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
         document.getElementById('bayarSemua').checked = false;
-        document.getElementById('cashKasir').value = '100,000';
+        document.getElementById('cashKasir').value = '100.000';
         hitungKembalianKasir();
     };
     
@@ -1045,7 +1062,7 @@
         const metode = document.getElementById('metodePembayaran').value;
         if (metode !== 'Cash') return;
         document.getElementById('bayarSemua').checked = false;
-        document.getElementById('cashKasir').value = '200,000';
+        document.getElementById('cashKasir').value = '200.000';
         hitungKembalianKasir();
     };
     
@@ -1071,7 +1088,7 @@
         // Guard anti double-submit: cegah klik ganda / double-tap membuat
         // transaksi & baris kartu stok terduplikasi.
         if (sedangMenyimpanKasir) return;
-        if (!cekShiftAktif()) return;
+        if (!(await cekShiftAktif())) return;
         
         const noFaktur = 'INV-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
         const tanggal = document.getElementById('tanggalKasir').value || new Date().toISOString().split('T')[0];
@@ -1181,7 +1198,7 @@
                 cetakStrukKasir({ ...header, items: details });
             }, 500);
             
-            resetKasir();
+            resetKasir(true);
         } finally {
             sedangMenyimpanKasir = false;
             if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.style.opacity = ''; btnSimpan.style.cursor = ''; }
@@ -1299,7 +1316,7 @@
     // ============================================================
     // RESET KASIR
     // ============================================================
-    window.resetKasir = function() {
+    window.resetKasir = function(silent) {
         document.getElementById('cashKasir').value = '';
         document.getElementById('transferKasir').value = '';
         document.getElementById('transferKeterangan').value = '';
@@ -1310,7 +1327,7 @@
         itemCounterKasir = 0;
         renderKasir();
         hitungTotalKasir();
-        showToastKasir('🔄 Kasir direset');
+        if (!silent) showToastKasir('🔄 Kasir direset');
     };
     
     // ============================================================
@@ -1330,16 +1347,35 @@
     }
     
     // ============================================================
+    // USER YANG SEDANG LOGIN
+    // ============================================================
+    async function loadCurrentUserKasir() {
+        try {
+            const user = await getCurrentUser();
+            if (user) {
+                currentUserDisplayNameKasir = user.user_metadata?.full_name || user.email || 'admin';
+                document.getElementById('userBadge').textContent = user.email || currentUserDisplayNameKasir;
+                document.getElementById('usernameDisplay').textContent = currentUserDisplayNameKasir;
+                document.getElementById('userKasir').value = currentUserDisplayNameKasir;
+            }
+        } catch(e) {
+            console.error('Error loadCurrentUserKasir:', e);
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
+        loadCurrentUserKasir().then(() => {
+            cekShiftAktif();
+        });
         loadMasterKasir();
         
         if (!document.getElementById('tanggalKasir').value) {
             document.getElementById('tanggalKasir').value = new Date().toISOString().split('T')[0];
         }
         
-        cekShiftAktif();
         toggleMetodePembayaran();
         
         document.addEventListener('click', function(e) {

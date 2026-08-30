@@ -126,17 +126,63 @@ function renderSubscriptionBanner({ isSuspended, daysLeft, expiresAt, qrisUrl, s
 function showQrisModal(qrisUrl, subscriptionPrice) {
     const hargaStr = formatRupiah(subscriptionPrice);
     const overlay = document.createElement('div');
+    overlay.id = 'qrisModalOverlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:\'Inter\',sans-serif;';
     overlay.innerHTML = `
         <div style="background:white;border-radius:16px;padding:24px;max-width:340px;width:100%;text-align:center;">
             <h3 style="margin-bottom:6px;color:#0f1e2e;font-size:16px;">Perpanjang Langganan</h3>
             ${hargaStr ? `<p style="font-size:22px;font-weight:800;color:#2d6a9f;margin-bottom:4px;">${hargaStr}<span style="font-size:12px;font-weight:500;color:#7a8a9e;"> /bulan</span></p>` : ''}
-            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Scan QRIS di bawah, transfer sesuai nominal di atas, lalu konfirmasi ke admin Sehatin+ supaya akses Anda diaktifkan kembali.</p>
-            <img src="${qrisUrl}" alt="QRIS" style="width:100%;border-radius:10px;margin-bottom:14px;border:1px solid #eef2f7;">
-            <button id="btnCloseQris" style="width:100%;padding:10px;background:#2d6a9f;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">Tutup</button>
+            <div id="qrisModalBody">
+                <p style="font-size:12px;color:#7a8a9e;margin:14px 0;"><i class="fas fa-spinner fa-spin"></i> Membuat kode QRIS...</p>
+            </div>
+            <button id="btnCloseQris" style="width:100%;padding:10px;background:#2d6a9f;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;margin-top:10px;">Tutup</button>
         </div>
     `;
     document.body.appendChild(overlay);
     document.getElementById('btnCloseQris').onclick = () => overlay.remove();
     overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    // Coba bikin QRIS DINAMIS lewat iPaymu dulu (kalau sudah terintegrasi).
+    // Kalau gagal/belum siap, otomatis pakai QRIS statis (fallback) supaya
+    // pengalaman pengguna tidak pernah benar-benar buntu.
+    createDynamicQris().then(dynamicQrImage => {
+        const body = document.getElementById('qrisModalBody');
+        if (!body) return; // modal sudah ditutup duluan
+        if (dynamicQrImage) {
+            body.innerHTML = `
+                <img src="${dynamicQrImage}" alt="QRIS" style="width:100%;border-radius:10px;margin-bottom:6px;border:1px solid #eef2f7;">
+                <p style="font-size:11px;color:#28a745;margin-bottom:8px;"><i class="fas fa-bolt"></i> Kode QRIS otomatis - status pembayaran terdeteksi sendiri</p>
+            `;
+        } else if (qrisUrl) {
+            body.innerHTML = `
+                <img src="${qrisUrl}" alt="QRIS" style="width:100%;border-radius:10px;margin-bottom:6px;border:1px solid #eef2f7;">
+                <p style="font-size:12px;color:#7a8a9e;margin-bottom:8px;">Scan QRIS di atas, transfer sesuai nominal, lalu konfirmasi ke admin Sehatin+ supaya akses Anda diaktifkan kembali.</p>
+            `;
+        } else {
+            body.innerHTML = `<p style="font-size:12px;color:#dc3545;margin:14px 0;">Gagal memuat QRIS. Hubungi admin Sehatin+ untuk perpanjangan manual.</p>`;
+        }
+    });
+}
+
+async function createDynamicQris() {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return null;
+        const res = await fetch('/api/ipaymu-create-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
+        });
+        if (!res.ok) return null;
+        const result = await res.json();
+        const ipaymuData = result?.data?.ipaymu;
+        if (!ipaymuData) return null;
+        // Nama field respons QRIS iPaymu belum 100% dipastikan - coba
+        // beberapa kemungkinan field yang lazim dipakai.
+        const d = ipaymuData.Data || ipaymuData.data || ipaymuData;
+        const qrImage = d?.QrImage || d?.qrImage || d?.QrUrl || d?.qrUrl || d?.Url || d?.url || null;
+        return qrImage || null;
+    } catch (e) {
+        console.error('Error createDynamicQris:', e);
+        return null;
+    }
 }

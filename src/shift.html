@@ -69,7 +69,7 @@
         .shift-summary .item .value.positive { color:#28a745; }
         .shift-summary .item .value.negative { color:#dc3545; }
         .shift-summary .item input { width:150px; padding:4px 8px; border:2px solid #e8edf3; border-radius:6px; font-size:13px; text-align:right; font-weight:700; }
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:12px 20px; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); font-weight:600; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:350px; font-size:13px; }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:999; animation: slideUp 0.3s ease; max-width:440px; font-size:16px; line-height:1.4; }
         .toast.error { background:#dc3545; }
         .toast.warning { background:#ffc107; color:#212529; }
         @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
@@ -181,7 +181,7 @@
     <div class="main-content">
         <div class="header">
             <h2><i class="fas fa-clock"></i> Buka / Tutup Shift</h2>
-            <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
+            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadgeShift">admin</span></div>
         </div>
 
         <div class="card" id="statusCard">
@@ -209,7 +209,7 @@
                 </div>
                 <div class="form-group">
                     <label>User Aktif</label>
-                    <input type="text" id="userAktif" value="admin" disabled>
+                    <input type="text" id="userAktif" value="" disabled>
                 </div>
                 <div class="form-group" style="display:flex;align-items:flex-end;gap:10px;">
                     <button class="btn btn-success btn-block" onclick="bukaShift()"><i class="fas fa-play"></i> Buka Shift</button>
@@ -256,7 +256,7 @@
 <div class="toast" id="toastShift"></div>
 
 <script type="module">
-    import { supabase } from './supabase.js';
+    import { supabase, getCurrentUser } from './supabase.js';
     import { getShiftAktif, bukaShift, tutupShift, getPenjualan, getAllRetur } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Buka/Tutup Shift');
@@ -352,7 +352,7 @@
     let shiftAktif = null;
 
     async function loadShiftStatus() {
-        const { data, error } = await getShiftAktif();
+        const { data, error } = await getShiftAktif(currentUserDisplayName);
         
         if (data) {
             shiftAktif = data;
@@ -591,10 +591,30 @@
     };
 
     // ============================================================
+    // USER YANG SEDANG LOGIN
+    // ============================================================
+    let currentUserDisplayName = 'admin';
+    async function loadCurrentUserShift() {
+        try {
+            const user = await getCurrentUser();
+            if (user) {
+                currentUserDisplayName = user.user_metadata?.full_name || user.email || 'admin';
+                document.getElementById('userBadgeShift').textContent = user.email || currentUserDisplayName;
+                document.getElementById('userName').textContent = currentUserDisplayName;
+                document.getElementById('userAktif').value = currentUserDisplayName;
+            }
+        } catch(e) {
+            console.error('Error loadCurrentUserShift:', e);
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
-        loadShiftStatus();
+        loadCurrentUserShift().then(() => {
+            loadShiftStatus();
+        });
     });
 </script>
 </body>
