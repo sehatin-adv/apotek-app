@@ -562,7 +562,7 @@
 
         <div id="scanStepError" style="display:none;text-align:center;padding:20px 0;">
             <i class="fas fa-circle-exclamation" style="font-size:28px;color:#dc3545;margin-bottom:10px;display:block;"></i>
-            <p style="font-size:13px;color:#dc3545;margin-bottom:14px;" id="scanErrorText"></p>
+            <p style="font-size:12px;color:#dc3545;margin-bottom:14px;white-space:pre-wrap;text-align:left;max-height:200px;overflow-y:auto;" id="scanErrorText"></p>
             <button class="btn btn-outline" onclick="backToScanUpload()">Coba Lagi</button>
         </div>
     </div>
@@ -1050,7 +1050,8 @@
                 });
                 const result = await res.json();
                 if (!res.ok || result.error) {
-                    throw new Error(result.error || 'Gagal membaca faktur.');
+                    const detailStr = result.detail ? ('\n\nDetail: ' + (typeof result.detail === 'string' ? result.detail : JSON.stringify(result.detail))) : '';
+                    throw new Error((result.error || 'Gagal membaca faktur.') + detailStr);
                 }
                 scanExtractedData = result.data;
                 showScanReview(scanExtractedData);
