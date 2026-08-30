@@ -568,6 +568,18 @@
     </div>
 </div>
 
+<!-- MODAL COCOKKAN KE MASTER OBAT -->
+<div class="modal-overlay" id="cocokkanMasterModal" style="display:none;position:fixed;inset:0;background:rgba(15,30,46,0.6);z-index:1200;justify-content:center;align-items:center;padding:20px;">
+    <div style="background:white;border-radius:16px;padding:22px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <h3 style="font-size:15px;color:#0f1e2e;"><i class="fas fa-link" style="color:#2d6a9f;"></i> Cocokkan ke Master Obat</h3>
+            <button onclick="closeCocokkanMaster()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <input type="text" id="cocokkanSearchInput" placeholder="Cari nama obat..." oninput="renderCocokkanList()" style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;margin-bottom:10px;">
+        <div id="cocokkanResultsList" style="max-height:320px;overflow-y:auto;"></div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -848,15 +860,29 @@
                 </td>
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="nama_obat" value="${item.nama_obat || ''}" style="min-width:120px;">
+                    ${(item._fromScan && !item.obat_id) ? `<button type="button" onclick="openCocokkanMaster(${index})" style="display:block;margin-top:3px;font-size:10px;color:#2d6a9f;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;"><i class="fas fa-link"></i> Cocokkan Master</button>` : ''}
                 </td>
                 <td>
                     <input type="number" class="editable" data-index="${index}" data-field="jumlah" value="${item.jumlah}" min="0" step="any">
+                    ${item.satuan_asli ? `<div style="font-size:9px;color:#7a8a9e;margin-top:2px;">dari ${item.jumlah_asli} ${item.satuan_asli}</div>` : ''}
                 </td>
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="satuan" value="${item.satuan || 'Tablet'}" style="width:70px;">
+                    ${item._fromScan ? `
+                        <button type="button" onclick="toggleKonversiSatuan(${index})" style="display:block;margin-top:3px;font-size:10px;color:#2d6a9f;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;"><i class="fas fa-arrows-rotate"></i> Konversi</button>
+                        ${item._showKonversi ? `
+                            <div style="margin-top:4px;display:flex;align-items:center;gap:3px;flex-wrap:wrap;">
+                                <span style="font-size:10px;">=</span>
+                                <input type="number" id="konversiQty_${index}" value="${item.konversi_qty || ''}" placeholder="qty" style="width:42px;padding:2px 4px;font-size:10px;border:1px solid #e8edf3;border-radius:4px;">
+                                <span style="font-size:10px;">${item.satuan_kecil_master || 'Tablet'}</span>
+                                <button type="button" onclick="terapkanKonversi(${index})" style="font-size:9px;background:#2d6a9f;color:white;border:none;border-radius:3px;padding:2px 6px;cursor:pointer;">OK</button>
+                            </div>
+                        ` : ''}
+                    ` : ''}
                 </td>
                 <td>
                     <input type="number" class="editable" data-index="${index}" data-field="harga_beli" value="${item.harga_beli}" min="0" step="any">
+                    ${item.satuan_asli ? `<div style="font-size:9px;color:#7a8a9e;margin-top:2px;">${formatRupiah(item.harga_beli_asli)}/${item.satuan_asli}</div>` : ''}
                 </td>
                 <td>
                     <input type="text" value="${formatRupiah(item.subtotal)}" disabled style="background:#f0f2f7;font-weight:700;color:#2d6a9f;width:90px;text-align:right;">
@@ -1002,6 +1028,105 @@
             hitungTotal();
             showToast('🗑️ Semua item dihapus');
         }
+    };
+
+    // ============================================================
+    // COCOKKAN KE MASTER OBAT (khusus item hasil Scan Faktur AI yang
+    // belum ketemu padanannya - nama di faktur PBF sering beda format
+    // dari nama di Master Obat kita)
+    // ============================================================
+    let cocokkanTargetIndex = null;
+
+    window.openCocokkanMaster = function(index) {
+        cocokkanTargetIndex = index;
+        document.getElementById('cocokkanSearchInput').value = items[index].nama_obat || '';
+        document.getElementById('cocokkanMasterModal').style.display = 'flex';
+        renderCocokkanList();
+    };
+    window.closeCocokkanMaster = function() {
+        document.getElementById('cocokkanMasterModal').style.display = 'none';
+        cocokkanTargetIndex = null;
+    };
+    window.renderCocokkanList = function() {
+        if (cocokkanTargetIndex === null) return;
+        const query = document.getElementById('cocokkanSearchInput').value.trim();
+        const ranked = obatMaster
+            .map(o => ({ o, score: matchScore(query || items[cocokkanTargetIndex].nama_obat, o.nama_obat) }))
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 25);
+        const listEl = document.getElementById('cocokkanResultsList');
+        if (ranked.length === 0) {
+            listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#7a8a9e;font-size:12px;">Tidak ada hasil.</div>';
+            return;
+        }
+        listEl.innerHTML = ranked.map(r => `
+            <div onclick="pilihCocokkanMaster('${r.o.id}')" style="padding:10px 12px;border-bottom:1px solid #eef2f7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                <div>
+                    <div style="font-size:13px;font-weight:600;color:#0f1e2e;">${r.o.nama_obat}</div>
+                    <div style="font-size:11px;color:#7a8a9e;">${r.o.kode_obat || '-'} · ${r.o.satuan || ''}</div>
+                </div>
+                <span style="font-size:10px;font-weight:700;white-space:nowrap;color:${r.score >= 70 ? '#28a745' : r.score >= 40 ? '#b8860b' : '#dc3545'};">${r.score}%</span>
+            </div>
+        `).join('');
+    };
+    window.pilihCocokkanMaster = function(obatId) {
+        if (cocokkanTargetIndex === null) return;
+        const matched = obatMaster.find(o => String(o.id) === String(obatId));
+        if (!matched) return;
+        items[cocokkanTargetIndex].obat_id = matched.id;
+        items[cocokkanTargetIndex].kode_obat = matched.kode_obat;
+        renderItems();
+        hitungTotal();
+        closeCocokkanMaster();
+        showToast('✅ Item dicocokkan ke "' + matched.nama_obat + '"');
+    };
+
+    // ============================================================
+    // KONVERSI SATUAN (khusus item hasil Scan Faktur AI - faktur PBF
+    // sering pakai satuan besar/kemasan seperti BOX, sementara Master
+    // Obat pakai satuan terkecil seperti Tablet - fitur ini
+    // mengonversi harga & jumlah, sambil tetap menyimpan data aslinya)
+    // ============================================================
+    window.toggleKonversiSatuan = function(index) {
+        const item = items[index];
+        item._showKonversi = !item._showKonversi;
+        // Coba tebak satuan terkecil dari Master Obat kalau item ini
+        // sudah tercocokkan (baik otomatis maupun lewat Cocokkan Master)
+        if (item.obat_id) {
+            const matched = obatMaster.find(o => o.id === item.obat_id);
+            if (matched) item.satuan_kecil_master = matched.satuan || 'Tablet';
+        }
+        renderItems();
+    };
+    window.terapkanKonversi = function(index) {
+        const qtyInput = document.getElementById('konversiQty_' + index);
+        const konversiQty = Number(qtyInput.value) || 0;
+        if (konversiQty <= 0) {
+            showToast('⚠️ Isi dulu jumlah konversinya (harus lebih dari 0)', true);
+            return;
+        }
+        const item = items[index];
+        const satuanKecil = item.satuan_kecil_master || 'Tablet';
+
+        // Simpan data ASLI cuma sekali (kalau user konversi ulang, yang
+        // jadi acuan tetap data sebelum konversi pertama kali, bukan
+        // hasil konversi sebelumnya - supaya tidak salah hitung berlapis)
+        if (!item.satuan_asli) {
+            item.satuan_asli = item.satuan;
+            item.harga_beli_asli = item.harga_beli;
+            item.jumlah_asli = item.jumlah;
+        }
+
+        item.konversi_qty = konversiQty;
+        item.jumlah = Math.round(item.jumlah_asli * konversiQty * 100) / 100;
+        item.harga_beli = Math.round(item.harga_beli_asli / konversiQty);
+        item.satuan = satuanKecil;
+        item._showKonversi = false;
+
+        recalculateItem(index);
+        renderItems();
+        hitungTotal();
+        showToast(`✅ Dikonversi: ${item.jumlah_asli} ${item.satuan_asli} = ${item.jumlah} ${satuanKecil}`);
     };
 
     // ============================================================
@@ -1186,6 +1311,7 @@
                     margin_persen: defaultMargin,
                     harga_jual: hargaJualDefault,
                     diskon_jual_persen: 0,
+                    _fromScan: true,
                     tanggal_exp: tanggalEd,
                     no_batch: noBatch,
                     ketentuan_retur: ''
@@ -1310,7 +1436,14 @@
             ppn: totalPPN,
             ppn_persen: Number(document.getElementById('ppnPercent').value) || 11,
             total: totalPembelian,
-            items: JSON.parse(JSON.stringify(items)),
+            // PENTING: item di memori (array `items`) bisa punya field
+            // TAMBAHAN yang cuma dipakai buat kebutuhan tampilan/UI (mis.
+            // _fromScan, data konversi satuan) - itu HARUS dibuang dulu
+            // sebelum dikirim ke tabel pembelian_detail, karena tabel itu
+            // tidak punya kolom-kolom tsb (kalau tidak dibuang, insert-nya
+            // akan gagal - persis seperti bug kolom "items" di Retur
+            // Penjualan yang sudah pernah diperbaiki).
+            items: items.map(({ _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => clean),
             keterangan: ''
         };
         

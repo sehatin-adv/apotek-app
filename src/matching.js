@@ -69,7 +69,14 @@ export function matchScore(namaApotek, namaPbf) {
         dosageFactor = dA.some(d => dB.includes(d)) ? 1.25 : 0.35;
     }
 
-    const cSim = charSim(normalize(namaApotek), normalize(namaPbf));
+    // PENTING: kemiripan huruf (charSim) dihitung dari kata-kata yang
+    // SUDAH dibuang satuannya (tokens), bukan dari string mentah -
+    // sebelumnya ini masih pakai normalize() mentah yang MASIH
+    // menyertakan kata satuan (Box, Tube, Tablet, dst), jadi 2 obat
+    // yang sama tapi beda satuan pembelian (mis. beli per BOX vs
+    // master per TABLET) bisa dapat skor lebih rendah dari
+    // seharusnya, padahal obatnya sama persis.
+    const cSim = charSim(tA.join(' '), tB.join(' '));
     const score = (jaccard * 0.6 + cSim * 0.4) * dosageFactor;
     return Math.round(Math.max(0, Math.min(1, score)) * 100);
 }
