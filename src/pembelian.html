@@ -1523,7 +1523,14 @@
             // tidak punya kolom-kolom tsb (kalau tidak dibuang, insert-nya
             // akan gagal - persis seperti bug kolom "items" di Retur
             // Penjualan yang sudah pernah diperbaiki).
-            items: items.map(({ _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => clean),
+            // PENTING: "id" pada tiap item itu cuma penomoran sederhana
+            // (1, 2, 3...) buat kebutuhan tampilan di layar (dari
+            // itemCounter) - BUKAN id sungguhan dari database. Kalau ikut
+            // terkirim, dia "menimpa" kolom id asli di pembelian_detail
+            // (yang seharusnya UUID otomatis), bikin Postgres menolak
+            // dengan error "invalid input syntax for type uuid". Field ini
+            // WAJIB dibuang juga, sama seperti field UI-only lainnya.
+            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => clean),
             keterangan: ''
         };
         
