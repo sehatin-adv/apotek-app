@@ -34,7 +34,9 @@ Baca gambar ini dan keluarkan HANYA JSON (tanpa markdown, tanpa penjelasan tamba
       "jumlah": angka jumlah/quantity (number, bukan string),
       "satuan": "satuan seperti Tablet/Botol/Strip/Box/dsb, tebak yang wajar kalau tidak jelas",
       "harga_satuan": harga per satuan dalam Rupiah (number, bukan string, tanpa titik/koma pemisah),
-      "diskon_persen": angka diskon persen jika tertera per item, 0 jika tidak ada
+      "diskon_persen": angka diskon persen jika tertera per item, 0 jika tidak ada,
+      "no_batch": "nomor batch/lot produk jika tertera di faktur, string kosong jika tidak ada",
+      "tanggal_exp": "tanggal kedaluwarsa (ED/expired date) produk dalam format YYYY-MM-DD jika tertera di faktur, string kosong jika tidak ada"
     }
   ]
 }
@@ -43,6 +45,7 @@ ATURAN PENTING:
 - Kalau ada field yang benar-benar tidak terbaca/tidak ada di gambar, isi dengan string kosong "" (untuk teks) atau 0 (untuk angka) - JANGAN mengarang isi.
 - Untuk "items", baca SEMUA baris item di faktur, jangan lewatkan satupun.
 - harga_satuan dan jumlah HARUS berupa angka murni (number JSON), bukan string berformat seperti "15.000".
+- no_batch dan tanggal_exp sering ada di kolom terpisah di faktur (kadang disingkat "No. Batch", "Batch/Lot", "ED", "Exp", "Kadaluwarsa") - baca dengan teliti kalau ada.
 - Kalau gambar bukan faktur/nota sama sekali, atau benar-benar tidak bisa dibaca, kembalikan items sebagai array kosong [].`;
 
 export async function onRequestPost(context) {
