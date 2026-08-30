@@ -425,8 +425,15 @@ export async function saveRetur(returData, detailRetur) {
         // ============================================================
         // 3. INSERT RETUR DENGAN SHIFT_ID
         // ============================================================
+        // PENTING: returData berisi field "items" (array detail retur,
+        // dikirim dari halaman utk dipakai lagi di langkah 4 di bawah) -
+        // itu HARUS dibuang dulu sebelum insert ke tabel retur_penjualan,
+        // karena tabel HEADER ini tidak punya kolom "items" (detailnya
+        // masuk ke tabel retur_detail terpisah). Kalau tidak dibuang,
+        // Postgres menolak insert dengan error "column items not found".
+        const { items: _itemsIgnored, ...returHeaderData } = returData;
         const returWithShift = {
-            ...returData,
+            ...returHeaderData,
             shift_id: shiftAktif.id,
             shift_asal: transaksi.shift,
             tanggal_asal: transaksi.tanggal,
