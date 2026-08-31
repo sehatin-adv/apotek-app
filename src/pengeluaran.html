@@ -375,12 +375,25 @@
         return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : t;
     }
 
+    // Format tanggal LOKAL jadi YYYY-MM-DD - JANGAN pakai .toISOString()
+    // di sini, karena itu mengonversi ke UTC dulu. Untuk zona waktu yang
+    // lebih maju dari UTC (seperti Indonesia), itu bikin tanggalnya
+    // "mundur satu hari" (mis. 1 Agustus jadi tertulis 31 Juli) - itulah
+    // penyebab bug filter tanggal default sebelumnya meleset & sampai
+    // "kehilangan" hari terakhir bulan berjalan.
+    function formatDateLocal(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
     function defaultPeriode() {
         const now = new Date();
         const first = new Date(now.getFullYear(), now.getMonth(), 1);
         const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        document.getElementById('filterAwal').value = first.toISOString().split('T')[0];
-        document.getElementById('filterAkhir').value = last.toISOString().split('T')[0];
+        document.getElementById('filterAwal').value = formatDateLocal(first);
+        document.getElementById('filterAkhir').value = formatDateLocal(last);
     }
 
     window.resetFilter = function() {

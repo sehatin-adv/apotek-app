@@ -1190,50 +1190,57 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         if (penjualanIds.length > 0) {
             const { data: detail, error: err3 } = await supabase
                 .from('penjualan_detail')
-                .select('obat_id, jumlah')
+                .select('obat_id, kode_obat, jumlah')
                 .in('penjualan_id', penjualanIds);
             if (err3) throw err3;
 
             if (detail && detail.length > 0) {
-                const obatIds = [...new Set(detail.map(d => d.obat_id).filter(Boolean))];
+                // PENTING: kunci pencocokan pakai kode_obat (teks), BUKAN
+                // obat_id - sebelumnya pakai obat_id dan ternyata di
+                // sebagian data lama obat_id bisa kosong/tidak konsisten
+                // antar tabel (penjualan_detail vs retur_detail vs
+                // pembelian_detail), jadi pengurangan HPP saat retur
+                // kadang gagal cocok dan HPP tidak ikut berkurang. kode_obat
+                // jauh lebih konsisten terisi di semua tabel.
+                const kodeObatList = [...new Set(detail.map(d => d.kode_obat).filter(Boolean))];
 
                 // Rata-rata tertimbang (weighted average) harga beli per obat
                 // dari SELURUH histori pembelian obat tsb ke distributor.
                 const { data: pembelianDetail, error: err4 } = await supabase
                     .from('pembelian_detail')
-                    .select('obat_id, jumlah, harga_beli')
-                    .in('obat_id', obatIds);
+                    .select('kode_obat, jumlah, harga_beli')
+                    .in('kode_obat', kodeObatList);
                 if (err4) throw err4;
 
-                const costMap = {}; // obat_id -> { qty, cost }
+                const costMap = {}; // kode_obat -> { qty, cost }
                 (pembelianDetail || []).forEach(pb => {
-                    if (!pb.obat_id) return;
-                    if (!costMap[pb.obat_id]) costMap[pb.obat_id] = { qty: 0, cost: 0 };
-                    costMap[pb.obat_id].qty += Number(pb.jumlah) || 0;
-                    costMap[pb.obat_id].cost += (Number(pb.jumlah) || 0) * (Number(pb.harga_beli) || 0);
+                    if (!pb.kode_obat) return;
+                    if (!costMap[pb.kode_obat]) costMap[pb.kode_obat] = { qty: 0, cost: 0 };
+                    costMap[pb.kode_obat].qty += Number(pb.jumlah) || 0;
+                    costMap[pb.kode_obat].cost += (Number(pb.jumlah) || 0) * (Number(pb.harga_beli) || 0);
                 });
 
                 // Fallback ke obat.harga_beli hanya utk obat yang belum
                 // pernah punya histori pembelian sama sekali (mis. stok awal).
-                const obatIdsNoPembelian = obatIds.filter(id => !costMap[id] || costMap[id].qty === 0);
+                const kodeObatNoPembelian = kodeObatList.filter(k => !costMap[k] || costMap[k].qty === 0);
                 let fallbackHargaMap = {};
-                if (obatIdsNoPembelian.length > 0) {
+                if (kodeObatNoPembelian.length > 0) {
                     const { data: obatFallback } = await supabase
                         .from('obat')
-                        .select('id, harga_beli')
-                        .in('id', obatIdsNoPembelian);
-                    (obatFallback || []).forEach(o => fallbackHargaMap[o.id] = o.harga_beli || 0);
+                        .select('kode_obat, harga_beli')
+                        .in('kode_obat', kodeObatNoPembelian);
+                    (obatFallback || []).forEach(o => fallbackHargaMap[o.kode_obat] = o.harga_beli || 0);
                 }
 
                 const avgHppMap = {};
-                obatIds.forEach(id => {
-                    avgHppMap[id] = (costMap[id] && costMap[id].qty > 0)
-                        ? (costMap[id].cost / costMap[id].qty)
-                        : (fallbackHargaMap[id] || 0);
+                kodeObatList.forEach(k => {
+                    avgHppMap[k] = (costMap[k] && costMap[k].qty > 0)
+                        ? (costMap[k].cost / costMap[k].qty)
+                        : (fallbackHargaMap[k] || 0);
                 });
 
                 detail.forEach(d => {
-                    totalHPP += (Number(d.jumlah) || 0) * (avgHppMap[d.obat_id] || 0);
+                    totalHPP += (Number(d.jumlah) || 0) * (avgHppMap[d.kode_obat] || 0);
                 });
 
                 // ============================================================
@@ -1241,19 +1248,17 @@ export async function getLaporanLabaRugi(bulan, tahun) {
                 // diretur, barangnya kembali ke stok dan tidak benar-benar
                 // "terjual" secara ekonomis, jadi biaya pokoknya (HPP) juga
                 // harus dikeluarkan dari perhitungan, bukan cuma pendapatannya
-                // saja yang dikurangi lewat total_retur. Sebelumnya HPP tetap
-                // dihitung penuh dari SEMUA penjualan (termasuk yang sudah
-                // diretur), jadi Laba Kotor bisa minus kalau ada retur besar.
+                // saja yang dikurangi lewat total_retur.
                 // ============================================================
                 const returIds = (retur || []).map(r => r.id).filter(Boolean);
                 if (returIds.length > 0) {
                     const { data: returDetail, error: err3b } = await supabase
                         .from('retur_detail')
-                        .select('obat_id, jumlah_retur')
+                        .select('kode_obat, jumlah_retur')
                         .in('retur_id', returIds);
                     if (!err3b && returDetail) {
                         returDetail.forEach(rd => {
-                            totalHPP -= (Number(rd.jumlah_retur) || 0) * (avgHppMap[rd.obat_id] || 0);
+                            totalHPP -= (Number(rd.jumlah_retur) || 0) * (avgHppMap[rd.kode_obat] || 0);
                         });
                     }
                 }
@@ -1263,6 +1268,7 @@ export async function getLaporanLabaRugi(bulan, tahun) {
         const totalPenjualan = penjualan ? penjualan.reduce((sum, p) => sum + (Number(p.total) || 0), 0) : 0;
         const totalRetur = retur ? retur.reduce((sum, r) => sum + (Number(r.total_retur) || 0), 0) : 0;
         const penjualanBersih = totalPenjualan - totalRetur;
+        totalHPP = Math.max(0, totalHPP); // jaga-jaga, HPP tidak pernah masuk akal kalau minus
         const labaKotor = penjualanBersih - totalHPP;
 
         // ============================================================
