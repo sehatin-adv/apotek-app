@@ -200,9 +200,13 @@
                     <input type="date" id="searchTglAkhir" onchange="renderList()">
                 </div>
             </div>
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <button class="btn" id="tabCash" onclick="switchTab('TUNAI')" style="background:#2d6a9f;color:white;"><i class="fas fa-money-bill-wave"></i> Pembelian Cash</button>
+                <button class="btn btn-outline" id="tabKredit" onclick="switchTab('KREDIT')"><i class="fas fa-credit-card"></i> Pembelian Kredit</button>
+            </div>
             <div class="table-wrap">
                 <table>
-                    <thead>
+                    <thead id="listHead">
                         <tr>
                             <th>No</th><th>No. Faktur</th><th>Tanggal</th><th>Supplier</th><th>Jenis</th><th style="text-align:right;">Total</th><th style="text-align:center;">Aksi</th>
                         </tr>
@@ -233,11 +237,36 @@
     </div>
 </div>
 
+<!-- MODAL BAYAR (cicilan pembelian kredit) -->
+<div class="modal-overlay" id="bayarModal">
+    <div class="modal-box" style="max-width:440px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="font-size:16px;color:#0f1e2e;"><i class="fas fa-money-bill-wave" style="color:#28a745;"></i> Catat Pembayaran</h3>
+            <button onclick="closeBayarModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <div id="bayarInfo" style="background:#f8fafc;padding:12px;border-radius:10px;margin-bottom:14px;font-size:13px;"></div>
+        <div class="form-group" style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Tanggal Bayar</label>
+            <input type="date" id="bayarTanggal" style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:10px;font-size:13px;">
+        </div>
+        <div class="form-group" style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Jumlah Bayar (Rp)</label>
+            <input type="number" id="bayarJumlah" placeholder="0" min="1" style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:10px;font-size:13px;">
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Keterangan (opsional)</label>
+            <input type="text" id="bayarKeterangan" placeholder="Contoh: transfer BCA, cicilan ke-2" style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:10px;font-size:13px;">
+        </div>
+        <div id="riwayatBayarWrap" style="margin-bottom:14px;"></div>
+        <button class="btn" style="background:#28a745;color:white;width:100%;" onclick="simpanBayar()"><i class="fas fa-check"></i> Simpan Pembayaran</button>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
     import { supabase, getCurrentUser } from './supabase.js';
-    import { getPembelian, getPembelianByNoFaktur } from './database.js';
+    import { getPembelian, getPembelianByNoFaktur, bayarPembelian, getRiwayatPembayaran } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Riwayat Pembelian');
     import { enforcePermissions } from './permissions.js';
@@ -254,6 +283,8 @@
     };
 
     let allPembelian = [];
+    let activeTab = 'TUNAI';
+    let bayarTargetId = null;
 
     function formatRupiah(v) { return 'Rp ' + Number(v || 0).toLocaleString('id-ID'); }
     function formatTanggal(tgl) {
@@ -280,12 +311,27 @@
         renderList();
     }
 
+    window.switchTab = function(tab) {
+        activeTab = tab;
+        document.getElementById('tabCash').className = tab === 'TUNAI' ? 'btn' : 'btn btn-outline';
+        document.getElementById('tabCash').style.background = tab === 'TUNAI' ? '#2d6a9f' : '';
+        document.getElementById('tabCash').style.color = tab === 'TUNAI' ? 'white' : '';
+        document.getElementById('tabKredit').className = tab === 'KREDIT' ? 'btn' : 'btn btn-outline';
+        document.getElementById('tabKredit').style.background = tab === 'KREDIT' ? '#2d6a9f' : '';
+        document.getElementById('tabKredit').style.color = tab === 'KREDIT' ? 'white' : '';
+
+        document.getElementById('listHead').innerHTML = tab === 'KREDIT'
+            ? '<tr><th>No</th><th>No. Faktur</th><th>Tanggal</th><th>Supplier</th><th>TOP</th><th>Jatuh Tempo</th><th style="text-align:right;">Total</th><th style="text-align:right;">Dibayar</th><th style="text-align:right;">Sisa</th><th>Status</th><th style="text-align:center;">Aksi</th></tr>'
+            : '<tr><th>No</th><th>No. Faktur</th><th>Tanggal</th><th>Supplier</th><th>Jenis</th><th style="text-align:right;">Total</th><th style="text-align:center;">Aksi</th></tr>';
+        renderList();
+    };
+
     window.renderList = function() {
         const keyword = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
         const tglAwal = document.getElementById('searchTglAwal').value;
         const tglAkhir = document.getElementById('searchTglAkhir').value;
 
-        let results = allPembelian;
+        let results = allPembelian.filter(p => (p.jenis || 'TUNAI') === activeTab);
         if (keyword) {
             results = results.filter(p =>
                 (p.no_faktur || '').toLowerCase().includes(keyword) ||
@@ -299,9 +345,43 @@
 
         const tbody = document.getElementById('listBody');
         if (results.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#7a8a9e;">Tidak ada data pembelian ditemukan.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${activeTab === 'KREDIT' ? 11 : 7}" style="text-align:center;padding:20px;color:#7a8a9e;">Tidak ada data pembelian ${activeTab === 'KREDIT' ? 'kredit' : 'cash'} ditemukan.</td></tr>`;
             return;
         }
+
+        if (activeTab === 'KREDIT') {
+            const today = new Date().toISOString().split('T')[0];
+            tbody.innerHTML = results.map((p, i) => {
+                const dibayar = Number(p.total_dibayar) || 0;
+                const total = Number(p.total) || 0;
+                const sisa = Math.max(0, total - dibayar);
+                const lunas = sisa <= 0;
+                const telat = !lunas && p.tanggal_jatuh_tempo && p.tanggal_jatuh_tempo < today;
+                let statusBadge;
+                if (lunas) statusBadge = '<span style="background:#d4edda;color:#1e7e34;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">Lunas</span>';
+                else if (telat) statusBadge = '<span style="background:#fbe4e6;color:#dc3545;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">Telat Bayar</span>';
+                else statusBadge = '<span style="background:#fff3cd;color:#b8860b;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">Belum Lunas</span>';
+                return `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${p.no_faktur || '-'}</strong></td>
+                    <td>${formatTanggal(p.tanggal_faktur)}</td>
+                    <td>${p.supplier_nama || '-'}</td>
+                    <td>${p.top_hari ? p.top_hari + ' hari' : '-'}</td>
+                    <td style="${telat ? 'color:#dc3545;font-weight:700;' : ''}">${formatTanggal(p.tanggal_jatuh_tempo)}</td>
+                    <td style="text-align:right;font-weight:700;color:#2d6a9f;">${formatRupiah(total)}</td>
+                    <td style="text-align:right;color:#28a745;">${formatRupiah(dibayar)}</td>
+                    <td style="text-align:right;font-weight:700;color:#dc3545;">${formatRupiah(sisa)}</td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align:center;white-space:nowrap;">
+                        <button class="btn btn-outline btn-sm" onclick="lihatDetail('${p.no_faktur}')"><i class="fas fa-eye"></i></button>
+                        ${!lunas ? `<button class="btn btn-sm" style="background:#28a745;color:white;" onclick="openBayarModal('${p.id}')"><i class="fas fa-money-bill-wave"></i> Bayar</button>` : ''}
+                    </td>
+                </tr>`;
+            }).join('');
+            return;
+        }
+
         tbody.innerHTML = results.map((p, i) => `
             <tr>
                 <td>${i + 1}</td>
@@ -352,6 +432,80 @@
     };
     window.closeDetailModal = function() {
         document.getElementById('detailModal').classList.remove('active');
+    };
+
+    // ============================================================
+    // BAYAR (cicilan pembelian kredit)
+    // ============================================================
+    window.openBayarModal = async function(pembelianId) {
+        bayarTargetId = pembelianId;
+        const p = allPembelian.find(x => x.id === pembelianId);
+        if (!p) return;
+        const dibayar = Number(p.total_dibayar) || 0;
+        const sisa = Math.max(0, (Number(p.total) || 0) - dibayar);
+
+        document.getElementById('bayarInfo').innerHTML = `
+            <div><span style="color:#7a8a9e;">No. Faktur:</span> <strong>${p.no_faktur}</strong> - ${p.supplier_nama || '-'}</div>
+            <div style="margin-top:4px;">Total: <strong>${formatRupiah(p.total)}</strong> | Sudah dibayar: <strong style="color:#28a745;">${formatRupiah(dibayar)}</strong></div>
+            <div style="margin-top:4px;">Sisa yang harus dibayar: <strong style="color:#dc3545;">${formatRupiah(sisa)}</strong></div>
+        `;
+        document.getElementById('bayarTanggal').value = new Date().toISOString().split('T')[0];
+        document.getElementById('bayarJumlah').value = '';
+        document.getElementById('bayarJumlah').max = sisa;
+        document.getElementById('bayarKeterangan').value = '';
+        document.getElementById('bayarModal').classList.add('active');
+
+        // Tampilkan riwayat cicilan yang sudah pernah dibayar utk faktur ini
+        const riwayatWrap = document.getElementById('riwayatBayarWrap');
+        riwayatWrap.innerHTML = '<div style="font-size:12px;color:#7a8a9e;"><i class="fas fa-spinner fa-spin"></i> Memuat riwayat...</div>';
+        const { data: riwayat } = await getRiwayatPembayaran(pembelianId);
+        if (!riwayat || riwayat.length === 0) {
+            riwayatWrap.innerHTML = '';
+            return;
+        }
+        riwayatWrap.innerHTML = `
+            <div style="font-size:11px;font-weight:700;color:#7a8a9e;text-transform:uppercase;margin-bottom:6px;">Riwayat Cicilan</div>
+            <div style="border:1px solid #eef2f7;border-radius:8px;max-height:120px;overflow-y:auto;">
+                ${riwayat.map(r => `
+                    <div style="padding:6px 10px;border-bottom:1px solid #eef2f7;display:flex;justify-content:space-between;font-size:12px;">
+                        <span>${formatTanggal(r.tanggal_bayar)} ${r.keterangan ? '- ' + r.keterangan : ''}</span>
+                        <strong style="color:#28a745;">${formatRupiah(r.jumlah_bayar)}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    };
+    window.closeBayarModal = function() {
+        document.getElementById('bayarModal').classList.remove('active');
+        bayarTargetId = null;
+    };
+    window.simpanBayar = async function() {
+        if (!bayarTargetId) return;
+        const tanggal = document.getElementById('bayarTanggal').value;
+        const jumlah = Number(document.getElementById('bayarJumlah').value) || 0;
+        const keterangan = document.getElementById('bayarKeterangan').value.trim();
+
+        if (!tanggal) { showToast('⚠️ Isi tanggal bayar', true); return; }
+        if (jumlah <= 0) { showToast('⚠️ Jumlah bayar harus lebih dari 0', true); return; }
+
+        const p = allPembelian.find(x => x.id === bayarTargetId);
+        const sisa = p ? Math.max(0, (Number(p.total) || 0) - (Number(p.total_dibayar) || 0)) : Infinity;
+        if (jumlah > sisa) {
+            showToast(`⚠️ Jumlah bayar (${formatRupiah(jumlah)}) melebihi sisa tagihan (${formatRupiah(sisa)})`, true);
+            return;
+        }
+
+        const { data, error } = await bayarPembelian(bayarTargetId, jumlah, tanggal, keterangan, currentUserDisplayName);
+        if (error) {
+            showToast('❌ Gagal menyimpan pembayaran: ' + error.message, true);
+            return;
+        }
+
+        // Update data lokal supaya tampilan langsung sinkron tanpa reload penuh
+        if (p) p.total_dibayar = data.total_dibayar;
+        closeBayarModal();
+        renderList();
+        showToast('✅ Pembayaran berhasil dicatat!');
     };
 
     let currentUserDisplayName = 'admin';

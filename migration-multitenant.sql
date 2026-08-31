@@ -638,3 +638,54 @@ END $$;
 -- ============================================================
 -- SELESAI (Retur Pembelian)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 16) PEMBELIAN KREDIT - TOP (Term of Payment), jatuh tempo,
+--     pembayaran bertahap (cicilan)
+-- ------------------------------------------------------------
+ALTER TABLE pembelian_header ADD COLUMN IF NOT EXISTS top_hari INTEGER;
+ALTER TABLE pembelian_header ADD COLUMN IF NOT EXISTS tanggal_jatuh_tempo DATE;
+ALTER TABLE pembelian_header ADD COLUMN IF NOT EXISTS total_dibayar INTEGER DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS pembelian_pembayaran (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pembelian_id UUID REFERENCES pembelian_header(id) ON DELETE CASCADE,
+    tanggal_bayar DATE NOT NULL,
+    jumlah_bayar INTEGER NOT NULL,
+    keterangan TEXT,
+    petugas TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE pembelian_pembayaran ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+DO $$
+DECLARE
+    v_tenant_id UUID;
+BEGIN
+    SELECT id INTO v_tenant_id FROM tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE pembelian_pembayaran SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+    END IF;
+END $$;
+
+ALTER TABLE pembelian_pembayaran ALTER COLUMN tenant_id SET NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_tenant_pembelian_pembayaran ON pembelian_pembayaran;
+CREATE TRIGGER trg_tenant_pembelian_pembayaran BEFORE INSERT ON pembelian_pembayaran FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+DO $$
+DECLARE
+    pol RECORD;
+BEGIN
+    ALTER TABLE pembelian_pembayaran ENABLE ROW LEVEL SECURITY;
+    FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'pembelian_pembayaran' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON pembelian_pembayaran', pol.policyname);
+    END LOOP;
+    CREATE POLICY "Tenant isolation" ON pembelian_pembayaran
+        FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id());
+END $$;
+
+-- ============================================================
+-- SELESAI (Pembelian Kredit)
+-- ============================================================

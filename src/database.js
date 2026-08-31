@@ -1961,3 +1961,83 @@ export async function saveReturPembelian(header, details) {
         return { data: null, error: e };
     }
 }
+
+// ============================================================
+// PEMBAYARAN PEMBELIAN KREDIT (cicilan/bertahap)
+// ============================================================
+export async function bayarPembelian(pembelianId, jumlahBayar, tanggalBayar, keterangan, petugas) {
+    try {
+        // 1. Catat pembayaran ini
+        const { error: bayarError } = await supabase
+            .from('pembelian_pembayaran')
+            .insert({
+                pembelian_id: pembelianId,
+                tanggal_bayar: tanggalBayar,
+                jumlah_bayar: jumlahBayar,
+                keterangan: keterangan || '',
+                petugas: petugas || ''
+            });
+        if (bayarError) throw bayarError;
+
+        // 2. Ambil total pembelian & total dibayar SEBELUMNYA, lalu update
+        //    total_dibayar di header (dihitung ulang dari SEMUA cicilan
+        //    yang tersimpan, bukan cuma ditambah manual - supaya tidak
+        //    ada risiko selisih kalau ada pembayaran ganda/dihapus nanti)
+        const { data: semuaBayar, error: sumError } = await supabase
+            .from('pembelian_pembayaran')
+            .select('jumlah_bayar')
+            .eq('pembelian_id', pembelianId);
+        if (sumError) throw sumError;
+
+        const totalDibayarBaru = (semuaBayar || []).reduce((sum, p) => sum + (Number(p.jumlah_bayar) || 0), 0);
+
+        const { error: updateError } = await supabase
+            .from('pembelian_header')
+            .update({ total_dibayar: totalDibayarBaru })
+            .eq('id', pembelianId);
+        if (updateError) throw updateError;
+
+        return { data: { total_dibayar: totalDibayarBaru }, error: null };
+    } catch(e) {
+        console.error('Error bayarPembelian:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function getRiwayatPembayaran(pembelianId) {
+    try {
+        const { data, error } = await supabase
+            .from('pembelian_pembayaran')
+            .select('*')
+            .eq('pembelian_id', pembelianId)
+            .order('tanggal_bayar', { ascending: false });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getRiwayatPembayaran:', e);
+        return { data: [], error: e };
+    }
+}
+
+// Dipakai Dashboard & Riwayat Pembelian buat notifikasi jatuh tempo -
+// ambil semua pembelian KREDIT yang belum lunas, diurutkan yang paling
+// dekat jatuh temponya duluan (termasuk yang sudah lewat/telat bayar).
+export async function getPembelianJatuhTempo() {
+    try {
+        const { data, error } = await supabase
+            .from('pembelian_header')
+            .select('*')
+            .eq('jenis', 'KREDIT')
+            .not('tanggal_jatuh_tempo', 'is', null)
+            .order('tanggal_jatuh_tempo', { ascending: true });
+        if (error) throw error;
+        // Filter yang belum lunas (total_dibayar < total) di sisi client,
+        // karena perlu bandingkan 2 kolom numerik (PostgREST tidak
+        // mendukung filter antar-kolom langsung lewat query builder).
+        const belumLunas = (data || []).filter(p => (Number(p.total_dibayar) || 0) < (Number(p.total) || 0));
+        return { data: belumLunas, error: null };
+    } catch(e) {
+        console.error('Error getPembelianJatuhTempo:', e);
+        return { data: [], error: e };
+    }
+}

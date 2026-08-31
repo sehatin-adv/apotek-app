@@ -204,6 +204,18 @@
             <h2><i class="fas fa-th-large"></i> Dashboard Apotek</h2>
             <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
         </div>
+        <div id="jatuhTempoBanner" style="display:none;background:#fff3cd;border:1px solid #ffe69c;border-radius:14px;padding:16px 18px;margin-bottom:18px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <i class="fas fa-triangle-exclamation" style="color:#b8860b;font-size:20px;margin-top:2px;"></i>
+                    <div>
+                        <div style="font-weight:700;color:#664d03;margin-bottom:6px;">Pengingat Jatuh Tempo Pembelian Kredit</div>
+                        <div id="jatuhTempoList" style="font-size:13px;color:#664d03;"></div>
+                    </div>
+                </div>
+                <button onclick="tutupJatuhTempoBanner()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#b8860b;flex-shrink:0;">&times;</button>
+            </div>
+        </div>
         <div class="grid-4" id="statsGrid">
             <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Obat</div><div class="value" id="totalObat">0</div><div class="sub"><i class="fas fa-capsules"></i> Item terdaftar</div></div>
             <div class="stat-card" style="border-left-color:#28a745;"><div class="label">Stok Menipis</div><div class="value" id="stokMenipis">0</div><div class="sub"><i class="fas fa-exclamation-triangle"></i> Perlu restock</div></div>
@@ -230,7 +242,7 @@
 
 <script type="module">
     import { getCurrentUser, signOut } from './supabase.js';
-    import { getObat, getSupplier, getPenjualan } from './database.js';
+    import { getObat, getSupplier, getPenjualan, getPembelianJatuhTempo } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Dashboard');
     import { enforcePermissions } from './permissions.js';
@@ -258,6 +270,47 @@
     
     function formatRupiah(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
     function getToday() { return new Date().toISOString().split('T')[0]; }
+
+    // ============================================================
+    // NOTIFIKASI JATUH TEMPO PEMBELIAN KREDIT
+    // Muncul kalau ada pembelian kredit yang jatuh temponya dalam 3
+    // hari ke depan ATAU sudah lewat (telat bayar). Bisa ditutup, dan
+    // sekali ditutup tidak muncul lagi sampai sesi browser ini
+    // berakhir (login berikutnya) - pakai sessionStorage, bukan
+    // localStorage, supaya otomatis "lupa" lagi kalau nanti benar2
+    // login ulang di sesi baru.
+    // ============================================================
+    const REMINDER_DISMISS_KEY = 'sehatin_jatuh_tempo_dismissed';
+    window.tutupJatuhTempoBanner = function() {
+        sessionStorage.setItem(REMINDER_DISMISS_KEY, 'true');
+        document.getElementById('jatuhTempoBanner').style.display = 'none';
+    };
+    async function loadJatuhTempoBanner() {
+        if (sessionStorage.getItem(REMINDER_DISMISS_KEY) === 'true') return;
+        try {
+            const { data } = await getPembelianJatuhTempo();
+            if (!data || data.length === 0) return;
+
+            const today = getToday();
+            const reminderWindow = data.filter(p => {
+                if (!p.tanggal_jatuh_tempo) return false;
+                const diffDays = Math.ceil((new Date(p.tanggal_jatuh_tempo) - new Date(today)) / (1000 * 60 * 60 * 24));
+                return diffDays <= 3; // sudah telat ATAU jatuh tempo dlm 3 hari ke depan
+            });
+            if (reminderWindow.length === 0) return;
+
+            document.getElementById('jatuhTempoList').innerHTML = reminderWindow.slice(0, 6).map(p => {
+                const diffDays = Math.ceil((new Date(p.tanggal_jatuh_tempo) - new Date(today)) / (1000 * 60 * 60 * 24));
+                const sisa = Math.max(0, (Number(p.total) || 0) - (Number(p.total_dibayar) || 0));
+                const label = diffDays < 0 ? `<strong style="color:#dc3545;">Telat ${Math.abs(diffDays)} hari</strong>` : diffDays === 0 ? '<strong style="color:#dc3545;">Jatuh tempo hari ini</strong>' : `<strong>${diffDays} hari lagi</strong>`;
+                return `<div style="margin-bottom:4px;">• <strong>${p.no_faktur}</strong> (${p.supplier_nama || '-'}) - sisa ${formatRupiah(sisa)} - ${label}</div>`;
+            }).join('') + `<div style="margin-top:8px;"><a href="riwayat-pembelian.html" style="color:#2d6a9f;font-weight:600;">Lihat &amp; bayar di Riwayat Pembelian &rarr;</a></div>`;
+
+            document.getElementById('jatuhTempoBanner').style.display = 'block';
+        } catch(e) {
+            console.error('Error loadJatuhTempoBanner:', e);
+        }
+    }
     
     async function loadDashboard() {
         const loading = document.getElementById('loadingOverlay');
@@ -291,6 +344,7 @@
     }
     await checkAuth();
     await loadDashboard();
+    loadJatuhTempoBanner();
 </script>
 </body>
 </html>
