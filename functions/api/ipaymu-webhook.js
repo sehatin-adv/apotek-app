@@ -84,18 +84,30 @@ export async function onRequestPost(context) {
                     body: JSON.stringify({ status: 'success', paid_at: new Date().toISOString() })
                 });
 
-                // Perpanjang langganan tenant terkait & aktifkan lagi
-                const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${payment.tenant_id}&select=subscription_expires_at`, { headers: serviceHeaders });
-                const tenantRows = await tenantRes.json();
-                const currentExpiry = tenantRows?.[0]?.subscription_expires_at;
-                const base = (currentExpiry && new Date(currentExpiry) > new Date()) ? new Date(currentExpiry) : new Date();
-                base.setDate(base.getDate() + (payment.days_to_extend || 30));
+                if (payment.payment_type === 'upgrade' && payment.upgrade_to_plan) {
+                    // UPGRADE PAKET - cuma ganti "plan", TIDAK menambah hari
+                    // langganan (tanggal jatuh tempo yang sudah berjalan
+                    // tetap sama persis, karena yang dibayar cuma selisih
+                    // harga, bukan biaya langganan baru dari nol).
+                    await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${payment.tenant_id}`, {
+                        method: 'PATCH',
+                        headers: serviceHeaders,
+                        body: JSON.stringify({ plan: payment.upgrade_to_plan, status: 'Aktif' })
+                    });
+                } else {
+                    // PERPANJANGAN BIASA - perpanjang langganan tenant terkait & aktifkan lagi
+                    const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${payment.tenant_id}&select=subscription_expires_at`, { headers: serviceHeaders });
+                    const tenantRows = await tenantRes.json();
+                    const currentExpiry = tenantRows?.[0]?.subscription_expires_at;
+                    const base = (currentExpiry && new Date(currentExpiry) > new Date()) ? new Date(currentExpiry) : new Date();
+                    base.setDate(base.getDate() + (payment.days_to_extend || 30));
 
-                await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${payment.tenant_id}`, {
-                    method: 'PATCH',
-                    headers: serviceHeaders,
-                    body: JSON.stringify({ subscription_expires_at: base.toISOString().split('T')[0], status: 'Aktif' })
-                });
+                    await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${payment.tenant_id}`, {
+                        method: 'PATCH',
+                        headers: serviceHeaders,
+                        body: JSON.stringify({ subscription_expires_at: base.toISOString().split('T')[0], status: 'Aktif' })
+                    });
+                }
             }
         } catch (e) {
             console.error('Error memproses webhook iPaymu:', e);

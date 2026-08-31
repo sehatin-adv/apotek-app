@@ -710,6 +710,10 @@ CREATE TRIGGER trg_tenant_ai_scan_log BEFORE INSERT ON ai_scan_log FOR EACH ROW 
 -- get_my_tenant_info() diperbarui supaya ikut balikin "plan" - dipakai
 -- utk kunci fitur Basic/Pro di sisi aplikasi (Forecasting, Laba Rugi,
 -- Audit Log, Pembelian Kredit, batas jumlah user, jatah scan AI).
+-- WAJIB di-DROP dulu (bukan cuma CREATE OR REPLACE) karena struktur
+-- kolom hasilnya berubah (nambah kolom "plan") - Postgres tidak
+-- mengizinkan CREATE OR REPLACE mengubah bentuk hasil fungsi.
+DROP FUNCTION IF EXISTS get_my_tenant_info();
 CREATE OR REPLACE FUNCTION get_my_tenant_info()
 RETURNS TABLE(tenant_id UUID, nama TEXT, status TEXT, subscription_expires_at TIMESTAMPTZ, plan TEXT)
 LANGUAGE sql
@@ -726,4 +730,15 @@ $$;
 
 -- ============================================================
 -- SELESAI (Paket Langganan Basic/Pro)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 18) UPGRADE BASIC -> PRO LEWAT APLIKASI (bayar selisih harga,
+--     TANPA mengubah tanggal jatuh tempo yang sudah berjalan)
+-- ------------------------------------------------------------
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'renewal' CHECK (payment_type IN ('renewal', 'upgrade'));
+ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS upgrade_to_plan TEXT;
+
+-- ============================================================
+-- SELESAI (Upgrade Basic -> Pro)
 -- ============================================================
