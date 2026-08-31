@@ -63,7 +63,7 @@
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,30,46,0.6); z-index:1200; justify-content:center; align-items:center; padding:20px; }
         .modal-overlay.active { display:flex; }
         .modal-box { background:white; border-radius:18px; padding:24px; max-width:640px; width:100%; max-height:85vh; overflow-y:auto; }
-        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:1500; font-size:16px; line-height:1.4; max-width:440px; }
+        .toast { position:fixed; bottom:20px; right:20px; background:#28a745; color:white; padding:18px 26px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.25); font-weight:700; display:none; z-index:1500; font-size:14px; line-height:1.4; max-width:480px; white-space:pre-wrap; max-height:300px; overflow-y:auto; }
         .toast.error { background:#dc3545; }
         @media (max-width:768px) {
             .sidebar { width:100%; position:static; height:auto; }
@@ -287,7 +287,7 @@
         toast.className = 'toast' + (isError ? ' error' : '');
         toast.style.display = 'block';
         clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, isError ? 15000 : 4000);
     }
 
     async function loadStatus() {
@@ -314,7 +314,8 @@
             });
             const result = await res.json();
             if (!res.ok || result.error) {
-                throw new Error(result.error || 'Gagal membuat pembayaran upgrade.');
+                const detailStr = result.ipaymuResponse ? ('\n\nDetail: ' + JSON.stringify(result.ipaymuResponse)) : '';
+                throw new Error((result.error || 'Gagal membuat pembayaran upgrade.') + detailStr);
             }
 
             const qrString = result?.data?.ipaymu?.Data?.QrString;

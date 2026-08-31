@@ -372,22 +372,11 @@ AS $$
     LIMIT 1;
 $$;
 
--- Fungsi kecil buat ditanya lewat RPC dari aplikasi: "info langganan
--- tenant SAYA apa?" - selalu bisa dipanggil siapa saja yang login,
--- walau tenant-nya lagi terkunci (pakai raw lookup di dalamnya).
-CREATE OR REPLACE FUNCTION get_my_tenant_info()
-RETURNS TABLE(tenant_id UUID, nama TEXT, status TEXT, subscription_expires_at TIMESTAMPTZ)
-LANGUAGE sql
-SECURITY DEFINER
-STABLE
-SET search_path = public
-AS $$
-    SELECT t.id, t.nama, t.status, t.subscription_expires_at
-    FROM app_users au
-    JOIN tenants t ON t.id = au.tenant_id
-    WHERE au.auth_user_id = auth.uid()
-    LIMIT 1;
-$$;
+-- (Fungsi get_my_tenant_info() didefinisikan di bagian bawah file ini,
+-- di seksi "Paket Langganan Basic/Pro" - sudah termasuk kolom "plan".
+-- Definisi versi lama yang sempat ada di sini sudah dihapus supaya
+-- tidak ada 2 definisi berbeda yang bentrok saat migration dijalankan
+-- ulang.)
 
 -- Ganti policy tenants: pakai versi RAW (bukan yg ketat) supaya baris
 -- tenant sendiri tetap kebaca walau sedang terkunci/expired.
