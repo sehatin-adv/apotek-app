@@ -38,9 +38,19 @@ export async function onRequestPost(context) {
         const payload = await request.json().catch(() => null);
         if (!payload) return new Response('OK', { status: 200 });
 
-        const referenceId = payload?.qr_code?.external_id || payload?.qr_code?.reference_id || payload?.reference_id;
-        const status = payload?.status; // "COMPLETED" kalau sukses
-        if (!referenceId || status !== 'COMPLETED') {
+        // PENTING: struktur asli payload Xendit (dikonfirmasi lewat uji
+        // coba nyata pakai Simulate Payment) TERNYATA beda dari contoh
+        // di dokumentasi mereka - reference_id & status-nya ada di
+        // DALAM object "data", bukan di level atas / di "qr_code":
+        //   { event: "qr.payment", data: { reference_id: "...",
+        //     status: "SUCCEEDED", amount: ..., qr_id: "..." },
+        //     api_version: "2022-07-31" }
+        // Kode di bawah tetap cek beberapa kemungkinan lokasi field
+        // (jaga-jaga kalau Xendit ubah lagi formatnya nanti), tapi yang
+        // dari "data" ini yang sudah TERBUKTI benar.
+        const referenceId = payload?.data?.reference_id || payload?.qr_code?.external_id || payload?.reference_id;
+        const status = payload?.data?.status || payload?.status;
+        if (!referenceId || (status !== 'SUCCEEDED' && status !== 'COMPLETED')) {
             return new Response('OK', { status: 200 }); // bukan event sukses, abaikan saja
         }
 
