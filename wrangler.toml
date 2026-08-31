@@ -40,3 +40,13 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # OPSIONAL - Integrasi Scan Faktur AI (Google Gemini Vision). Dapatkan
 # API key gratis dari aistudio.google.com/apikey:
 #   npx wrangler pages secret put GEMINI_API_KEY
+
+# OPSIONAL - Integrasi Xendit (QRIS dinamis untuk langganan Basic/Pro +
+# upgrade). Secret Key didapat dari dashboard Xendit > Konfigurasi >
+# Plug-in/API Keys (PAKAI YANG MODE TES DULU buat uji coba, awalan
+# "xnd_development_..."). Callback Token didapat dari Konfigurasi >
+# Callback, dipakai buat verifikasi notifikasi pembayaran asli dari
+# Xendit (bukan dari iPaymu - ini pengganti integrasi iPaymu yang
+# terkendala IP whitelist):
+#   npx wrangler pages secret put XENDIT_SECRET_KEY
+#   npx wrangler pages secret put XENDIT_CALLBACK_TOKEN

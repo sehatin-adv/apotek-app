@@ -317,17 +317,17 @@
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch('/api/ipaymu-upgrade-payment', {
+            const res = await fetch('/api/xendit-upgrade-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` }
             });
             const result = await res.json();
             if (!res.ok || result.error) {
-                const detailStr = result.ipaymuResponse ? ('\n\nDetail: ' + JSON.stringify(result.ipaymuResponse)) : '';
+                const detailStr = result.xenditResponse ? ('\n\nDetail: ' + JSON.stringify(result.xenditResponse)) : '';
                 throw new Error((result.error || 'Gagal membuat pembayaran upgrade.') + detailStr);
             }
 
-            const qrString = result?.data?.ipaymu?.Data?.QrString;
+            const qrString = result?.data?.qrString;
             if (!qrString) throw new Error('QRIS tidak berhasil dibuat, coba lagi.');
 
             document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
