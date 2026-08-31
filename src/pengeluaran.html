@@ -131,7 +131,18 @@
                 <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
             </div>
         </div>
-        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-shopping-cart"></i> PEMBELIAN SUPLIER
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-file-invoice"></i> Input Faktur</div>
+                <div class="menu-item" data-module="riwayat_pembelian" onclick="navigate('riwayat-pembelian.html')"><i class="fas fa-clock-rotate-left"></i> Riwayat Pembelian</div>
+                <div class="menu-item" data-module="retur_pembelian" onclick="navigate('retur-pembelian.html')"><i class="fas fa-rotate-left"></i> Retur Pembelian</div>
+                <div class="menu-item" data-module="riwayat_retur_pembelian" onclick="navigate('riwayat-retur-pembelian.html')"><i class="fas fa-clipboard-list"></i> Riwayat Retur Pembelian</div>
+            </div>
+        </div>
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK

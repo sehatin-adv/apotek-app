@@ -137,7 +137,18 @@
                 <div class="menu-item" data-module="master_apoteker" onclick="navigate('master-apoteker.html')"><i class="fas fa-user-md"></i> Data Apoteker</div>
             </div>
         </div>
-        <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-shopping-cart"></i> Pembelian</div>
+        <div class="menu-group">
+            <div class="menu-item" onclick="toggleDropdown(this)">
+                <i class="fas fa-shopping-cart"></i> PEMBELIAN SUPLIER
+                <i class="fas fa-chevron-down chevron"></i>
+            </div>
+            <div class="sub-menu">
+                <div class="menu-item" data-module="pembelian" onclick="navigate('pembelian.html')"><i class="fas fa-file-invoice"></i> Input Faktur</div>
+                <div class="menu-item" data-module="riwayat_pembelian" onclick="navigate('riwayat-pembelian.html')"><i class="fas fa-clock-rotate-left"></i> Riwayat Pembelian</div>
+                <div class="menu-item" data-module="retur_pembelian" onclick="navigate('retur-pembelian.html')"><i class="fas fa-rotate-left"></i> Retur Pembelian</div>
+                <div class="menu-item" data-module="riwayat_retur_pembelian" onclick="navigate('riwayat-retur-pembelian.html')"><i class="fas fa-clipboard-list"></i> Riwayat Retur Pembelian</div>
+            </div>
+        </div>
         <div class="menu-group">
             <div class="menu-item" onclick="toggleDropdown(this)">
                 <i class="fas fa-boxes"></i> STOK
@@ -332,7 +343,10 @@
         { module_key: 'master_obat', module_name: 'Master Obat' },
         { module_key: 'master_supplier', module_name: 'Data Supplier' },
         { module_key: 'master_apoteker', module_name: 'Data Apoteker' },
-        { module_key: 'pembelian', module_name: 'Pembelian' },
+        { module_key: 'pembelian', module_name: 'Pembelian - Input Faktur' },
+        { module_key: 'riwayat_pembelian', module_name: 'Pembelian - Riwayat Pembelian' },
+        { module_key: 'retur_pembelian', module_name: 'Pembelian - Retur Pembelian' },
+        { module_key: 'riwayat_retur_pembelian', module_name: 'Pembelian - Riwayat Retur Pembelian' },
         { module_key: 'stok_opname', module_name: 'Stok Opname' },
         { module_key: 'stok_terkini', module_name: 'Lihat Stok' },
         { module_key: 'kartu_stok', module_name: 'Kartu Stok' },

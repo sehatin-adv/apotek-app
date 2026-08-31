@@ -554,3 +554,87 @@ CREATE POLICY "Tenant isolation" ON user_permissions
 -- ============================================================
 -- SELESAI (Perbaikan Akses app_users saat Tenant Terkunci)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 15) MODUL PEMBELIAN SUPLIER - Retur Pembelian (retur ke PBF/supplier,
+--     arah kebalikan dari Retur Penjualan - stok BERKURANG karena
+--     barang dikembalikan ke supplier, bukan bertambah)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS retur_pembelian (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    no_retur TEXT NOT NULL,
+    no_faktur_asal TEXT NOT NULL,
+    tanggal_retur DATE NOT NULL,
+    jam_retur TIME NOT NULL,
+    supplier_id UUID REFERENCES supplier(id),
+    supplier_nama TEXT,
+    alasan TEXT,
+    petugas TEXT,
+    total_retur INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS retur_pembelian_detail (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    retur_pembelian_id UUID REFERENCES retur_pembelian(id) ON DELETE CASCADE,
+    obat_id UUID REFERENCES obat(id),
+    kode_obat TEXT,
+    nama_obat TEXT,
+    satuan TEXT,
+    harga_beli INTEGER NOT NULL,
+    jumlah_retur INTEGER NOT NULL,
+    subtotal_retur INTEGER NOT NULL
+);
+
+ALTER TABLE retur_pembelian ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+ALTER TABLE retur_pembelian_detail ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+-- Backfill utk instalasi yang sudah berjalan (baris lama, kalau ada,
+-- ditandai milik tenant yang sama seperti tabel2 lain saat migrasi awal)
+DO $$
+DECLARE
+    v_tenant_id UUID;
+BEGIN
+    SELECT id INTO v_tenant_id FROM tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE retur_pembelian SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+        UPDATE retur_pembelian_detail SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+    END IF;
+END $$;
+
+ALTER TABLE retur_pembelian ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE retur_pembelian_detail ALTER COLUMN tenant_id SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'retur_pembelian_tenant_no_retur_key') THEN
+        ALTER TABLE retur_pembelian ADD CONSTRAINT retur_pembelian_tenant_no_retur_key UNIQUE (tenant_id, no_retur);
+    END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_tenant_retur_pembelian ON retur_pembelian;
+CREATE TRIGGER trg_tenant_retur_pembelian BEFORE INSERT ON retur_pembelian FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+DROP TRIGGER IF EXISTS trg_tenant_retur_pembelian_detail ON retur_pembelian_detail;
+CREATE TRIGGER trg_tenant_retur_pembelian_detail BEFORE INSERT ON retur_pembelian_detail FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+DO $$
+DECLARE
+    t TEXT;
+    pol RECORD;
+    tbls TEXT[] := ARRAY['retur_pembelian', 'retur_pembelian_detail'];
+BEGIN
+    FOREACH t IN ARRAY tbls LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, t);
+        END LOOP;
+        EXECUTE format(
+            'CREATE POLICY "Tenant isolation" ON %I FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id())',
+            t
+        );
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (Retur Pembelian)
+-- ============================================================

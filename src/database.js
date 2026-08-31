@@ -1873,3 +1873,91 @@ export async function deleteKategoriObat(id) {
         return { error: e };
     }
 }
+
+// ============================================================
+// RETUR PEMBELIAN (retur ke supplier/PBF) - modul Pembelian Suplier
+// ============================================================
+export async function getPembelianByNoFaktur(noFaktur) {
+    try {
+        const { data, error } = await supabase
+            .from('pembelian_header')
+            .select('*, pembelian_detail(*)')
+            .eq('no_faktur', noFaktur)
+            .single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getPembelianByNoFaktur:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function getAllReturPembelian() {
+    try {
+        const data = await fetchAllRows('retur_pembelian', '*, retur_pembelian_detail(*)', 'tanggal_retur', false);
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getAllReturPembelian:', e);
+        return { data: [], error: e };
+    }
+}
+
+export async function saveReturPembelian(header, details) {
+    try {
+        // 1. Insert header retur pembelian
+        const { data: returHeader, error: headerError } = await supabase
+            .from('retur_pembelian')
+            .insert(header)
+            .select();
+        if (headerError) throw headerError;
+
+        // 2. Insert detail
+        const detailsWithId = details.map(d => ({ ...d, retur_pembelian_id: returHeader[0].id }));
+        const { error: detailError } = await supabase
+            .from('retur_pembelian_detail')
+            .insert(detailsWithId);
+        if (detailError) throw detailError;
+
+        // 3. KURANGI stok obat (arah kebalikan dari Retur Penjualan -
+        //    barang keluar lagi dari apotek, dikembalikan ke supplier)
+        //    + catat di Kartu Stok sebagai KELUAR.
+        for (const item of details) {
+            if (item.kode_obat) {
+                const { data: obatData, error: obatError } = await supabase
+                    .from('obat')
+                    .select('id, stok')
+                    .eq('kode_obat', item.kode_obat)
+                    .single();
+                if (!obatError && obatData) {
+                    const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah_retur || 0));
+                    await supabase
+                        .from('obat')
+                        .update({ stok: stokBaru })
+                        .eq('id', obatData.id);
+
+                    const { error: kartuStokError } = await supabase
+                        .from('kartu_stok')
+                        .insert({
+                            obat_id: obatData.id,
+                            kode_obat: item.kode_obat,
+                            nama_obat: item.nama_obat || '',
+                            tanggal: header.tanggal_retur || new Date().toISOString().split('T')[0],
+                            jam: header.jam_retur || '00:00',
+                            no_bukti: header.no_retur || 'RETB-' + Date.now(),
+                            keterangan: 'Retur Pembelian ke ' + (header.supplier_nama || 'Supplier'),
+                            keluar: item.jumlah_retur || 0,
+                            sisa_stok: stokBaru
+                        });
+                    if (kartuStokError) {
+                        console.error('Gagal insert kartu_stok utk retur pembelian item ' + item.kode_obat + ':', kartuStokError);
+                    }
+                }
+            }
+        }
+
+        return { data: returHeader[0], error: null };
+    } catch(e) {
+        console.error('Error saveReturPembelian:', e);
+        return { data: null, error: e };
+    }
+}
