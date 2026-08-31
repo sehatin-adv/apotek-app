@@ -111,12 +111,14 @@ export async function onRequestPost(context) {
         const tenant = tenantRows?.[0];
         if (!tenant) return new Response(JSON.stringify({ error: 'Tenant tidak ditemukan.', step: 'find-tenant' }), { status: 404, headers: CORS_HEADERS });
 
-        // 3. Ambil harga langganan dari platform_settings
-        const priceRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings?key=eq.subscription_price&select=value`, { headers: serviceHeaders });
+        // 3. Ambil harga langganan dari platform_settings SESUAI PAKET
+        //    tenant ini (Basic/Pro beda harga)
+        const priceKey = tenant.plan === 'Pro' ? 'subscription_price_pro' : 'subscription_price_basic';
+        const priceRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_settings?key=eq.${priceKey}&select=value`, { headers: serviceHeaders });
         const priceRows = await priceRes.json();
         const amount = parseRupiahAmount(priceRows?.[0]?.value);
         if (amount <= 0) {
-            return new Response(JSON.stringify({ error: 'Harga langganan belum diatur oleh pemilik platform.', step: 'get-price' }), { status: 400, headers: CORS_HEADERS });
+            return new Response(JSON.stringify({ error: `Harga langganan paket ${tenant.plan || 'Basic'} belum diatur oleh pemilik platform.`, step: 'get-price' }), { status: 400, headers: CORS_HEADERS });
         }
 
         // 4. Buat referenceId unik, simpan record pending

@@ -349,8 +349,9 @@
                     <label>Jenis Pembelian</label>
                     <select id="jenisPembelian" onchange="toggleTopField()">
                         <option value="TUNAI">TUNAI</option>
-                        <option value="KREDIT">KREDIT</option>
+                        <option value="KREDIT" id="opsiKredit">KREDIT</option>
                     </select>
+                    <div id="kreditLockedNote" style="display:none;font-size:11px;color:#b8860b;margin-top:4px;"><i class="fas fa-lock"></i> Pembelian Kredit khusus paket Pro</div>
                 </div>
                 <div class="form-group">
                     <label>Kas</label>
@@ -606,7 +607,7 @@
 
 <script type="module">
     import { supabase } from './supabase.js';
-    import { getObat, getSupplier, savePembelian, saveObat } from './database.js';
+    import { getObat, getSupplier, savePembelian, saveObat, getMyTenantInfo } from './database.js';
     import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Pembelian');
@@ -1554,6 +1555,11 @@
         const noFaktur = document.getElementById('noFaktur').value.trim();
         const tanggal = document.getElementById('tanggalFaktur').value;
         const supplierId = document.getElementById('pilihSupplier').value;
+
+        if (tenantPlanCache === 'Basic' && document.getElementById('jenisPembelian').value === 'KREDIT') {
+            showToast('🔒 Pembelian Kredit khusus paket Pro. Upgrade untuk menggunakan fitur ini.', true);
+            return;
+        }
         
         if (!noFaktur) {
             showToast('⚠️ No. Faktur wajib diisi!', true);
@@ -1885,7 +1891,22 @@
     }
     
     // INIT
+    let tenantPlanCache = 'Pro'; // default aman selama belum sempat kecek
+    async function terapkanBatasanPaket() {
+        try {
+            const { data } = await getMyTenantInfo();
+            tenantPlanCache = data?.plan || 'Pro';
+            if (tenantPlanCache === 'Basic') {
+                document.getElementById('opsiKredit').disabled = true;
+                document.getElementById('kreditLockedNote').style.display = 'block';
+            }
+        } catch(e) {
+            console.error('Error terapkanBatasanPaket:', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        terapkanBatasanPaket();
         loadMasterData().then(() => {
             restoreDraft();
         });

@@ -689,3 +689,41 @@ END $$;
 -- ============================================================
 -- SELESAI (Pembelian Kredit)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 17) PAKET LANGGANAN (Basic/Pro) + PELACAKAN PEMAKAIAN SCAN AI
+-- ------------------------------------------------------------
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'Basic' CHECK (plan IN ('Basic', 'Pro'));
+
+CREATE TABLE IF NOT EXISTS ai_scan_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE ai_scan_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tenant isolation" ON ai_scan_log;
+CREATE POLICY "Tenant isolation" ON ai_scan_log
+    FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id());
+DROP TRIGGER IF EXISTS trg_tenant_ai_scan_log ON ai_scan_log;
+CREATE TRIGGER trg_tenant_ai_scan_log BEFORE INSERT ON ai_scan_log FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+-- get_my_tenant_info() diperbarui supaya ikut balikin "plan" - dipakai
+-- utk kunci fitur Basic/Pro di sisi aplikasi (Forecasting, Laba Rugi,
+-- Audit Log, Pembelian Kredit, batas jumlah user, jatah scan AI).
+CREATE OR REPLACE FUNCTION get_my_tenant_info()
+RETURNS TABLE(tenant_id UUID, nama TEXT, status TEXT, subscription_expires_at TIMESTAMPTZ, plan TEXT)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+    SELECT t.id, t.nama, t.status, t.subscription_expires_at, t.plan
+    FROM app_users au
+    JOIN tenants t ON t.id = au.tenant_id
+    WHERE au.auth_user_id = auth.uid()
+    LIMIT 1;
+$$;
+
+-- ============================================================
+-- SELESAI (Paket Langganan Basic/Pro)
+-- ============================================================

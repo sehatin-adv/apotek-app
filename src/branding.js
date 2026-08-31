@@ -78,7 +78,8 @@ async function checkSubscriptionBanner() {
             qrisUrl = qrisRow?.value || null;
         } catch (e) { /* platform_settings mungkin belum ada, abaikan */ }
         try {
-            const { data: priceRow } = await supabase.from('platform_settings').select('value').eq('key', 'subscription_price').maybeSingle();
+            const priceKey = info.plan === 'Pro' ? 'subscription_price_pro' : 'subscription_price_basic';
+            const { data: priceRow } = await supabase.from('platform_settings').select('value').eq('key', priceKey).maybeSingle();
             subscriptionPrice = priceRow?.value || null;
         } catch (e) { /* abaikan */ }
 

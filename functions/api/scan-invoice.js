@@ -55,10 +55,64 @@ export async function onRequestPost(context) {
         if (!env.GEMINI_API_KEY) {
             return new Response(JSON.stringify({ error: 'GEMINI_API_KEY belum diset di server.' }), { status: 500, headers: CORS_HEADERS });
         }
+        if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+            return new Response(JSON.stringify({ error: 'SUPABASE_SERVICE_ROLE_KEY belum diset di server.' }), { status: 500, headers: CORS_HEADERS });
+        }
 
         const body = await request.json().catch(() => null);
         if (!body || !body.image_base64) {
             return new Response(JSON.stringify({ error: 'Gambar faktur wajib dikirim (image_base64).' }), { status: 400, headers: CORS_HEADERS });
+        }
+
+        // ============================================================
+        // Verifikasi pemanggil + cek batas jatah Scan AI (5x/bulan utk
+        // paket Basic, tanpa batas utk Pro). Ini WAJIB dicek di server
+        // (bukan cuma disembunyikan di UI) karena tiap panggilan ke
+        // Gemini ada biaya nyata - kalau cuma dikunci di frontend, orang
+        // masih bisa panggil endpoint ini langsung dan biayanya tetap
+        // jalan terus tanpa batas.
+        // ============================================================
+        const authHeader = request.headers.get('Authorization') || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (!token) return new Response(JSON.stringify({ error: 'Tidak ada token otorisasi.' }), { status: 401, headers: CORS_HEADERS });
+
+        const serviceHeaders = {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+        };
+
+        const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+            headers: { 'apikey': env.SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` }
+        });
+        if (!userRes.ok) return new Response(JSON.stringify({ error: 'Sesi login tidak valid.' }), { status: 401, headers: CORS_HEADERS });
+        const authUser = await userRes.json();
+
+        const appUserRes = await fetch(`${env.SUPABASE_URL}/rest/v1/app_users?auth_user_id=eq.${authUser.id}&select=tenant_id`, { headers: serviceHeaders });
+        const appUserRows = await appUserRes.json();
+        const tenantId = appUserRows?.[0]?.tenant_id;
+        if (!tenantId) return new Response(JSON.stringify({ error: 'Akun ini tidak terhubung ke tenant manapun.' }), { status: 403, headers: CORS_HEADERS });
+
+        const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenantId}&select=plan`, { headers: serviceHeaders });
+        const tenantRows = await tenantRes.json();
+        const plan = tenantRows?.[0]?.plan || 'Basic';
+
+        if (plan === 'Basic') {
+            const now = new Date();
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const countRes = await fetch(
+                `${env.SUPABASE_URL}/rest/v1/ai_scan_log?tenant_id=eq.${tenantId}&created_at=gte.${firstOfMonth}&select=id`,
+                { headers: { ...serviceHeaders, 'Prefer': 'count=exact' } }
+            );
+            const countHeader = countRes.headers.get('content-range'); // format: "0-4/5"
+            const usedCount = countHeader ? parseInt(countHeader.split('/')[1], 10) || 0 : 0;
+            const LIMIT_BASIC = 5;
+            if (usedCount >= LIMIT_BASIC) {
+                return new Response(JSON.stringify({
+                    error: `Jatah Scan Faktur AI bulan ini sudah habis (${LIMIT_BASIC}x/bulan untuk paket Basic). Upgrade ke Pro untuk scan tanpa batas.`,
+                    quota_exceeded: true
+                }), { status: 403, headers: CORS_HEADERS });
+            }
         }
 
         // image_base64 bisa datang dengan prefix "data:image/jpeg;base64,..." - buang prefix-nya
@@ -119,6 +173,15 @@ export async function onRequestPost(context) {
         } catch (e) {
             return new Response(JSON.stringify({ error: 'Hasil bacaan AI bukan format JSON yang valid.', detail: textOut.slice(0, 500) }), { status: 502, headers: CORS_HEADERS });
         }
+
+        // Catat pemakaian scan ini (dipakai buat hitung jatah bulanan
+        // Basic) - dicatat SETELAH benar-benar berhasil, supaya scan yang
+        // gagal/error tidak ikut memotong jatah pengguna.
+        await fetch(`${env.SUPABASE_URL}/rest/v1/ai_scan_log`, {
+            method: 'POST',
+            headers: serviceHeaders,
+            body: JSON.stringify({ tenant_id: tenantId })
+        }).catch(() => {});
 
         return new Response(JSON.stringify({ data: extracted }), { headers: CORS_HEADERS });
     } catch (e) {

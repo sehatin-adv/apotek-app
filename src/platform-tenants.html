@@ -85,13 +85,19 @@
     </div>
 
     <div class="card">
-        <div class="card-title"><i class="fas fa-tag"></i> Harga Langganan</div>
-        <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Nominal ini yang ditampilkan ke apotek sebagai jumlah yang harus ditransfer. <strong>Catatan:</strong> menurut aturan Bank Indonesia, biaya MDR payment gateway (kalau nanti pakai Xendit dsb, ~0,7%) tidak boleh dibebankan ke pembayar - jadi potongan itu akan mengurangi penerimaan Anda sendiri, bukan menambah nominal yang perlu ditransfer apotek.</p>
-        <div class="form-group" style="margin-bottom:10px;">
-            <label>Harga Langganan per Bulan (Rp)</label>
-            <input type="text" inputmode="numeric" id="fSubscriptionPrice" placeholder="50000 (angka saja, tanpa titik/koma)">
+        <div class="card-title"><i class="fas fa-tag"></i> Harga Langganan per Paket</div>
+        <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Nominal ini yang ditampilkan ke apotek sebagai jumlah yang harus ditransfer, sesuai paket masing-masing tenant. <strong>Catatan:</strong> menurut aturan Bank Indonesia, biaya MDR payment gateway (kalau nanti pakai Xendit dsb, ~0,7%) tidak boleh dibebankan ke pembayar - jadi potongan itu akan mengurangi penerimaan Anda sendiri, bukan menambah nominal yang perlu ditransfer apotek.</p>
+        <div class="form-grid" style="margin-bottom:10px;">
+            <div class="form-group">
+                <label>Harga Basic per Bulan (Rp)</label>
+                <input type="text" inputmode="numeric" id="fSubscriptionPriceBasic" placeholder="51250">
+            </div>
+            <div class="form-group">
+                <label>Harga Pro per Bulan (Rp)</label>
+                <input type="text" inputmode="numeric" id="fSubscriptionPricePro" placeholder="123000">
+            </div>
         </div>
-        <button class="btn btn-outline" onclick="saveSubscriptionPrice()"><i class="fas fa-save"></i> Simpan Harga</button>
+        <button class="btn btn-outline" onclick="saveSubscriptionPrices()"><i class="fas fa-save"></i> Simpan Harga</button>
     </div>
 
     <div class="card">
@@ -121,9 +127,18 @@
                 <input type="email" id="fAdminEmail" placeholder="admin@apotekbaru.com">
             </div>
         </div>
-        <div class="form-group" style="margin-bottom:14px;">
-            <label>Password Login Admin</label>
-            <input type="text" id="fAdminPassword" placeholder="Minimal 6 karakter">
+        <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+                <label>Password Login Admin</label>
+                <input type="text" id="fAdminPassword" placeholder="Minimal 6 karakter">
+            </div>
+            <div class="form-group">
+                <label>Paket</label>
+                <select id="fPlan" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+                    <option value="Basic">Basic</option>
+                    <option value="Pro">Pro</option>
+                </select>
+            </div>
         </div>
         <button class="btn btn-primary" id="btnProvision" onclick="provisionTenant()"><i class="fas fa-rocket"></i> Buat Tenant & Akun Admin</button>
 
@@ -214,12 +229,18 @@
         }
         wrap.innerHTML = `
             <table>
-                <thead><tr><th>Nama Apotek</th><th>Status</th><th>Masa Berlangganan</th><th>Aksi</th></tr></thead>
+                <thead><tr><th>Nama Apotek</th><th>Status</th><th>Paket</th><th>Masa Berlangganan</th><th>Aksi</th></tr></thead>
                 <tbody>
                     ${tenants.map(t => `
                         <tr>
                             <td><strong>${t.nama}</strong><br><span style="font-size:11px;color:#9aa8b8;">Terdaftar ${formatTanggal(t.created_at)}</span></td>
                             <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+                            <td>
+                                <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${t.plan === 'Pro' ? '#eaf2fb' : '#f0f2f7'};color:${t.plan === 'Pro' ? '#2d6a9f' : '#5b6b7c'};">${t.plan || 'Basic'}</span><br>
+                                <button class="btn btn-outline btn-sm" style="margin-top:4px;padding:3px 8px;font-size:10px;" onclick="togglePlan('${t.id}','${t.plan === 'Pro' ? 'Basic' : 'Pro'}')">
+                                    <i class="fas fa-arrow-right-arrow-left"></i> Ganti ke ${t.plan === 'Pro' ? 'Basic' : 'Pro'}
+                                </button>
+                            </td>
                             <td>${subscriptionBadge(t)}</td>
                             <td style="white-space:nowrap;">
                                 <button class="btn btn-outline btn-sm" onclick="openEditTenant('${t.id}')"><i class="fas fa-pen"></i> Edit</button>
@@ -234,6 +255,14 @@
             </table>
         `;
     }
+
+    window.togglePlan = async function(tenantId, newPlan) {
+        if (!confirm(`Ganti paket tenant ini jadi ${newPlan}?`)) return;
+        const { error } = await callPlatformApi('update-tenant-plan', { tenant_id: tenantId, plan: newPlan });
+        if (error) { showToast('❌ ' + error, true); return; }
+        showToast(`✅ Paket diganti jadi ${newPlan}`);
+        loadTenants();
+    };
 
     window.setTenantStatus = async function(tenantId, status) {
         const label = status === 'Suspended' ? 'membekukan' : 'mengaktifkan';
@@ -306,23 +335,29 @@
         loadTenants();
     }
 
-    // ---------- Harga langganan ----------
-    window.saveSubscriptionPrice = async function() {
-        const raw = document.getElementById('fSubscriptionPrice').value.trim();
-        // Buang semua karakter selain digit - supaya walau user tetap
-        // ngetik titik/koma/"Rp" secara refleks, yang tersimpan tetap
-        // angka bersih (mis. "50.352" atau "Rp 50.352" -> "50352").
-        const price = raw.replace(/[^0-9]/g, '');
-        if (!price) { showToast('⚠️ Isi harga dulu (angka saja)', true); return; }
-        const { error } = await callPlatformApi('set-setting', { key: 'subscription_price', value: price });
-        if (error) { showToast('❌ ' + error, true); return; }
-        document.getElementById('fSubscriptionPrice').value = price;
-        showToast('✅ Harga langganan disimpan: Rp ' + Number(price).toLocaleString('id-ID'));
+    // ---------- Harga langganan (per paket) ----------
+    window.saveSubscriptionPrices = async function() {
+        const rawBasic = document.getElementById('fSubscriptionPriceBasic').value.trim();
+        const rawPro = document.getElementById('fSubscriptionPricePro').value.trim();
+        const priceBasic = rawBasic.replace(/[^0-9]/g, '');
+        const pricePro = rawPro.replace(/[^0-9]/g, '');
+        if (!priceBasic || !pricePro) { showToast('⚠️ Isi kedua harga dulu (angka saja)', true); return; }
+
+        const { error: errBasic } = await callPlatformApi('set-setting', { key: 'subscription_price_basic', value: priceBasic });
+        if (errBasic) { showToast('❌ ' + errBasic, true); return; }
+        const { error: errPro } = await callPlatformApi('set-setting', { key: 'subscription_price_pro', value: pricePro });
+        if (errPro) { showToast('❌ ' + errPro, true); return; }
+
+        document.getElementById('fSubscriptionPriceBasic').value = priceBasic;
+        document.getElementById('fSubscriptionPricePro').value = pricePro;
+        showToast(`✅ Harga disimpan: Basic Rp${Number(priceBasic).toLocaleString('id-ID')}, Pro Rp${Number(pricePro).toLocaleString('id-ID')}`);
     };
 
     async function loadSubscriptionPrice() {
-        const { data } = await callPlatformApi('get-setting', { key: 'subscription_price' });
-        if (data) document.getElementById('fSubscriptionPrice').value = String(data).replace(/[^0-9]/g, '');
+        const { data: dataBasic } = await callPlatformApi('get-setting', { key: 'subscription_price_basic' });
+        if (dataBasic) document.getElementById('fSubscriptionPriceBasic').value = String(dataBasic).replace(/[^0-9]/g, '');
+        const { data: dataPro } = await callPlatformApi('get-setting', { key: 'subscription_price_pro' });
+        if (dataPro) document.getElementById('fSubscriptionPricePro').value = String(dataPro).replace(/[^0-9]/g, '');
     }
 
     // ---------- QRIS ----------
@@ -353,6 +388,7 @@
         const admin_nama = document.getElementById('fAdminNama').value.trim();
         const admin_email = document.getElementById('fAdminEmail').value.trim();
         const admin_password = document.getElementById('fAdminPassword').value.trim();
+        const plan = document.getElementById('fPlan').value;
 
         if (!nama_apotek || !admin_email || !admin_password) {
             showToast('⚠️ Nama apotek, email, dan password wajib diisi', true);
@@ -363,7 +399,7 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
 
-        const { data, error } = await callPlatformApi('provision-tenant', { nama_apotek, admin_nama, admin_email, admin_password });
+        const { data, error } = await callPlatformApi('provision-tenant', { nama_apotek, admin_nama, admin_email, admin_password, plan });
 
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-rocket"></i> Buat Tenant & Akun Admin';
@@ -375,12 +411,13 @@
         resultBox.innerHTML = `
             <div class="label">Apotek</div><div class="value">${data.nama_apotek}</div>
             <div class="label">Login Admin</div><div class="value">${data.admin_email}</div>
-            <p style="color:#2d8a5f;">✅ Tenant berhasil dibuat. Kirimkan email &amp; password login ke pemilik apotek secara aman (bukan lewat channel publik).</p>
+            <p style="color:#2d8a5f;">✅ Tenant berhasil dibuat (paket ${plan}). Kirimkan email &amp; password login ke pemilik apotek secara aman (bukan lewat channel publik).</p>
         `;
         document.getElementById('fNamaApotek').value = '';
         document.getElementById('fAdminNama').value = '';
         document.getElementById('fAdminEmail').value = '';
         document.getElementById('fAdminPassword').value = '';
+        document.getElementById('fPlan').value = 'Basic';
         showToast('✅ Tenant baru berhasil dibuat!');
         loadTenants();
     };

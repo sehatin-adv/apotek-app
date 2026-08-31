@@ -45,7 +45,7 @@ async function verifyCallerIsAdmin(request, env) {
     //    Query ini pakai anon key + token pemanggil (bukan service key),
     //    tunduk ke RLS biasa - cukup buat baca role sendiri.
     const roleRes = await fetch(
-        `${env.SUPABASE_URL}/rest/v1/app_users?auth_user_id=eq.${authUser.id}&select=role`,
+        `${env.SUPABASE_URL}/rest/v1/app_users?auth_user_id=eq.${authUser.id}&select=role,tenant_id`,
         {
             headers: {
                 'apikey': env.SUPABASE_ANON_KEY,
@@ -56,6 +56,7 @@ async function verifyCallerIsAdmin(request, env) {
     if (!roleRes.ok) return { ok: false, status: 403, message: 'Gagal memverifikasi hak akses.' };
     const rows = await roleRes.json();
     const role = rows?.[0]?.role;
+    const tenantId = rows?.[0]?.tenant_id || null;
 
     // Akun yang tidak terdaftar di app_users (mis. pemilik/superadmin awal
     // yang login langsung lewat Supabase Auth) dianggap admin juga -
@@ -63,7 +64,7 @@ async function verifyCallerIsAdmin(request, env) {
     const isAdmin = !rows || rows.length === 0 || role === 'admin';
     if (!isAdmin) return { ok: false, status: 403, message: 'Hanya admin yang boleh mengelola user.' };
 
-    return { ok: true };
+    return { ok: true, tenantId };
 }
 
 export async function onRequestOptions() {
@@ -106,7 +107,7 @@ export async function onRequestPost(context) {
     // admin di app_users manapun - supaya admin satu apotek tidak bisa
     // bikin/lihat/matikan apotek lain.
     // ============================================================
-    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting', 'get-setting', 'set-setting'];
+    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-plan', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting', 'get-setting', 'set-setting'];
     if (PLATFORM_ACTIONS.includes(action)) {
         if (!env.PLATFORM_ADMIN_SECRET) {
             return new Response(JSON.stringify({ error: 'PLATFORM_ADMIN_SECRET belum diset di Cloudflare Pages.' }), { status: 500, headers: CORS_HEADERS });
@@ -135,6 +136,21 @@ export async function onRequestPost(context) {
                 });
                 const data = await res.json();
                 if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status tenant: ' + (data.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'update-tenant-plan') {
+                const { tenant_id, plan } = body;
+                if (!tenant_id || !['Basic', 'Pro'].includes(plan)) {
+                    return new Response(JSON.stringify({ error: 'tenant_id dan plan (Basic/Pro) wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${tenant_id}`, {
+                    method: 'PATCH',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ plan })
+                });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah paket tenant: ' + (data.message || res.status) }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
             }
 
@@ -235,7 +251,7 @@ export async function onRequestPost(context) {
             // Pengaturan platform generik (key-value) - dipakai buat harga
             // langganan & pengaturan lain ke depannya, biar tidak perlu
             // nulis action baru tiap nambah 1 setting.
-            const ALLOWED_SETTING_KEYS = ['subscription_price'];
+            const ALLOWED_SETTING_KEYS = ['subscription_price', 'subscription_price_basic', 'subscription_price_pro'];
             if (action === 'get-setting') {
                 const { key } = body;
                 if (!ALLOWED_SETTING_KEYS.includes(key)) {
@@ -264,19 +280,20 @@ export async function onRequestPost(context) {
             }
 
             if (action === 'provision-tenant') {
-                const { nama_apotek, admin_nama, admin_email, admin_password } = body;
+                const { nama_apotek, admin_nama, admin_email, admin_password, plan } = body;
                 if (!nama_apotek || !admin_email || !admin_password) {
                     return new Response(JSON.stringify({ error: 'Nama apotek, email admin, dan password admin wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
                 }
                 if (admin_password.length < 6) {
                     return new Response(JSON.stringify({ error: 'Password minimal 6 karakter.' }), { status: 400, headers: CORS_HEADERS });
                 }
+                const tenantPlan = ['Basic', 'Pro'].includes(plan) ? plan : 'Basic';
 
                 // 1. Buat tenant
                 const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants`, {
                     method: 'POST',
                     headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
-                    body: JSON.stringify({ nama: nama_apotek.trim(), status: 'Trial' })
+                    body: JSON.stringify({ nama: nama_apotek.trim(), status: 'Trial', plan: tenantPlan })
                 });
                 const tenantData = await tenantRes.json();
                 if (!tenantRes.ok) return new Response(JSON.stringify({ error: 'Gagal membuat tenant: ' + (tenantData.message || '') }), { status: tenantRes.status, headers: CORS_HEADERS });
@@ -341,6 +358,32 @@ export async function onRequestPost(context) {
             if (!email || !password) {
                 return new Response(JSON.stringify({ error: 'Email dan password wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
             }
+
+            // ============================================================
+            // BATAS JUMLAH USER utk paket Basic (maks 3) - dicek di server
+            // supaya tidak bisa dilewati cuma dengan mengakali tampilan.
+            // ============================================================
+            if (auth.tenantId) {
+                const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants?id=eq.${auth.tenantId}&select=plan`, { headers: serviceHeaders });
+                const tenantRows = await tenantRes.json();
+                const plan = tenantRows?.[0]?.plan || 'Basic';
+                if (plan === 'Basic') {
+                    const countRes = await fetch(
+                        `${env.SUPABASE_URL}/rest/v1/app_users?tenant_id=eq.${auth.tenantId}&status=eq.Aktif&select=id`,
+                        { headers: { ...serviceHeaders, 'Prefer': 'count=exact' } }
+                    );
+                    const countHeader = countRes.headers.get('content-range');
+                    const jumlahUser = countHeader ? parseInt(countHeader.split('/')[1], 10) || 0 : 0;
+                    const LIMIT_BASIC_USER = 3;
+                    if (jumlahUser >= LIMIT_BASIC_USER) {
+                        return new Response(JSON.stringify({
+                            error: `Paket Basic dibatasi maksimal ${LIMIT_BASIC_USER} user aktif. Upgrade ke Pro untuk menambah user tanpa batas.`,
+                            quota_exceeded: true
+                        }), { status: 403, headers: CORS_HEADERS });
+                    }
+                }
+            }
+
             const res = await fetch(`${adminApiBase}/users`, {
                 method: 'POST',
                 headers: serviceHeaders,

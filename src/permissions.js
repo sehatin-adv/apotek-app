@@ -1,13 +1,17 @@
 // src/permissions.js
-// Modul penegakan hak akses per user (Hak Akses Modul di Kelola User).
-// Sebelumnya checkbox izin cuma disimpan ke database tapi tidak pernah
-// benar-benar diperiksa di halaman manapun - siapa saja bisa lihat &
-// buka semua menu apapun izinnya. Modul ini yang menegakkannya:
-// - Sembunyikan item sidebar yang modulnya tidak diizinkan
-// - Redirect kalau user coba akses langsung lewat URL ke halaman yang
-//   modulnya tidak diizinkan
+// Modul penegakan hak akses per user (Hak Akses Modul di Kelola User)
+// DAN penegakan batas paket langganan (Basic/Pro).
 import { supabase } from './supabase.js';
-import { getCurrentUserPermissions } from './database.js';
+import { getCurrentUserPermissions, getMyTenantInfo } from './database.js';
+
+// Modul yang cuma tersedia utk tenant paket Pro - berlaku utk SEMUA
+// user (termasuk admin), beda dengan hak akses per-user biasa yang
+// admin selalu bypass. Ini soal batas PAKET LANGGANAN, bukan soal
+// role individu.
+const PRO_ONLY_MODULES = new Set([
+    'forecasting_stok', 'forecasting_pbf', 'forecasting_rekomendasi', 'forecasting_sp',
+    'laporan_laba_rugi', 'audit_log'
+]);
 
 // currentModuleKey = module_key milik HALAMAN INI (lihat DEFAULT_MODULES
 // di kelola-user.html utk daftar lengkap key yang valid).
@@ -16,6 +20,38 @@ export async function enforcePermissions(currentModuleKey) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return; // biar logic checkAuth masing-masing halaman yg redirect ke login
+
+        // ============================================================
+        // 1. BATAS PAKET LANGGANAN (Basic/Pro) - dicek DULUAN, berlaku
+        //    utk SEMUA user termasuk admin (beda dengan hak akses
+        //    per-user di bawah, yang admin selalu bypass).
+        // ============================================================
+        const { data: tenantInfo } = await getMyTenantInfo();
+        const isBasic = tenantInfo && tenantInfo.plan === 'Basic';
+        window.__tenantPlan = tenantInfo ? tenantInfo.plan : 'Pro'; // fallback aman kalau gagal fetch
+
+        if (isBasic) {
+            document.querySelectorAll('[data-module]').forEach(el => {
+                const key = el.getAttribute('data-module');
+                if (PRO_ONLY_MODULES.has(key)) {
+                    el.style.display = 'none';
+                    el.classList.add('pro-locked');
+                }
+            });
+            document.querySelectorAll('.menu-group').forEach(group => {
+                const items = group.querySelectorAll('.sub-menu [data-module]');
+                if (items.length === 0) return;
+                const anyVisible = Array.from(items).some(i => i.style.display !== 'none');
+                const header = group.querySelector(':scope > .menu-item');
+                if (!anyVisible && header) header.style.display = 'none';
+            });
+
+            if (currentModuleKey && PRO_ONLY_MODULES.has(currentModuleKey)) {
+                alert('Fitur ini khusus paket Pro. Hubungi admin Sehatin+ untuk upgrade.');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+        }
 
         const { data: appUserRow } = await supabase
             .from('app_users')

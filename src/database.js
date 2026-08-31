@@ -2047,3 +2047,33 @@ export async function getPembelianJatuhTempo() {
         return { data: [], error: e };
     }
 }
+
+// ============================================================
+// PAKET LANGGANAN (Basic/Pro) - info tenant sendiri, jumlah user,
+// sisa jatah Scan Faktur AI bulan ini.
+// ============================================================
+export async function getMyTenantInfo() {
+    try {
+        const { data, error } = await supabase.rpc('get_my_tenant_info');
+        if (error) throw error;
+        const info = Array.isArray(data) ? data[0] : data;
+        return { data: info || null, error: null };
+    } catch(e) {
+        console.error('Error getMyTenantInfo:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function getJumlahUserAktif() {
+    try {
+        const { count, error } = await supabase
+            .from('app_users')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'Aktif');
+        if (error) throw error;
+        return { data: count || 0, error: null };
+    } catch(e) {
+        console.error('Error getJumlahUserAktif:', e);
+        return { data: 0, error: e };
+    }
+}
