@@ -91,21 +91,24 @@ export async function onRequestPost(context) {
             })
         });
 
+        // PENTING: sama seperti xendit-create-payment.js - pakai header
+        // "api-version" + JSON, bukan form-urlencoded versi lama yang
+        // balikin qr_string placeholder.
         const basicAuth = btoa(`${env.XENDIT_SECRET_KEY}:`);
-        const formBody = new URLSearchParams({
-            external_id: referenceId,
-            type: 'DYNAMIC',
-            callback_url: notifyUrl,
-            amount: String(amount)
-        });
-
         const xenditRes = await fetch('https://api.xendit.co/qr_codes', {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${basicAuth}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/json',
+                'api-version': '2022-07-31'
             },
-            body: formBody.toString()
+            body: JSON.stringify({
+                reference_id: referenceId,
+                type: 'DYNAMIC',
+                currency: 'IDR',
+                amount: amount,
+                callback_url: notifyUrl
+            })
         });
         const xenditRawText = await xenditRes.text();
         let xenditData;

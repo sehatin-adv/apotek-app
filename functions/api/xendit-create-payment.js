@@ -89,21 +89,27 @@ export async function onRequestPost(context) {
 
         // Xendit QR Codes API - form-urlencoded, Basic Auth (secret key
         // sebagai username, password kosong)
+        // PENTING: pakai header "api-version: 2022-07-31" + body JSON
+        // (bukan form-urlencoded) - versi API yang LEBIH LAMA (tanpa
+        // header ini) ternyata sekarang balikin qr_string PLACEHOLDER
+        // ("some-random-qr-string", bukan kode QRIS asli yang bisa
+        // dipindai) di beberapa akun/mode. Versi dengan header ini yang
+        // menghasilkan qr_string ASLI.
         const basicAuth = btoa(`${env.XENDIT_SECRET_KEY}:`);
-        const formBody = new URLSearchParams({
-            external_id: referenceId,
-            type: 'DYNAMIC',
-            callback_url: notifyUrl,
-            amount: String(amount)
-        });
-
         const xenditRes = await fetch('https://api.xendit.co/qr_codes', {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${basicAuth}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/json',
+                'api-version': '2022-07-31'
             },
-            body: formBody.toString()
+            body: JSON.stringify({
+                reference_id: referenceId,
+                type: 'DYNAMIC',
+                currency: 'IDR',
+                amount: amount,
+                callback_url: notifyUrl
+            })
         });
         const xenditRawText = await xenditRes.text();
         let xenditData;

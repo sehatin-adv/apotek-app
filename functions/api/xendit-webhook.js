@@ -38,7 +38,7 @@ export async function onRequestPost(context) {
         const payload = await request.json().catch(() => null);
         if (!payload) return new Response('OK', { status: 200 });
 
-        const referenceId = payload?.qr_code?.external_id;
+        const referenceId = payload?.qr_code?.external_id || payload?.qr_code?.reference_id || payload?.reference_id;
         const status = payload?.status; // "COMPLETED" kalau sukses
         if (!referenceId || status !== 'COMPLETED') {
             return new Response('OK', { status: 200 }); // bukan event sukses, abaikan saja
