@@ -640,9 +640,38 @@
             <h3 id="racikanModalTitle" style="font-size:16px;"><i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Tambah Racikan</h3>
             <button onclick="closeRacikanModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
         </div>
-        <div style="margin-bottom:10px;">
+        <div id="racikanNamaWrap" style="margin-bottom:10px;">
             <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Nama Racikan</label>
             <input type="text" id="racikanNamaInput" placeholder="Contoh: Puyer Batuk Pilek Anak" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+        </div>
+        <div id="resepFieldsWrap" style="display:none;background:#f0f7ff;border:1px solid #dbeafe;border-radius:10px;padding:12px;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:700;color:#2d6a9f;text-transform:uppercase;margin-bottom:8px;">Data Resep</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">No. Resep</label>
+                    <input type="text" id="resepNoInput" placeholder="Opsional" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">Nama Dokter <span style="color:#dc3545;">*</span></label>
+                    <input type="text" id="resepDokterInput" placeholder="Wajib diisi" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">Nama Pasien <span style="color:#dc3545;">*</span></label>
+                    <input type="text" id="resepPasienInput" placeholder="Wajib diisi" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">Tanggal Lahir</label>
+                    <input type="date" id="resepTglLahirInput" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">Usia</label>
+                    <input type="text" id="resepUsiaInput" placeholder="Contoh: 5 tahun" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+                <div>
+                    <label style="display:block;font-size:11px;font-weight:600;color:#5b6b7c;margin-bottom:3px;">Berat Badan</label>
+                    <input type="text" id="resepBeratInput" placeholder="Contoh: 18 kg" style="width:100%;padding:7px 10px;border:2px solid #e8edf3;border-radius:6px;font-size:12.5px;">
+                </div>
+            </div>
         </div>
         <div style="position:relative;margin-bottom:10px;">
             <input type="text" id="racikanSearchInput" placeholder="Ketik Kode Obat, Nama Obat untuk menambah item..." oninput="cariObatRacikan()" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
@@ -1002,28 +1031,83 @@
         let totalQty = 0;
         itemsKasir.forEach(item => { totalQty += Number(item.jumlah) || 0; });
         document.getElementById('summaryTotalQty').textContent = totalQty;
-        
-        tbody.innerHTML = itemsKasir.map((item, index) => `
-            <tr>
-                <td style="font-weight:700;">${index + 1}</td>
-                <td>
-                    <button class="btn-remove" onclick="hapusItemKasir(${index})"><i class="fas fa-trash"></i></button>
-                </td>
-                <td class="nama-obat">${item.nama_obat || '-'}${item.racikan_nama ? `<div style="font-size:10px;color:#8b5cf6;font-weight:700;"><i class="fas fa-mortar-pestle"></i> ${item.racikan_nama}</div>` : ''}${item.is_resep ? '<div style="font-size:10px;color:#2d6a9f;font-weight:700;"><i class="fas fa-file-medical"></i> Resep</div>' : ''}</td>
-                <td>
-                    <input type="number" value="${item.jumlah}" min="1" step="1" 
-                           onchange="validasiDanUpdateJumlah(${index}, this.value)" 
-                           onblur="validasiDanUpdateJumlah(${index}, this.value)">
-                    <div class="stok-info">Stok: ${item.stok_tersedia || 0}</div>
-                </td>
-                <td style="font-weight:600;">${item.satuan || 'Tablet'}</td>
-                <td style="font-weight:700;">${formatRupiahKasir(item.harga_jual)}</td>
-                <td class="subtotal">${formatRupiahKasir(item.subtotal)}</td>
-            </tr>
-        `).join('');
+
+        // Kelompokkan item yang punya racikan_group_id yang sama jadi 1
+        // baris tampilan (Racikan/Resep tampil sebagai satu kesatuan,
+        // bukan daftar obat satu-satu) - item biasa tetap tampil normal
+        // per baris seperti sebelumnya.
+        const displayRows = [];
+        const seenGroups = {};
+        itemsKasir.forEach((item, idx) => {
+            if (item.racikan_group_id) {
+                if (!seenGroups[item.racikan_group_id]) {
+                    const group = { type: 'group', groupId: item.racikan_group_id, items: [], is_resep: item.is_resep, racikan_nama: item.racikan_nama, nama_pasien: item.nama_pasien, no_resep: item.no_resep, nama_dokter: item.nama_dokter };
+                    seenGroups[item.racikan_group_id] = group;
+                    displayRows.push(group);
+                }
+                seenGroups[item.racikan_group_id].items.push(item);
+            } else {
+                displayRows.push({ type: 'single', item, index: idx });
+            }
+        });
+
+        tbody.innerHTML = displayRows.map((row, i) => {
+            if (row.type === 'single') {
+                const item = row.item, index = row.index;
+                return `
+                <tr>
+                    <td style="font-weight:700;">${i + 1}</td>
+                    <td><button class="btn-remove" onclick="hapusItemKasir(${index})"><i class="fas fa-trash"></i></button></td>
+                    <td class="nama-obat">${item.nama_obat || '-'}</td>
+                    <td>
+                        <input type="number" value="${item.jumlah}" min="1" step="1" 
+                               onchange="validasiDanUpdateJumlah(${index}, this.value)" 
+                               onblur="validasiDanUpdateJumlah(${index}, this.value)">
+                        <div class="stok-info">Stok: ${item.stok_tersedia || 0}</div>
+                    </td>
+                    <td style="font-weight:600;">${item.satuan || 'Tablet'}</td>
+                    <td style="font-weight:700;">${formatRupiahKasir(item.harga_jual)}</td>
+                    <td class="subtotal">${formatRupiahKasir(item.subtotal)}</td>
+                </tr>`;
+            }
+            // Baris gabungan Racikan/Resep - tampil sebagai SATU kesatuan,
+            // nama obat penyusunnya tidak ditampilkan satu-satu lagi.
+            const totalSubtotal = row.items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+            const isResep = row.is_resep;
+            const label = isResep
+                ? `Resep - ${row.nama_pasien || '-'}${row.no_resep ? ' (No.' + row.no_resep + ')' : ''}`
+                : (row.racikan_nama || 'Racikan');
+            const subLabel = isResep ? `dr. ${row.nama_dokter || '-'} · ${row.items.length} item obat` : `${row.items.length} item obat digabung`;
+            const icon = isResep ? 'fa-file-medical' : 'fa-mortar-pestle';
+            const color = isResep ? '#2d6a9f' : '#8b5cf6';
+            return `
+                <tr>
+                    <td style="font-weight:700;">${i + 1}</td>
+                    <td><button class="btn-remove" onclick="hapusGroupKasir('${row.groupId}')"><i class="fas fa-trash"></i></button></td>
+                    <td class="nama-obat">
+                        <i class="fas ${icon}" style="color:${color};"></i> <strong>${label}</strong>
+                        <div style="font-size:10px;color:#7a8a9e;">${subLabel}</div>
+                    </td>
+                    <td style="color:#7a8a9e;font-size:12px;">-</td>
+                    <td style="color:#7a8a9e;font-size:12px;">-</td>
+                    <td style="color:#7a8a9e;font-size:12px;">-</td>
+                    <td class="subtotal">${formatRupiahKasir(totalSubtotal)}</td>
+                </tr>`;
+        }).join('');
         
         hitungTotalKasir();
     }
+
+    // Hapus seluruh item yang tergabung dalam 1 grup Racikan/Resep
+    // sekaligus (bukan satu-satu), karena di tampilan mereka memang
+    // sudah jadi satu kesatuan.
+    window.hapusGroupKasir = function(groupId) {
+        if (!confirm('Hapus seluruh item dalam racikan/resep ini?')) return;
+        itemsKasir = itemsKasir.filter(item => item.racikan_group_id !== groupId);
+        renderKasir();
+        hitungTotalKasir();
+        showToastKasir('🗑️ Racikan/Resep dihapus dari keranjang');
+    };
     
     // ============================================================
     // VALIDASI & UPDATE JUMLAH
@@ -1037,19 +1121,12 @@
         
         if (jumlah > stokTersedia) {
             showToastKasir(`⚠️ Jumlah melebihi stok! Stok tersedia: ${stokTersedia}`, true);
-            const input = document.querySelector(`#kasirTableBody tr:nth-child(${index + 1}) td:nth-child(4) input`);
-            if (input) {
-                input.value = item.jumlah;
-            }
+            renderKasir(); // render ulang dari state asli (nilai lama), jangan pakai patch DOM manual - posisi baris tidak lagi 1:1 dgn index sejak ada pengelompokan Racikan/Resep
             return;
         }
         
         if (jumlah < 1) {
             showToastKasir('⚠️ Jumlah minimal 1!', true);
-            const input = document.querySelector(`#kasirTableBody tr:nth-child(${index + 1}) td:nth-child(4) input`);
-            if (input) {
-                input.value = 1;
-            }
             itemsKasir[index].jumlah = 1;
         } else {
             itemsKasir[index].jumlah = jumlah;
@@ -1058,13 +1135,6 @@
         const hargaJual = Number(itemsKasir[index].harga_jual) || 0;
         itemsKasir[index].subtotal = itemsKasir[index].jumlah * hargaJual;
         
-        const row = document.querySelector(`#kasirTableBody tr:nth-child(${index + 1})`);
-        if (row) {
-            const subtotalCell = row.querySelector('td:last-child');
-            if (subtotalCell) {
-                subtotalCell.textContent = formatRupiahKasir(itemsKasir[index].subtotal);
-            }
-        }
         hitungTotalKasir();
         renderKasir();
     };
@@ -1260,7 +1330,13 @@
             subtotal: item.subtotal,
             racikan_group_id: item.racikan_group_id || null,
             racikan_nama: item.racikan_nama || null,
-            is_resep: item.is_resep || false
+            is_resep: item.is_resep || false,
+            no_resep: item.no_resep || null,
+            nama_dokter: item.nama_dokter || null,
+            nama_pasien: item.nama_pasien || null,
+            tgl_lahir_pasien: item.tgl_lahir_pasien || null,
+            usia_pasien: item.usia_pasien || null,
+            berat_badan_pasien: item.berat_badan_pasien || null
         }));
         
         sedangMenyimpanKasir = true;
@@ -1460,6 +1536,8 @@
         racikanModeIsResep = false;
         racikanItemsTemp = [];
         document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Tambah Racikan';
+        document.getElementById('racikanNamaWrap').style.display = 'block';
+        document.getElementById('resepFieldsWrap').style.display = 'none';
         document.getElementById('racikanNamaInput').value = '';
         document.getElementById('racikanNamaInput').placeholder = 'Contoh: Puyer Batuk Pilek Anak';
         document.getElementById('racikanSearchInput').value = '';
@@ -1470,8 +1548,14 @@
         racikanModeIsResep = true;
         racikanItemsTemp = [];
         document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-file-medical" style="color:#2d6a9f;"></i> Tambah Item Resep';
-        document.getElementById('racikanNamaInput').value = '';
-        document.getElementById('racikanNamaInput').placeholder = 'Contoh: Resep dr. Ani (opsional)';
+        document.getElementById('racikanNamaWrap').style.display = 'none';
+        document.getElementById('resepFieldsWrap').style.display = 'block';
+        document.getElementById('resepNoInput').value = '';
+        document.getElementById('resepDokterInput').value = '';
+        document.getElementById('resepPasienInput').value = '';
+        document.getElementById('resepTglLahirInput').value = '';
+        document.getElementById('resepUsiaInput').value = '';
+        document.getElementById('resepBeratInput').value = '';
         document.getElementById('racikanSearchInput').value = '';
         renderRacikanItems();
         document.getElementById('modalRacikan').classList.add('active');
@@ -1562,9 +1646,35 @@
             showToastKasir('⚠️ Tambahkan minimal 1 item dulu', true);
             return;
         }
+
+        let resepData = null;
+        if (racikanModeIsResep) {
+            const namaDokter = document.getElementById('resepDokterInput').value.trim();
+            const namaPasien = document.getElementById('resepPasienInput').value.trim();
+            if (!namaDokter) {
+                showToastKasir('⚠️ Nama Dokter wajib diisi untuk resep!', true);
+                document.getElementById('resepDokterInput').focus();
+                return;
+            }
+            if (!namaPasien) {
+                showToastKasir('⚠️ Nama Pasien wajib diisi untuk resep!', true);
+                document.getElementById('resepPasienInput').focus();
+                return;
+            }
+            resepData = {
+                no_resep: document.getElementById('resepNoInput').value.trim() || null,
+                nama_dokter: namaDokter,
+                nama_pasien: namaPasien,
+                tgl_lahir_pasien: document.getElementById('resepTglLahirInput').value || null,
+                usia_pasien: document.getElementById('resepUsiaInput').value.trim() || null,
+                berat_badan_pasien: document.getElementById('resepBeratInput').value.trim() || null
+            };
+        }
+
         const namaRacikan = document.getElementById('racikanNamaInput').value.trim() ||
-            (racikanModeIsResep ? 'Resep' : ('Racikan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })));
+            (racikanModeIsResep ? null : ('Racikan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })));
         const groupId = 'grp-' + Date.now();
+        const labelToast = racikanModeIsResep ? `Resep untuk "${resepData.nama_pasien}"` : `Racikan "${namaRacikan}"`;
 
         racikanItemsTemp.forEach(item => {
             itemsKasir.push({
@@ -1579,13 +1689,14 @@
                 stok_tersedia: item.stok_tersedia,
                 racikan_group_id: groupId,
                 racikan_nama: racikanModeIsResep ? null : namaRacikan,
-                is_resep: racikanModeIsResep
+                is_resep: racikanModeIsResep,
+                ...(resepData || {})
             });
         });
         renderKasir();
         hitungTotalKasir();
         closeRacikanModal();
-        showToastKasir(`✅ ${racikanModeIsResep ? 'Item resep' : 'Racikan'} "${namaRacikan}" ditambahkan ke keranjang!`);
+        showToastKasir(`✅ ${labelToast} ditambahkan ke keranjang!`);
     };
 
     // ============================================================
@@ -1657,7 +1768,13 @@
             subtotal: item.subtotal,
             racikan_group_id: item.racikan_group_id || null,
             racikan_nama: item.racikan_nama || null,
-            is_resep: item.is_resep || false
+            is_resep: item.is_resep || false,
+            no_resep: item.no_resep || null,
+            nama_dokter: item.nama_dokter || null,
+            nama_pasien: item.nama_pasien || null,
+            tgl_lahir_pasien: item.tgl_lahir_pasien || null,
+            usia_pasien: item.usia_pasien || null,
+            berat_badan_pasien: item.berat_badan_pasien || null
         }));
 
         const { error } = await savePendingTransaksi(header, details);
@@ -1689,7 +1806,13 @@
             stok_tersedia: 99999, // stok sudah ditahan sejak pending dibuat, tidak perlu divalidasi ulang di sini
             racikan_group_id: d.racikan_group_id,
             racikan_nama: d.racikan_nama,
-            is_resep: d.is_resep
+            is_resep: d.is_resep,
+            no_resep: d.no_resep,
+            nama_dokter: d.nama_dokter,
+            nama_pasien: d.nama_pasien,
+            tgl_lahir_pasien: d.tgl_lahir_pasien,
+            usia_pasien: d.usia_pasien,
+            berat_badan_pasien: d.berat_badan_pasien
         }));
         resumedFromPendingId = pendingId;
         document.getElementById('resumedPendingLabel').textContent = pending.no_pending;

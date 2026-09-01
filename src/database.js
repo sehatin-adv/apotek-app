@@ -914,9 +914,11 @@ export async function saveStokOpname(opnameData) {
 
                 if (!obatError && obatData) {
                     const stokBaru = Math.max(0, Number(item.stok_fisik) || 0);
+                    const updatePayload = { stok: stokBaru };
+                    if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
                     await supabase
                         .from('obat')
-                        .update({ stok: stokBaru })
+                        .update(updatePayload)
                         .eq('id', obatData.id);
 
                     await supabase
@@ -931,7 +933,8 @@ export async function saveStokOpname(opnameData) {
                             keterangan: 'Stok Opname (' + (item.selisih > 0 ? 'Lebih' : 'Kurang') + ')',
                             masuk: item.selisih > 0 ? item.selisih : 0,
                             keluar: item.selisih < 0 ? Math.abs(item.selisih) : 0,
-                            sisa_stok: stokBaru
+                            sisa_stok: stokBaru,
+                            tanggal_exp: item.tanggal_exp || null
                         });
                 }
             }

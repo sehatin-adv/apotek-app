@@ -306,8 +306,8 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:70px;">Status</th></tr></thead>
-                    <tbody id="opnameTableBody"><tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:70px;">Status</th><th style="width:120px;">Tgl ED</th></tr></thead>
+                    <tbody id="opnameTableBody"><tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
                     <tfoot id="opnameTableFoot" style="display:none;">
                         <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td></tr>
                     </tfoot>
@@ -539,7 +539,7 @@
         if (!tbody) return;
         
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
             if (tfoot) tfoot.style.display = 'none';
             return;
         }
@@ -573,6 +573,7 @@
                 </td>
                 <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
+                <td><input type="date" class="tgl-exp-input" data-index="${index}" value="${item.tanggal_exp || ''}" onchange="updateTglExpOpname(${index}, this.value)" style="width:100%;padding:5px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:6px;"></td>
             </tr>`;
         }).join('');
         
@@ -591,6 +592,12 @@
     // ============================================================
     // UPDATE STOK FISIK
     // ============================================================
+    window.updateTglExpOpname = function(index, value) {
+        if (index < 0 || index >= opnameItems.length) return;
+        opnameItems[index].tanggal_exp = value || null;
+        simpanProgress();
+    };
+
     window.updateStokFisik = function(index, value) {
         if (index < 0 || index >= opnameItems.length) return;
         const stokFisik = Number(value) || 0;
@@ -692,7 +699,8 @@
                 snapshot_stok: item.snapshot_stok || 0,
                 stok_sistem: item.stok_sistem || 0,
                 stok_fisik: item.stok_fisik || 0,
-                selisih: item.selisih || 0
+                selisih: item.selisih || 0,
+                tanggal_exp: item.tanggal_exp || null
             })),
             total_selisih: totalSelisih,
             jumlah_item: opnameItems.length,
