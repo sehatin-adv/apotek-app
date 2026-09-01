@@ -240,8 +240,8 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:40px;">No</th><th style="min-width:110px;">Tanggal</th><th style="min-width:60px;">Jam</th><th style="min-width:130px;">No. Bukti</th><th style="min-width:160px;">Keterangan</th><th style="width:70px;text-align:right;">Masuk</th><th style="width:70px;text-align:right;">Keluar</th><th style="width:80px;text-align:right;">Sisa Stok</th><th style="width:70px;">Status</th></tr></thead>
-                    <tbody id="kartuBody"><tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">Pilih obat terlebih dahulu</td></tr></tbody>
+                    <thead><tr><th style="width:40px;">No</th><th style="min-width:110px;">Tanggal</th><th style="min-width:60px;">Jam</th><th style="min-width:130px;">No. Bukti</th><th style="min-width:160px;">Keterangan</th><th style="width:70px;text-align:right;">Masuk</th><th style="width:70px;text-align:right;">Keluar</th><th style="width:80px;text-align:right;">Sisa Stok</th><th style="width:70px;">Status</th><th style="min-width:100px;">Tgl ED</th><th style="min-width:90px;">No. Batch</th></tr></thead>
+                    <tbody id="kartuBody"><tr><td colspan="11" style="text-align:center;color:#7a8a9e;padding:30px;">Pilih obat terlebih dahulu</td></tr></tbody>
                     <tfoot id="kartuFooter" style="display:none;">
                         <tr class="total-row"><td colspan="5" style="text-align:right;font-weight:700;">TOTAL</td><td id="totalMasuk" style="text-align:right;font-weight:700;color:#28a745;">0</td><td id="totalKeluar" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td id="totalSisa" style="text-align:right;font-weight:700;color:#2d6a9f;">0</td><td></td></tr>
                     </tfoot>
@@ -355,7 +355,7 @@
         const tglAkhir = document.getElementById('tglAkhir').value;
         if (!tglAwal || !tglAkhir) { showToast('⚠️ Pilih periode terlebih dahulu', true); return; }
         const tbody = document.getElementById('kartuBody');
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
         try {
             const { data, error } = await getKartuStok(selectedObat.id, tglAwal, tglAkhir);
             if (data && data.length > 0) {
@@ -371,7 +371,7 @@
                 kartuData = generateKartuStokFromLocal(selectedObat, tglAwal, tglAkhir);
             }
             if (!kartuData || kartuData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi pada periode ini</td></tr>';
                 document.getElementById('kartuFooter').style.display = 'none';
                 updateInfoStok([]);
                 return;
@@ -379,7 +379,7 @@
             renderKartuStok(kartuData);
         } catch(e) {
             kartuData = generateKartuStokFromLocal(selectedObat, tglAwal, tglAkhir);
-            if (kartuData.length > 0) { renderKartuStok(kartuData); } else { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada data</td></tr>'; }
+            if (kartuData.length > 0) { renderKartuStok(kartuData); } else { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada data</td></tr>'; }
         }
     };
 
@@ -443,7 +443,7 @@
     function renderKartuStok(data) {
         const tbody = document.getElementById('kartuBody');
         const tfoot = document.getElementById('kartuFooter');
-        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi</td></tr>'; tfoot.style.display = 'none'; return; }
+        if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">Tidak ada transaksi</td></tr>'; tfoot.style.display = 'none'; return; }
         
         // Stok Awal Periode dihitung mundur dari mutasi pertama (yang sisa_stok-nya
         // sudah tercatat aktual di database saat transaksi terjadi) - jadi tetap
@@ -465,6 +465,8 @@
             <td style="text-align:right;">-</td>
             <td style="text-align:right;font-weight:700;">${stokAwal}</td>
             <td><span class="badge ${statusAwalClass}">${statusAwalText}</span></td>
+            <td>-</td>
+            <td>-</td>
         </tr>`;
         
         let totalMasuk = 0, totalKeluar = 0, sisaAkhir = 0;
@@ -472,7 +474,7 @@
             totalMasuk += d.masuk || 0; totalKeluar += d.keluar || 0; sisaAkhir = d.sisa || 0;
             let statusClass = 'badge-success', statusText = d.status || 'Aman';
             if (d.sisa === 0) { statusClass = 'badge-danger'; statusText = 'Habis'; } else if (d.sisa < 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
-            return `<tr><td>${d.no || i + 1}</td><td>${formatTanggal(d.tanggal)}</td><td>${d.jam || '00:00'}</td><td><strong>${d.no_bukti || '-'}</strong></td><td>${d.keterangan || '-'}</td><td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td><td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td><td style="text-align:right;font-weight:700;">${d.sisa}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
+            return `<tr><td>${d.no || i + 1}</td><td>${formatTanggal(d.tanggal)}</td><td>${d.jam || '00:00'}</td><td><strong>${d.no_bukti || '-'}</strong></td><td>${d.keterangan || '-'}</td><td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td><td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td><td style="text-align:right;font-weight:700;">${d.sisa}</td><td><span class="badge ${statusClass}">${statusText}</span></td><td>${formatTanggalED(d.tanggal_exp)}</td><td>${d.no_batch || '-'}</td></tr>`;
         }).join('');
         
         tbody.innerHTML = rowsHtml;
@@ -517,14 +519,21 @@
         const first = kartuData[0];
         let stokAwal = (Number(first.sisa) || 0) - (Number(first.masuk) || 0) + (Number(first.keluar) || 0);
         if (stokAwal < 0) stokAwal = 0;
-        let csv = 'No,Tanggal,Jam,No. Bukti,Keterangan,Masuk,Keluar,Sisa Stok,Status\n';
-        csv += `-,${document.getElementById('tglAwal').value},-,-,"Stok Awal Periode",0,0,${stokAwal},Aman\n`;
-        kartuData.forEach(d => { csv += `${d.no || '-'},${d.tanggal},${d.jam || '00:00'},${d.no_bukti || '-'},"${d.keterangan || '-'}",${d.masuk || 0},${d.keluar || 0},${d.sisa || 0},${d.status || 'Aman'}\n`; });
+        // PENTING: sebelumnya nama obat sama sekali tidak ikut di file CSV
+        // (cuma kode obat di nama file-nya) - sekarang ditambahkan sebagai
+        // baris info di paling atas, supaya jelas file ini punya siapa
+        // kalau dibuka terpisah dari aplikasi.
+        const namaObatAman = String(selectedObat?.nama_obat || '-').replace(/"/g, '""');
+        let csv = `"Kartu Stok: ${selectedObat?.kode_obat || '-'} - ${namaObatAman}"\n\n`;
+        csv += 'No,Tanggal,Jam,No. Bukti,Keterangan,Masuk,Keluar,Sisa Stok,Status,Tgl ED,No. Batch\n';
+        csv += `-,${document.getElementById('tglAwal').value},-,-,"Stok Awal Periode",0,0,${stokAwal},Aman,-,-\n`;
+        kartuData.forEach(d => { csv += `${d.no || '-'},${d.tanggal},${d.jam || '00:00'},${d.no_bukti || '-'},"${d.keterangan || '-'}",${d.masuk || 0},${d.keluar || 0},${d.sisa || 0},${d.status || 'Aman'},${formatTanggalED(d.tanggal_exp)},${d.no_batch || '-'}\n`; });
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Kartu_Stok_${selectedObat?.kode_obat || 'obat'}_${document.getElementById('tglAwal').value}_${document.getElementById('tglAkhir').value}.csv`;
+        const namaFileAman = String(selectedObat?.nama_obat || 'obat').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
+        a.download = `Kartu_Stok_${selectedObat?.kode_obat || 'obat'}_${namaFileAman}_${document.getElementById('tglAwal').value}_${document.getElementById('tglAkhir').value}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         showToast('📥 Download berhasil');
@@ -532,6 +541,17 @@
 
     function formatRupiah(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
     function formatTanggal(tgl) { if (!tgl) return '-'; const parts = tgl.split('-'); if (parts.length === 3) { return parts[2] + '/' + parts[1] + '/' + parts[0]; } return tgl; }
+    // Khusus tanggal ED/Kadaluarsa - format DD-MM-YY (beda dari tanggal
+    // lain di aplikasi yang pakai DD/MM/YYYY), sesuai permintaan.
+    function formatTanggalED(tgl) {
+        if (!tgl) return '-';
+        const parts = String(tgl).split('-');
+        if (parts.length === 3) {
+            const yy = parts[0].slice(-2);
+            return `${parts[2]}-${parts[1]}-${yy}`;
+        }
+        return tgl;
+    }
     function showToast(message, isError = false) { const toast = document.getElementById('toast'); toast.textContent = message; toast.className = 'toast' + (isError ? ' error' : ''); toast.style.display = 'block'; clearTimeout(toast._timer); toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000); }
 
     document.addEventListener('DOMContentLoaded', function() { loadObat(); });

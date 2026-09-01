@@ -333,6 +333,11 @@
                             <option value="Tidak Aktif">Tidak Aktif</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>Tanggal Kadaluarsa (ED)</label>
+                        <input type="date" id="tanggalExpObat">
+                        <span style="font-size:11px;color:#7a8a9e;">Referensi ED terdekat yang diketahui - otomatis ikut terupdate tiap ada pembelian baru yang menyertakan ED</span>
+                    </div>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
                     <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Simpan</button>
@@ -341,7 +346,7 @@
                     <div class="file-upload-wrap">
                         <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel/CSV</label>
                         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status. Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, YYYY-MM-DD). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
                     </div>
                 </div>
             </form>
@@ -689,7 +694,8 @@
             stok_maksimal: document.getElementById('stokMaksimalObat').value !== '' ? Number(document.getElementById('stokMaksimalObat').value) : null,
             jenis: document.getElementById('jenisObat').value,
             golongan: document.getElementById('golonganObat').value,
-            status: document.getElementById('statusObat').value
+            status: document.getElementById('statusObat').value,
+            tanggal_exp: document.getElementById('tanggalExpObat').value || null
         };
 
         if (!data.kode_obat || !data.nama_obat) {
@@ -747,6 +753,7 @@
         document.getElementById('jenisObat').value = o.jenis || 'Generik';
         document.getElementById('golonganObat').value = o.golongan || 'Bebas';
         document.getElementById('statusObat').value = o.status || 'Aktif';
+        document.getElementById('tanggalExpObat').value = o.tanggal_exp || '';
         recalcMarginFromHarga();
         document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
     };
@@ -820,17 +827,46 @@
     }
 
     window.downloadTemplate = function() {
-        const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status'];
+        const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
         const contoh = [
-            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif'],
-            ['OBT002', 'Amoxicillin 500mg', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif']
+            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '2027-12-31'],
+            ['OBT002', 'Amoxicillin 500mg', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif', '']
         ];
         const ws = XLSX.utils.aoa_to_sheet([headers, ...contoh]);
-        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Template Obat');
         XLSX.writeFile(wb, 'Template_Import_Obat.xlsx');
     };
+
+    // Kolom Tanggal Kadaluarsa (ED) bisa datang dalam beberapa bentuk
+    // tergantung cara Excel menyimpannya: teks "2027-12-31"/"31/12/2027",
+    // atau angka serial tanggal Excel (kalau selnya sempat diformat
+    // sebagai Date oleh Excel). Fungsi ini coba tangani semuanya, dan
+    // balikin string kosong kalau memang tidak terisi/tidak bisa dibaca
+    // (bukan wajib diisi).
+    function parseTanggalExpImport(val) {
+        if (val === null || val === undefined || val === '') return '';
+        // Angka serial tanggal Excel (basis 1900, dengan koreksi bug leap-year Excel)
+        if (typeof val === 'number') {
+            const utcDays = Math.floor(val - 25569);
+            const utcMs = utcDays * 86400 * 1000;
+            const d = new Date(utcMs);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+        }
+        const str = String(val).trim();
+        if (!str) return '';
+        // Format YYYY-MM-DD (sudah pas)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        // Format DD/MM/YYYY atau DD-MM-YYYY
+        const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (m) {
+            const [, d, mo, y] = m;
+            return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        return ''; // format tidak dikenali - jangan paksa isi tanggal yang salah
+    }
 
     window.importExcel = function(event) {
         const file = event.target.files[0];
@@ -872,7 +908,8 @@
                         stok: parseAngka(cols[5]),
                         jenis: String(cols[6] || 'Generik').trim() || 'Generik',
                         golongan: String(cols[7] || 'Bebas').trim() || 'Bebas',
-                        status: String(cols[8] || 'Aktif').trim() || 'Aktif'
+                        status: String(cols[8] || 'Aktif').trim() || 'Aktif',
+                        tanggal_exp: parseTanggalExpImport(cols[9]) || null
                     };
 
                     const sudahAda = obatData.find(o => o.kode_obat === item.kode_obat) || newData.find(o => o.kode_obat === item.kode_obat);

@@ -848,3 +848,38 @@ END $$;
 -- ============================================================
 -- SELESAI (Modul Kasir Lanjutan)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 20) DATA RESEP LENGKAP + KADALUARSA OBAT (Master Obat, Kartu Stok,
+--     Stok Opname) + NOTIFIKASI OBAT MENDEKATI EXPIRED
+-- ------------------------------------------------------------
+
+-- Data resep - disimpan per baris penjualan_detail (bukan tabel
+-- terpisah), supaya 1 transaksi bisa campur item resep & non-resep.
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS no_resep TEXT;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS nama_dokter TEXT;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS nama_pasien TEXT;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS tgl_lahir_pasien DATE;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS usia_pasien TEXT;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS berat_badan_pasien TEXT;
+
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS no_resep TEXT;
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS nama_dokter TEXT;
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS nama_pasien TEXT;
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS tgl_lahir_pasien DATE;
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS usia_pasien TEXT;
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS berat_badan_pasien TEXT;
+
+-- Kadaluarsa di Master Obat - referensi tanggal ED yang "aktif dipantau"
+-- utk obat ini (bisa diupdate manual dari Master Obat / Stok Opname,
+-- atau otomatis dari pembelian terbaru).
+ALTER TABLE obat ADD COLUMN IF NOT EXISTS tanggal_exp DATE;
+
+-- Kadaluarsa & no batch di Kartu Stok - dicatat per transaksi pembelian,
+-- supaya riwayatnya bisa dilacak per batch masuk.
+ALTER TABLE kartu_stok ADD COLUMN IF NOT EXISTS tanggal_exp DATE;
+ALTER TABLE kartu_stok ADD COLUMN IF NOT EXISTS no_batch TEXT;
+
+-- ============================================================
+-- SELESAI (Resep Lengkap + Kadaluarsa Obat)
+-- ============================================================

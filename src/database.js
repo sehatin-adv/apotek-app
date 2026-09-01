@@ -320,6 +320,13 @@ export async function savePenjualan(header, details, options = {}) {
                             .update({ stok: stokBaru })
                             .eq('id', obatData.id);
                     }
+                    // Kalau item ini bagian dari Resep, keterangan Kartu
+                    // Stok tampilkan No. Resep & Nama Pasien-nya - supaya
+                    // gampang dilacak penjualan resep siapa, bukan cuma
+                    // "Penjualan" generik.
+                    const keteranganKartuStok = item.is_resep
+                        ? `Resep${item.no_resep ? ' No.' + item.no_resep : ''} - ${item.nama_pasien || '-'} (dr. ${item.nama_dokter || '-'})`
+                        : 'Penjualan';
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -329,7 +336,7 @@ export async function savePenjualan(header, details, options = {}) {
                             tanggal: header.tanggal || new Date().toISOString().split('T')[0],
                             jam: header.jam || new Date().toTimeString().slice(0,5),
                             no_bukti: header.no_faktur || 'JUAL-' + Date.now(),
-                            keterangan: 'Penjualan',
+                            keterangan: keteranganKartuStok,
                             keluar: item.jumlah || 0,
                             sisa_stok: stokBaru
                         });
@@ -1043,9 +1050,13 @@ export async function savePembelian(header, details) {
                     .single();
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah || 0);
+                    // Update stok + tanggal_exp (referensi ED terbaru yang
+                    // diketahui utk obat ini) sekaligus dalam 1 update.
+                    const updatePayload = { stok: stokBaru };
+                    if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
                     await supabase
                         .from('obat')
-                        .update({ stok: stokBaru })
+                        .update(updatePayload)
                         .eq('id', obatData.id);
                     // PENTING: error dari insert ini dulu TIDAK PERNAH dicek
                     // sama sekali - kalau gagal (apa pun sebabnya), kode
@@ -1064,7 +1075,9 @@ export async function savePembelian(header, details) {
                             no_bukti: header.no_faktur || 'PEM-' + Date.now(),
                             keterangan: 'Pembelian dari ' + (header.supplier_nama || 'Supplier'),
                             masuk: item.jumlah || 0,
-                            sisa_stok: stokBaru
+                            sisa_stok: stokBaru,
+                            tanggal_exp: item.tanggal_exp || null,
+                            no_batch: item.no_batch || null
                         });
                     if (kartuStokError) {
                         console.error('Gagal insert kartu_stok utk item ' + item.kode_obat + ':', kartuStokError);
@@ -2213,6 +2226,37 @@ export async function getPenolakanObat(startDate, endDate) {
         return { data: data || [], error: null };
     } catch(e) {
         console.error('Error getPenolakanObat:', e);
+        return { data: [], error: e };
+    }
+}
+
+// ============================================================
+// OBAT MENDEKATI KADALUARSA (utk notifikasi Dashboard)
+// Ambil obat dengan tanggal_exp dalam 3 bulan ke depan, ATAU sudah
+// lewat ED tapi belum lebih dari 1 minggu (masih dalam masa "peringatan
+// akhir") - lewat dari 1 minggu setelah ED, otomatis tidak lagi
+// ditampilkan (dianggap sudah ditangani/writeoff).
+// ============================================================
+export async function getObatMendekatiExpired() {
+    try {
+        const today = new Date();
+        const in3Months = new Date(today);
+        in3Months.setMonth(in3Months.getMonth() + 3);
+        const oneWeekAgo = new Date(today);
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+        const { data, error } = await supabase
+            .from('obat')
+            .select('id, kode_obat, nama_obat, stok, tanggal_exp')
+            .not('tanggal_exp', 'is', null)
+            .gte('tanggal_exp', oneWeekAgo.toISOString().split('T')[0])
+            .lte('tanggal_exp', in3Months.toISOString().split('T')[0])
+            .gt('stok', 0)
+            .order('tanggal_exp', { ascending: true });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getObatMendekatiExpired:', e);
         return { data: [], error: e };
     }
 }
