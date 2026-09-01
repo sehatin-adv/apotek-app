@@ -1083,7 +1083,10 @@
             return `
                 <tr>
                     <td style="font-weight:700;">${i + 1}</td>
-                    <td><button class="btn-remove" onclick="hapusGroupKasir('${row.groupId}')"><i class="fas fa-trash"></i></button></td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn-remove" onclick="hapusGroupKasir('${row.groupId}')" title="Hapus"><i class="fas fa-trash"></i></button>
+                        <button onclick="editGroupKasir('${row.groupId}')" title="Edit" style="background:#eaf2fb;color:#2d6a9f;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;margin-left:4px;"><i class="fas fa-pen"></i></button>
+                    </td>
                     <td class="nama-obat">
                         <i class="fas ${icon}" style="color:${color};"></i> <strong>${label}</strong>
                         <div style="font-size:10px;color:#7a8a9e;">${subLabel}</div>
@@ -1107,6 +1110,55 @@
         renderKasir();
         hitungTotalKasir();
         showToastKasir('🗑️ Racikan/Resep dihapus dari keranjang');
+    };
+
+    // Buka lagi Racikan/Resep yang sudah ada di keranjang buat diedit -
+    // keluarkan dulu item2-nya dari keranjang (sementara), muat ke modal
+    // yang sama persis dengan waktu awal input, dan begitu disimpan lagi
+    // lewat simpanRacikan() akan masuk ke keranjang sebagai grup baru.
+    window.editGroupKasir = function(groupId) {
+        const groupItems = itemsKasir.filter(item => item.racikan_group_id === groupId);
+        if (groupItems.length === 0) return;
+        const first = groupItems[0];
+
+        racikanModeIsResep = !!first.is_resep;
+        racikanItemsTemp = groupItems.map(item => ({
+            obat_id: item.obat_id,
+            kode_obat: item.kode_obat,
+            nama_obat: item.nama_obat,
+            satuan: item.satuan,
+            jumlah: item.jumlah,
+            harga_jual: item.harga_jual,
+            stok_tersedia: item.stok_tersedia
+        }));
+
+        // Keluarkan dari keranjang dulu (disimpan sementara sbg cadangan
+        // di editingGroupBackup - dikembalikan otomatis kalau modal
+        // ditutup tanpa disimpan ulang, lihat closeRacikanModal()).
+        editingGroupBackup = groupItems;
+        itemsKasir = itemsKasir.filter(item => item.racikan_group_id !== groupId);
+
+        if (racikanModeIsResep) {
+            document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-file-medical" style="color:#2d6a9f;"></i> Edit Item Resep';
+            document.getElementById('racikanNamaWrap').style.display = 'none';
+            document.getElementById('resepFieldsWrap').style.display = 'block';
+            document.getElementById('resepNoInput').value = first.no_resep || '';
+            document.getElementById('resepDokterInput').value = first.nama_dokter || '';
+            document.getElementById('resepPasienInput').value = first.nama_pasien || '';
+            document.getElementById('resepTglLahirInput').value = first.tgl_lahir_pasien || '';
+            document.getElementById('resepUsiaInput').value = first.usia_pasien || '';
+            document.getElementById('resepBeratInput').value = first.berat_badan_pasien || '';
+        } else {
+            document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Edit Racikan';
+            document.getElementById('racikanNamaWrap').style.display = 'block';
+            document.getElementById('resepFieldsWrap').style.display = 'none';
+            document.getElementById('racikanNamaInput').value = first.racikan_nama || '';
+        }
+        document.getElementById('racikanSearchInput').value = '';
+        renderRacikanItems();
+        renderKasir();
+        hitungTotalKasir();
+        document.getElementById('modalRacikan').classList.add('active');
     };
     
     // ============================================================
@@ -1531,10 +1583,12 @@
     // ============================================================
     let racikanItemsTemp = [];
     let racikanModeIsResep = false;
+    let editingGroupBackup = null; // simpan item asli sementara saat mode edit, buat dikembalikan kalau modal ditutup tanpa disimpan ulang
 
     window.openRacikanModal = function() {
         racikanModeIsResep = false;
         racikanItemsTemp = [];
+        editingGroupBackup = null;
         document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Tambah Racikan';
         document.getElementById('racikanNamaWrap').style.display = 'block';
         document.getElementById('resepFieldsWrap').style.display = 'none';
@@ -1547,6 +1601,7 @@
     window.openResepModal = function() {
         racikanModeIsResep = true;
         racikanItemsTemp = [];
+        editingGroupBackup = null;
         document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-file-medical" style="color:#2d6a9f;"></i> Tambah Item Resep';
         document.getElementById('racikanNamaWrap').style.display = 'none';
         document.getElementById('resepFieldsWrap').style.display = 'block';
@@ -1561,6 +1616,16 @@
         document.getElementById('modalRacikan').classList.add('active');
     };
     window.closeRacikanModal = function() {
+        // Kalau lagi mode edit dan modal ditutup TANPA sempat disimpan
+        // ulang (klik X, bukan "Simpan ke Keranjang"), kembalikan item
+        // asli yang tadi dikeluarkan sementara dari keranjang - supaya
+        // tidak hilang begitu saja.
+        if (editingGroupBackup) {
+            itemsKasir.push(...editingGroupBackup);
+            editingGroupBackup = null;
+            renderKasir();
+            hitungTotalKasir();
+        }
         document.getElementById('modalRacikan').classList.remove('active');
         document.getElementById('racikanSaran').style.display = 'none';
     };
@@ -1673,7 +1738,12 @@
 
         const namaRacikan = document.getElementById('racikanNamaInput').value.trim() ||
             (racikanModeIsResep ? null : ('Racikan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })));
-        const groupId = 'grp-' + Date.now();
+        // PENTING: kolom racikan_group_id di database bertipe UUID asli -
+        // sebelumnya di sini dipakai teks "grp-<timestamp>" yang BUKAN
+        // format UUID sah, bikin gagal simpan dengan error "invalid input
+        // syntax for type uuid". crypto.randomUUID() menghasilkan UUID
+        // yang benar-benar valid.
+        const groupId = crypto.randomUUID();
         const labelToast = racikanModeIsResep ? `Resep untuk "${resepData.nama_pasien}"` : `Racikan "${namaRacikan}"`;
 
         racikanItemsTemp.forEach(item => {
@@ -1695,6 +1765,11 @@
         });
         renderKasir();
         hitungTotalKasir();
+        // PENTING: kosongkan cadangan SEBELUM tutup modal - kalau tidak,
+        // closeRacikanModal() akan mengira modal ditutup tanpa disimpan
+        // dan malah mengembalikan item LAMA lagi ke keranjang (duplikat
+        // dengan yang baru saja disimpan).
+        editingGroupBackup = null;
         closeRacikanModal();
         showToastKasir(`✅ ${labelToast} ditambahkan ke keranjang!`);
     };
