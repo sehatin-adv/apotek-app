@@ -235,7 +235,8 @@ export async function getPenjualanByNoFaktur(noFaktur) {
     }
 }
 
-export async function savePenjualan(header, details) {
+export async function savePenjualan(header, details, options = {}) {
+    const skipStockDeduction = options.skipStockDeduction || false; // true kalau dipanggil dari "Lanjutkan Pending" - stok sudah ditahan duluan saat pending dibuat, jangan dikurangi 2x
     try {
         // ============================================================
         // 1. AMBIL SHIFT AKTIF (milik kasir yang sedang transaksi)
@@ -305,11 +306,20 @@ export async function savePenjualan(header, details) {
                     .single();
 
                 if (!obatError && obatData) {
-                    const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
-                    await supabase
-                        .from('obat')
-                        .update({ stok: stokBaru })
-                        .eq('id', obatData.id);
+                    // Kalau dipanggil dari "Lanjutkan Pending", stok SUDAH
+                    // dikurangi (ditahan) saat pending dibuat - di sini
+                    // cuma catat kartu_stok-nya saja, JANGAN kurangi stok
+                    // lagi (kalau dikurangi lagi, stoknya jadi salah,
+                    // dipotong 2x).
+                    const stokBaru = skipStockDeduction
+                        ? obatData.stok
+                        : Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
+                    if (!skipStockDeduction) {
+                        await supabase
+                            .from('obat')
+                            .update({ stok: stokBaru })
+                            .eq('id', obatData.id);
+                    }
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -2075,5 +2085,134 @@ export async function getJumlahUserAktif() {
     } catch(e) {
         console.error('Error getJumlahUserAktif:', e);
         return { data: 0, error: e };
+    }
+}
+
+// ============================================================
+// KASIR PENDING (transaksi belum selesai, stok ditahan sementara)
+// ============================================================
+export async function savePendingTransaksi(header, details) {
+    try {
+        const { data: headerData, error: headerError } = await supabase
+            .from('kasir_pending')
+            .insert(header)
+            .select();
+        if (headerError) throw headerError;
+
+        const detailsWithId = details.map(d => ({ ...d, kasir_pending_id: headerData[0].id }));
+        const { error: detailError } = await supabase
+            .from('kasir_pending_detail')
+            .insert(detailsWithId);
+        if (detailError) throw detailError;
+
+        // TAHAN stok (kurangi sementara) - TANPA catat kartu_stok, karena
+        // ini belum benar-benar terjual, cuma "dipesan/ditahan" dulu.
+        for (const item of details) {
+            if (item.kode_obat) {
+                const { data: obatData } = await supabase
+                    .from('obat')
+                    .select('id, stok')
+                    .eq('kode_obat', item.kode_obat)
+                    .single();
+                if (obatData) {
+                    const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
+                    await supabase.from('obat').update({ stok: stokBaru }).eq('id', obatData.id);
+                }
+            }
+        }
+
+        return { data: headerData[0], error: null };
+    } catch(e) {
+        console.error('Error savePendingTransaksi:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function getAllPendingTransaksi() {
+    try {
+        const { data, error } = await supabase
+            .from('kasir_pending')
+            .select('*, kasir_pending_detail(*)')
+            .eq('status', 'Pending')
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getAllPendingTransaksi:', e);
+        return { data: [], error: e };
+    }
+}
+
+// Batalkan pending - stok LANGSUNG dikembalikan, TANPA tercatat di
+// kartu_stok sama sekali (baik pengurangan waktu pending dibuat maupun
+// pengembalian ini - keduanya memang sengaja tidak pernah masuk kartu
+// stok, karena barangnya tidak pernah benar2 keluar dari apotek).
+export async function batalkanPendingTransaksi(pendingId, details) {
+    try {
+        for (const item of details) {
+            if (item.kode_obat) {
+                const { data: obatData } = await supabase
+                    .from('obat')
+                    .select('id, stok')
+                    .eq('kode_obat', item.kode_obat)
+                    .single();
+                if (obatData) {
+                    const stokBaru = (obatData.stok || 0) + (item.jumlah || 0);
+                    await supabase.from('obat').update({ stok: stokBaru }).eq('id', obatData.id);
+                }
+            }
+        }
+        const { error } = await supabase
+            .from('kasir_pending')
+            .update({ status: 'Batal' })
+            .eq('id', pendingId);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error batalkanPendingTransaksi:', e);
+        return { error: e };
+    }
+}
+
+export async function tandaiPendingSelesai(pendingId) {
+    try {
+        const { error } = await supabase
+            .from('kasir_pending')
+            .update({ status: 'Selesai' })
+            .eq('id', pendingId);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error tandaiPendingSelesai:', e);
+        return { error: e };
+    }
+}
+
+// ============================================================
+// PENOLAKAN OBAT (obat dicari pasien tapi stok kosong - nama bebas,
+// tidak wajib ada di Master Obat)
+// ============================================================
+export async function savePenolakanObat(data) {
+    try {
+        const { error } = await supabase.from('penolakan_obat').insert(data);
+        if (error) throw error;
+        return { error: null };
+    } catch(e) {
+        console.error('Error savePenolakanObat:', e);
+        return { error: e };
+    }
+}
+
+export async function getPenolakanObat(startDate, endDate) {
+    try {
+        let query = supabase.from('penolakan_obat').select('*').order('tanggal', { ascending: false }).order('jam', { ascending: false });
+        if (startDate) query = query.gte('tanggal', startDate);
+        if (endDate) query = query.lte('tanggal', endDate);
+        const { data, error } = await query;
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getPenolakanObat:', e);
+        return { data: [], error: e };
     }
 }

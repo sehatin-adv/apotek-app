@@ -731,3 +731,120 @@ ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS upgrade_to_plan TEXT;
 -- ============================================================
 -- SELESAI (Upgrade Basic -> Pro)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 19) MODUL KASIR LANJUTAN - Racikan, Resep, Pending, Penolakan Obat
+-- ------------------------------------------------------------
+
+-- Racikan/Resep: beberapa obat digabung jadi 1 baris keranjang.
+-- Ditandai lewat racikan_group_id yang sama pada baris2 penjualan_detail
+-- yang tergabung dalam racikan/resep yang sama - stok tetap dikurangi
+-- per obat asli seperti biasa, cuma DITAMPILKAN mengelompok di struk.
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS racikan_group_id UUID;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS racikan_nama TEXT;
+ALTER TABLE penjualan_detail ADD COLUMN IF NOT EXISTS is_resep BOOLEAN DEFAULT false;
+
+-- PENDING - transaksi yang belum selesai, stok ditahan sementara.
+-- Kalau dibatalkan, stok kembali TANPA tercatat di kartu_stok (karena
+-- memang tidak pernah benar2 terjual - cuma ditahan lalu dilepas lagi).
+CREATE TABLE IF NOT EXISTS kasir_pending (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    no_pending TEXT NOT NULL,
+    tanggal DATE NOT NULL,
+    jam TIME NOT NULL,
+    gudang TEXT,
+    pelanggan TEXT,
+    dokter TEXT,
+    no_resep TEXT,
+    sales TEXT,
+    total INTEGER DEFAULT 0,
+    petugas TEXT,
+    status TEXT DEFAULT 'Pending' CHECK (status IN ('Pending', 'Selesai', 'Batal')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS kasir_pending_detail (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    kasir_pending_id UUID REFERENCES kasir_pending(id) ON DELETE CASCADE,
+    obat_id UUID REFERENCES obat(id),
+    kode_obat TEXT,
+    nama_obat TEXT,
+    satuan TEXT,
+    jumlah INTEGER NOT NULL,
+    harga_jual INTEGER NOT NULL,
+    diskon_persen NUMERIC DEFAULT 0,
+    diskon_nominal INTEGER DEFAULT 0,
+    subtotal INTEGER NOT NULL,
+    racikan_group_id UUID,
+    racikan_nama TEXT,
+    is_resep BOOLEAN DEFAULT false
+);
+
+-- PENOLAKAN OBAT - catat obat yang dicari pasien tapi stok kosong.
+-- Nama obat teks bebas, TIDAK wajib ada di Master Obat.
+CREATE TABLE IF NOT EXISTS penolakan_obat (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tanggal DATE NOT NULL,
+    jam TIME NOT NULL,
+    nama_obat TEXT NOT NULL,
+    jumlah_diminta INTEGER,
+    keterangan TEXT,
+    petugas TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE kasir_pending ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+ALTER TABLE kasir_pending_detail ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+ALTER TABLE penolakan_obat ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+DO $$
+DECLARE
+    v_tenant_id UUID;
+BEGIN
+    SELECT id INTO v_tenant_id FROM tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE kasir_pending SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+        UPDATE kasir_pending_detail SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+        UPDATE penolakan_obat SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+    END IF;
+END $$;
+
+ALTER TABLE kasir_pending ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE kasir_pending_detail ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE penolakan_obat ALTER COLUMN tenant_id SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'kasir_pending_tenant_no_pending_key') THEN
+        ALTER TABLE kasir_pending ADD CONSTRAINT kasir_pending_tenant_no_pending_key UNIQUE (tenant_id, no_pending);
+    END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_tenant_kasir_pending ON kasir_pending;
+CREATE TRIGGER trg_tenant_kasir_pending BEFORE INSERT ON kasir_pending FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+DROP TRIGGER IF EXISTS trg_tenant_kasir_pending_detail ON kasir_pending_detail;
+CREATE TRIGGER trg_tenant_kasir_pending_detail BEFORE INSERT ON kasir_pending_detail FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+DROP TRIGGER IF EXISTS trg_tenant_penolakan_obat ON penolakan_obat;
+CREATE TRIGGER trg_tenant_penolakan_obat BEFORE INSERT ON penolakan_obat FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+DO $$
+DECLARE
+    t TEXT;
+    pol RECORD;
+    tbls TEXT[] := ARRAY['kasir_pending', 'kasir_pending_detail', 'penolakan_obat'];
+BEGIN
+    FOREACH t IN ARRAY tbls LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, t);
+        END LOOP;
+        EXECUTE format(
+            'CREATE POLICY "Tenant isolation" ON %I FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id())',
+            t
+        );
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (Modul Kasir Lanjutan)
+-- ============================================================

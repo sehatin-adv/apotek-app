@@ -349,6 +349,7 @@
             <div class="sub-menu">
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
+                <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
             </div>
         </div>
         <div class="menu-group">
@@ -456,6 +457,17 @@
                     <button class="btn btn-primary" onclick="lihatStokKasir()"><i class="fas fa-eye"></i> Lihat Stok</button>
                 </div>
                 <div class="suggestion-box" id="saranKasir"></div>
+
+                <!-- BARIS TOMBOL RACIKAN/RESEP/PENDING/PENOLAKAN OBAT -->
+                <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" onclick="openRacikanModal()"><i class="fas fa-mortar-pestle"></i> Racikan <span style="opacity:0.5;">F4</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="openResepModal()"><i class="fas fa-file-medical"></i> Resep <span style="opacity:0.5;">F7</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="openPendingModal()"><i class="fas fa-pause-circle"></i> Pending <span style="opacity:0.5;">Alt+Q</span></button>
+                    <button class="btn btn-outline btn-sm" onclick="openPenolakanModal()"><i class="fas fa-ban"></i> Penolakan Obat</button>
+                </div>
+                <div id="resumedPendingBanner" style="display:none;background:#fff3cd;border:1px solid #ffe69c;color:#664d03;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px;">
+                    <i class="fas fa-circle-info"></i> Melanjutkan transaksi pending <strong id="resumedPendingLabel"></strong> - simpan seperti biasa untuk menyelesaikannya.
+                </div>
 
                 <!-- TABLE -->
                 <div class="table-wrap">
@@ -621,11 +633,79 @@
     </div>
 </div>
 
+<!-- MODAL RACIKAN / RESEP (search & gabungkan beberapa obat jadi 1 baris) -->
+<div class="modal-overlay" id="modalRacikan">
+    <div class="modal-box" style="max-width:720px;text-align:left;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 id="racikanModalTitle" style="font-size:16px;"><i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Tambah Racikan</h3>
+            <button onclick="closeRacikanModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Nama Racikan</label>
+            <input type="text" id="racikanNamaInput" placeholder="Contoh: Puyer Batuk Pilek Anak" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+        </div>
+        <div style="position:relative;margin-bottom:10px;">
+            <input type="text" id="racikanSearchInput" placeholder="Ketik Kode Obat, Nama Obat untuk menambah item..." oninput="cariObatRacikan()" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+            <div id="racikanSaran" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #e8edf3;border-radius:8px;max-height:220px;overflow-y:auto;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.1);"></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Item</th><th style="width:70px;">Jumlah</th><th style="width:70px;">Satuan</th><th style="width:90px;">Harga</th><th style="width:90px;">Total</th><th style="width:30px;"></th></tr></thead>
+                <tbody id="racikanItemsBody"><tr><td colspan="6" style="text-align:center;color:#7a8a9e;padding:16px;">Belum ada item</td></tr></tbody>
+            </table>
+        </div>
+        <div style="text-align:right;font-size:15px;font-weight:700;margin:12px 0;">Total: <span id="racikanTotalText" style="color:#8b5cf6;">Rp 0</span></div>
+        <button class="btn btn-success btn-block" onclick="simpanRacikan()"><i class="fas fa-check"></i> Simpan ke Keranjang</button>
+    </div>
+</div>
+
+<!-- MODAL PENDING -->
+<div class="modal-overlay" id="modalPending">
+    <div class="modal-box" style="max-width:680px;text-align:left;max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:16px;"><i class="fas fa-pause-circle" style="color:#b8860b;"></i> Pending</h3>
+            <button onclick="closePendingModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <div id="pendingSaveSection" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #eef2f7;">
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:8px;">Transaksi saat ini punya <strong id="pendingCartCount">0</strong> item. Simpan sebagai pending untuk dilanjutkan nanti - stok akan ditahan sementara.</p>
+            <input type="text" id="pendingPelangganInput" placeholder="Nama pelanggan (opsional, buat memudahkan cari nanti)" style="width:100%;padding:8px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;margin-bottom:8px;">
+            <button class="btn btn-primary btn-block" id="btnSimpanPending" onclick="simpanSebagaiPending()"><i class="fas fa-pause"></i> Simpan Transaksi Ini sebagai Pending</button>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#7a8a9e;text-transform:uppercase;margin-bottom:8px;">Daftar Transaksi Pending</div>
+        <div id="pendingListBody"><div style="text-align:center;color:#7a8a9e;padding:16px;font-size:13px;">Memuat...</div></div>
+    </div>
+</div>
+
+<!-- MODAL PENOLAKAN OBAT -->
+<div class="modal-overlay" id="modalPenolakan">
+    <div class="modal-box" style="max-width:440px;text-align:left;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:16px;"><i class="fas fa-ban" style="color:#dc3545;"></i> Penolakan Obat</h3>
+            <button onclick="closePenolakanModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#7a8a9e;">&times;</button>
+        </div>
+        <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Catat obat yang dicari pasien tapi stok kita kosong - tidak harus ada di Master Obat.</p>
+        <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Nama Obat</label>
+            <input type="text" id="penolakanNamaInput" placeholder="Ketik nama obat bebas..." style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+        </div>
+        <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Jumlah Diminta (opsional)</label>
+            <input type="number" id="penolakanJumlahInput" placeholder="0" min="0" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+        </div>
+        <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:12px;font-weight:600;color:#5b6b7c;margin-bottom:4px;">Keterangan (opsional)</label>
+            <input type="text" id="penolakanKeteranganInput" placeholder="Contoh: pasien tunggu, minta info kapan ready" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+        </div>
+        <button class="btn btn-danger btn-block" onclick="simpanPenolakanObat()"><i class="fas fa-save"></i> Catat Penolakan</button>
+    </div>
+</div>
+
 <div class="toast" id="toastKasir"></div>
 
 <script type="module">
     import { supabase, getCurrentUser } from './supabase.js';
-    import { getObat, savePenjualan } from './database.js';
+    import { getObat, savePenjualan, savePendingTransaksi, getAllPendingTransaksi, batalkanPendingTransaksi, tandaiPendingSelesai, savePenolakanObat } from './database.js';
+    import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Kasir');
     import { enforcePermissions } from './permissions.js';
@@ -929,7 +1009,7 @@
                 <td>
                     <button class="btn-remove" onclick="hapusItemKasir(${index})"><i class="fas fa-trash"></i></button>
                 </td>
-                <td class="nama-obat">${item.nama_obat || '-'}</td>
+                <td class="nama-obat">${item.nama_obat || '-'}${item.racikan_nama ? `<div style="font-size:10px;color:#8b5cf6;font-weight:700;"><i class="fas fa-mortar-pestle"></i> ${item.racikan_nama}</div>` : ''}${item.is_resep ? '<div style="font-size:10px;color:#2d6a9f;font-weight:700;"><i class="fas fa-file-medical"></i> Resep</div>' : ''}</td>
                 <td>
                     <input type="number" value="${item.jumlah}" min="1" step="1" 
                            onchange="validasiDanUpdateJumlah(${index}, this.value)" 
@@ -1177,7 +1257,10 @@
             satuan: item.satuan || 'Tablet',
             jumlah: item.jumlah,
             harga_jual: item.harga_jual,
-            subtotal: item.subtotal
+            subtotal: item.subtotal,
+            racikan_group_id: item.racikan_group_id || null,
+            racikan_nama: item.racikan_nama || null,
+            is_resep: item.is_resep || false
         }));
         
         sedangMenyimpanKasir = true;
@@ -1185,14 +1268,22 @@
         if (btnSimpan) { btnSimpan.disabled = true; btnSimpan.style.opacity = '0.6'; btnSimpan.style.cursor = 'not-allowed'; }
         
         try {
-            // SIMPAN KE SUPABASE - update stok otomatis di database.js
-            const { data, error } = await savePenjualan(header, details);
-            
+            // Kalau transaksi ini hasil "Lanjutkan Pending", stok SUDAH
+            // ditahan/dikurangi sejak pending dibuat - jangan dikurangi
+            // lagi (skipStockDeduction), cuma catat kartu_stok-nya saja.
+            const { data, error } = await savePenjualan(header, details, { skipStockDeduction: !!resumedFromPendingId });
+
             // Kalau gagal total (tidak ada data sama sekali, bahkan lokal), baru batalkan.
             if (error && !data) {
                 console.error('Error saving penjualan:', error);
                 showToastKasir('❌ Gagal menyimpan penjualan: ' + error.message, true);
                 return;
+            }
+
+            if (resumedFromPendingId) {
+                await tandaiPendingSelesai(resumedFromPendingId);
+                resumedFromPendingId = null;
+                document.getElementById('resumedPendingBanner').style.display = 'none';
             }
             
             // Update stok lokal (sebagai backup)
@@ -1346,11 +1437,315 @@
         toggleMetodePembayaran();
         itemsKasir = [];
         itemCounterKasir = 0;
+        // Kalau lagi "melanjutkan pending" dan direset, batalkan status
+        // itu di sisi tampilan - data pending-nya SENDIRI tetap utuh di
+        // database (statusnya masih 'Pending'), cuma sesi kasir saat ini
+        // yang berhenti melanjutkannya, jadi masih bisa dibuka lagi lewat
+        // tombol Pending nanti.
+        resumedFromPendingId = null;
+        const banner = document.getElementById('resumedPendingBanner');
+        if (banner) banner.style.display = 'none';
         renderKasir();
         hitungTotalKasir();
         if (!silent) showToastKasir('🔄 Kasir direset');
     };
     
+    // ============================================================
+    // RACIKAN / RESEP - gabungkan beberapa obat jadi 1 baris keranjang
+    // ============================================================
+    let racikanItemsTemp = [];
+    let racikanModeIsResep = false;
+
+    window.openRacikanModal = function() {
+        racikanModeIsResep = false;
+        racikanItemsTemp = [];
+        document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-mortar-pestle" style="color:#8b5cf6;"></i> Tambah Racikan';
+        document.getElementById('racikanNamaInput').value = '';
+        document.getElementById('racikanNamaInput').placeholder = 'Contoh: Puyer Batuk Pilek Anak';
+        document.getElementById('racikanSearchInput').value = '';
+        renderRacikanItems();
+        document.getElementById('modalRacikan').classList.add('active');
+    };
+    window.openResepModal = function() {
+        racikanModeIsResep = true;
+        racikanItemsTemp = [];
+        document.getElementById('racikanModalTitle').innerHTML = '<i class="fas fa-file-medical" style="color:#2d6a9f;"></i> Tambah Item Resep';
+        document.getElementById('racikanNamaInput').value = '';
+        document.getElementById('racikanNamaInput').placeholder = 'Contoh: Resep dr. Ani (opsional)';
+        document.getElementById('racikanSearchInput').value = '';
+        renderRacikanItems();
+        document.getElementById('modalRacikan').classList.add('active');
+    };
+    window.closeRacikanModal = function() {
+        document.getElementById('modalRacikan').classList.remove('active');
+        document.getElementById('racikanSaran').style.display = 'none';
+    };
+
+    window.cariObatRacikan = function() {
+        const keyword = document.getElementById('racikanSearchInput').value.trim().toLowerCase();
+        const saranBox = document.getElementById('racikanSaran');
+        if (!keyword) { saranBox.style.display = 'none'; return; }
+        const hasil = obatMasterKasir.filter(o =>
+            (o.nama_obat || '').toLowerCase().includes(keyword) || (o.kode_obat || '').toLowerCase().includes(keyword)
+        ).slice(0, 15);
+        if (hasil.length === 0) {
+            saranBox.innerHTML = '<div style="padding:10px 12px;color:#7a8a9e;font-size:12px;">Tidak ditemukan</div>';
+            saranBox.style.display = 'block';
+            return;
+        }
+        saranBox.innerHTML = hasil.map(o => `
+            <div onclick="tambahItemRacikan('${o.id}')" style="padding:8px 12px;border-bottom:1px solid #eef2f7;cursor:pointer;display:flex;justify-content:space-between;font-size:12.5px;">
+                <span>${o.nama_obat}</span><span style="color:#7a8a9e;">Stok: ${o.stok || 0}</span>
+            </div>
+        `).join('');
+        saranBox.style.display = 'block';
+    };
+    window.tambahItemRacikan = function(obatId) {
+        const obat = obatMasterKasir.find(o => String(o.id) === String(obatId));
+        if (!obat) return;
+        if (obat.stok <= 0) { showToastKasir('⚠️ Stok ' + obat.nama_obat + ' habis!', true); return; }
+        racikanItemsTemp.push({
+            obat_id: obat.id,
+            kode_obat: obat.kode_obat || '',
+            nama_obat: obat.nama_obat || '',
+            satuan: obat.satuan || 'Tablet',
+            jumlah: 1,
+            harga_jual: obat.harga_jual || 0,
+            stok_tersedia: obat.stok || 0
+        });
+        document.getElementById('racikanSearchInput').value = '';
+        document.getElementById('racikanSaran').style.display = 'none';
+        renderRacikanItems();
+    };
+    window.updateJumlahRacikan = function(idx, value) {
+        const jumlah = Number(value) || 1;
+        const item = racikanItemsTemp[idx];
+        if (!item) return;
+        if (jumlah > item.stok_tersedia) {
+            showToastKasir(`⚠️ Jumlah melebihi stok (${item.stok_tersedia})`, true);
+            renderRacikanItems();
+            return;
+        }
+        item.jumlah = jumlah < 1 ? 1 : jumlah;
+        renderRacikanItems();
+    };
+    window.hapusItemRacikan = function(idx) {
+        racikanItemsTemp.splice(idx, 1);
+        renderRacikanItems();
+    };
+    function renderRacikanItems() {
+        const tbody = document.getElementById('racikanItemsBody');
+        if (racikanItemsTemp.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#7a8a9e;padding:16px;">Belum ada item</td></tr>';
+            document.getElementById('racikanTotalText').textContent = formatRupiahKasir(0);
+            return;
+        }
+        let total = 0;
+        tbody.innerHTML = racikanItemsTemp.map((item, idx) => {
+            const subtotal = item.jumlah * item.harga_jual;
+            total += subtotal;
+            return `
+                <tr>
+                    <td>${item.nama_obat}</td>
+                    <td><input type="number" value="${item.jumlah}" min="1" style="width:60px;padding:4px 6px;border:1px solid #e8edf3;border-radius:6px;" onchange="updateJumlahRacikan(${idx}, this.value)"></td>
+                    <td>${item.satuan}</td>
+                    <td>${formatRupiahKasir(item.harga_jual)}</td>
+                    <td style="font-weight:700;">${formatRupiahKasir(subtotal)}</td>
+                    <td><button onclick="hapusItemRacikan(${idx})" style="background:none;border:none;color:#dc3545;cursor:pointer;"><i class="fas fa-trash"></i></button></td>
+                </tr>
+            `;
+        }).join('');
+        document.getElementById('racikanTotalText').textContent = formatRupiahKasir(total);
+    }
+    window.simpanRacikan = function() {
+        if (racikanItemsTemp.length === 0) {
+            showToastKasir('⚠️ Tambahkan minimal 1 item dulu', true);
+            return;
+        }
+        const namaRacikan = document.getElementById('racikanNamaInput').value.trim() ||
+            (racikanModeIsResep ? 'Resep' : ('Racikan ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })));
+        const groupId = 'grp-' + Date.now();
+
+        racikanItemsTemp.forEach(item => {
+            itemsKasir.push({
+                id: ++itemCounterKasir,
+                obat_id: item.obat_id,
+                kode_obat: item.kode_obat,
+                nama_obat: item.nama_obat,
+                satuan: item.satuan,
+                jumlah: item.jumlah,
+                harga_jual: item.harga_jual,
+                subtotal: item.jumlah * item.harga_jual,
+                stok_tersedia: item.stok_tersedia,
+                racikan_group_id: groupId,
+                racikan_nama: racikanModeIsResep ? null : namaRacikan,
+                is_resep: racikanModeIsResep
+            });
+        });
+        renderKasir();
+        hitungTotalKasir();
+        closeRacikanModal();
+        showToastKasir(`✅ ${racikanModeIsResep ? 'Item resep' : 'Racikan'} "${namaRacikan}" ditambahkan ke keranjang!`);
+    };
+
+    // ============================================================
+    // PENDING - simpan/lanjutkan/batalkan transaksi tertunda
+    // ============================================================
+    let resumedFromPendingId = null;
+
+    window.openPendingModal = async function() {
+        document.getElementById('pendingCartCount').textContent = itemsKasir.length;
+        document.getElementById('pendingSaveSection').style.display = itemsKasir.length > 0 ? 'block' : 'none';
+        document.getElementById('pendingPelangganInput').value = '';
+        document.getElementById('modalPending').classList.add('active');
+        await muatDaftarPending();
+    };
+    window.closePendingModal = function() {
+        document.getElementById('modalPending').classList.remove('active');
+    };
+
+    async function muatDaftarPending() {
+        const wrap = document.getElementById('pendingListBody');
+        wrap.innerHTML = '<div style="text-align:center;color:#7a8a9e;padding:16px;font-size:13px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>';
+        const { data, error } = await getAllPendingTransaksi();
+        if (error) {
+            wrap.innerHTML = '<div style="text-align:center;color:#dc3545;padding:16px;font-size:13px;">Gagal memuat daftar pending</div>';
+            return;
+        }
+        if (!data || data.length === 0) {
+            wrap.innerHTML = '<div style="text-align:center;color:#7a8a9e;padding:16px;font-size:13px;">Tidak ada transaksi pending</div>';
+            return;
+        }
+        window.__pendingListCache = data;
+        wrap.innerHTML = data.map(p => `
+            <div style="border:1px solid #eef2f7;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <strong>${p.no_pending}</strong> ${p.pelanggan ? '- ' + p.pelanggan : ''}<br>
+                    <span style="font-size:11px;color:#7a8a9e;">${(p.kasir_pending_detail || []).length} item · ${formatRupiahKasir(p.total)} · ${p.tanggal} ${p.jam}</span>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-primary btn-sm" onclick="lanjutkanPending('${p.id}')"><i class="fas fa-play"></i> Lanjutkan</button>
+                    <button class="btn btn-danger btn-sm" onclick="batalkanPending('${p.id}')"><i class="fas fa-times"></i> Batal</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    window.simpanSebagaiPending = async function() {
+        if (itemsKasir.length === 0) { showToastKasir('⚠️ Keranjang kosong', true); return; }
+        const now = new Date();
+        const noPending = 'PEND-' + now.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
+        let total = 0;
+        itemsKasir.forEach(item => { total += Number(item.subtotal) || 0; });
+
+        const header = {
+            no_pending: noPending,
+            tanggal: now.toISOString().split('T')[0],
+            jam: now.toTimeString().slice(0,5),
+            gudang: 'GUDANG UTAMA',
+            pelanggan: document.getElementById('pendingPelangganInput').value.trim() || 'Umum',
+            total: total,
+            petugas: currentUserDisplayNameKasir
+        };
+        const details = itemsKasir.map(item => ({
+            obat_id: item.obat_id || null,
+            kode_obat: item.kode_obat,
+            nama_obat: item.nama_obat,
+            satuan: item.satuan || 'Tablet',
+            jumlah: item.jumlah,
+            harga_jual: item.harga_jual,
+            subtotal: item.subtotal,
+            racikan_group_id: item.racikan_group_id || null,
+            racikan_nama: item.racikan_nama || null,
+            is_resep: item.is_resep || false
+        }));
+
+        const { error } = await savePendingTransaksi(header, details);
+        if (error) {
+            showToastKasir('❌ Gagal menyimpan pending: ' + error.message, true);
+            return;
+        }
+        itemsKasir = [];
+        renderKasir();
+        hitungTotalKasir();
+        closePendingModal();
+        showToastKasir('✅ Transaksi disimpan sebagai pending "' + noPending + '"');
+    };
+
+    window.lanjutkanPending = function(pendingId) {
+        const pending = (window.__pendingListCache || []).find(p => p.id === pendingId);
+        if (!pending) return;
+        if (itemsKasir.length > 0 && !confirm('Keranjang saat ini akan ditimpa dengan transaksi pending ini. Lanjutkan?')) return;
+
+        itemsKasir = (pending.kasir_pending_detail || []).map(d => ({
+            id: ++itemCounterKasir,
+            obat_id: d.obat_id,
+            kode_obat: d.kode_obat,
+            nama_obat: d.nama_obat,
+            satuan: d.satuan,
+            jumlah: d.jumlah,
+            harga_jual: d.harga_jual,
+            subtotal: d.subtotal,
+            stok_tersedia: 99999, // stok sudah ditahan sejak pending dibuat, tidak perlu divalidasi ulang di sini
+            racikan_group_id: d.racikan_group_id,
+            racikan_nama: d.racikan_nama,
+            is_resep: d.is_resep
+        }));
+        resumedFromPendingId = pendingId;
+        document.getElementById('resumedPendingLabel').textContent = pending.no_pending;
+        document.getElementById('resumedPendingBanner').style.display = 'block';
+        renderKasir();
+        hitungTotalKasir();
+        closePendingModal();
+        showToastKasir('📝 Transaksi pending "' + pending.no_pending + '" dimuat ke keranjang');
+    };
+
+    window.batalkanPending = async function(pendingId) {
+        const pending = (window.__pendingListCache || []).find(p => p.id === pendingId);
+        if (!pending) return;
+        if (!confirm(`Batalkan pending "${pending.no_pending}"? Stok akan dikembalikan.`)) return;
+        const { error } = await batalkanPendingTransaksi(pendingId, pending.kasir_pending_detail || []);
+        if (error) {
+            showToastKasir('❌ Gagal membatalkan pending: ' + error.message, true);
+            return;
+        }
+        showToastKasir('✅ Pending dibatalkan, stok sudah dikembalikan');
+        await muatDaftarPending();
+    };
+
+    // ============================================================
+    // PENOLAKAN OBAT
+    // ============================================================
+    window.openPenolakanModal = function() {
+        document.getElementById('penolakanNamaInput').value = '';
+        document.getElementById('penolakanJumlahInput').value = '';
+        document.getElementById('penolakanKeteranganInput').value = '';
+        document.getElementById('modalPenolakan').classList.add('active');
+    };
+    window.closePenolakanModal = function() {
+        document.getElementById('modalPenolakan').classList.remove('active');
+    };
+    window.simpanPenolakanObat = async function() {
+        const nama = document.getElementById('penolakanNamaInput').value.trim();
+        if (!nama) { showToastKasir('⚠️ Nama obat wajib diisi', true); return; }
+        const now = new Date();
+        const data = {
+            tanggal: now.toISOString().split('T')[0],
+            jam: now.toTimeString().slice(0,5),
+            nama_obat: nama,
+            jumlah_diminta: Number(document.getElementById('penolakanJumlahInput').value) || null,
+            keterangan: document.getElementById('penolakanKeteranganInput').value.trim(),
+            petugas: currentUserDisplayNameKasir
+        };
+        const { error } = await savePenolakanObat(data);
+        if (error) {
+            showToastKasir('❌ Gagal mencatat penolakan: ' + error.message, true);
+            return;
+        }
+        closePenolakanModal();
+        showToastKasir('✅ Penolakan obat "' + nama + '" tercatat');
+    };
+
     // ============================================================
     // UTILITY
     // ============================================================
@@ -1408,7 +1803,13 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeStokOverlay();
+                closeRacikanModal();
+                closePendingModal();
+                closePenolakanModal();
             }
+            if (e.key === 'F4') { e.preventDefault(); openRacikanModal(); }
+            if (e.key === 'F7') { e.preventDefault(); openResepModal(); }
+            if (e.altKey && (e.key === 'q' || e.key === 'Q')) { e.preventDefault(); openPendingModal(); }
         });
     });
 </script>
