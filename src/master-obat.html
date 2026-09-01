@@ -346,7 +346,7 @@
                     <div class="file-upload-wrap">
                         <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel/CSV</label>
                         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, YYYY-MM-DD). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, DD-MM-YYYY). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
                     </div>
                 </div>
             </form>
@@ -829,7 +829,7 @@
     window.downloadTemplate = function() {
         const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
         const contoh = [
-            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '2027-12-31'],
+            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '31-12-2027'],
             ['OBT002', 'Amoxicillin 500mg', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif', '']
         ];
         const ws = XLSX.utils.aoa_to_sheet([headers, ...contoh]);
@@ -839,12 +839,15 @@
         XLSX.writeFile(wb, 'Template_Import_Obat.xlsx');
     };
 
-    // Kolom Tanggal Kadaluarsa (ED) bisa datang dalam beberapa bentuk
-    // tergantung cara Excel menyimpannya: teks "2027-12-31"/"31/12/2027",
-    // atau angka serial tanggal Excel (kalau selnya sempat diformat
-    // sebagai Date oleh Excel). Fungsi ini coba tangani semuanya, dan
-    // balikin string kosong kalau memang tidak terisi/tidak bisa dibaca
-    // (bukan wajib diisi).
+    // Kolom Tanggal Kadaluarsa (ED) di template pakai format DD-MM-YYYY,
+    // tapi bisa datang dalam beberapa bentuk tergantung cara Excel
+    // menyimpannya: teks "31-12-2027"/"31/12/2027", format ISO
+    // "2027-12-31" (jaga-jaga), atau angka serial tanggal Excel (kalau
+    // selnya sempat diformat sebagai Date oleh Excel). Fungsi ini coba
+    // tangani semuanya, dan balikin string kosong kalau memang tidak
+    // terisi/tidak bisa dibaca (bukan wajib diisi). Hasilnya selalu
+    // disimpan dalam format ISO (YYYY-MM-DD) krn itu yang dipakai
+    // database & input tanggal HTML.
     function parseTanggalExpImport(val) {
         if (val === null || val === undefined || val === '') return '';
         // Angka serial tanggal Excel (basis 1900, dengan koreksi bug leap-year Excel)
