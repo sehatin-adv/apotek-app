@@ -883,3 +883,39 @@ ALTER TABLE kartu_stok ADD COLUMN IF NOT EXISTS no_batch TEXT;
 -- ============================================================
 -- SELESAI (Resep Lengkap + Kadaluarsa Obat)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 21) BARCODE OBAT + KELOLA SATUAN (seperti Jenis/Golongan)
+-- ------------------------------------------------------------
+ALTER TABLE obat ADD COLUMN IF NOT EXISTS barcode TEXT;
+
+-- Longgarkan batasan tipe di kategori_obat supaya "satuan" juga boleh
+-- dipakai (sebelumnya cuma menerima 'jenis'/'golongan'). Cari nama
+-- constraint CHECK yang sesungguhnya dulu (bisa beda dari nama standar
+-- Postgres tergantung riwayat migrasi), baru drop & buat ulang - lebih
+-- aman daripada menebak nama constraint-nya.
+DO $$
+DECLARE
+    con RECORD;
+BEGIN
+    FOR con IN
+        SELECT con.conname
+        FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'kategori_obat' AND con.contype = 'c'
+    LOOP
+        EXECUTE format('ALTER TABLE kategori_obat DROP CONSTRAINT %I', con.conname);
+    END LOOP;
+    ALTER TABLE kategori_obat ADD CONSTRAINT kategori_obat_tipe_check CHECK (tipe IN ('jenis', 'golongan', 'satuan'));
+END $$;
+
+-- Isi default satuan (nilai yang sebelumnya hardcode di dropdown) -
+-- aman dijalankan ulang.
+INSERT INTO kategori_obat (tipe, nama) VALUES
+    ('satuan', 'Tablet'), ('satuan', 'Kapsul'), ('satuan', 'Sirup'), ('satuan', 'Salep'),
+    ('satuan', 'Botol'), ('satuan', 'Strip'), ('satuan', 'Ampul')
+ON CONFLICT (tipe, nama) DO NOTHING;
+
+-- ============================================================
+-- SELESAI (Barcode + Kelola Satuan)
+-- ============================================================

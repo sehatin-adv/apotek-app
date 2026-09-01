@@ -779,7 +779,8 @@
         if (e.key === 'Enter' && keyword.length > 0) {
             const found = obatMaster.find(o => 
                 (o.kode_obat || '').toLowerCase() === keyword || 
-                (o.nama_obat || '').toLowerCase() === keyword
+                (o.nama_obat || '').toLowerCase() === keyword ||
+                (o.barcode || '').toLowerCase() === keyword
             );
             if (found) {
                 tambahItemDariMaster(found);
@@ -796,7 +797,8 @@
         
         const hasil = obatMaster.filter(o => 
             (o.kode_obat || '').toLowerCase().includes(keyword) || 
-            (o.nama_obat || '').toLowerCase().includes(keyword)
+            (o.nama_obat || '').toLowerCase().includes(keyword) ||
+            (o.barcode || '').toLowerCase().includes(keyword)
         ).slice(0, 10);
         
         if (hasil.length === 0) {

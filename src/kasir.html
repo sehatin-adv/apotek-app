@@ -931,7 +931,8 @@
         if (e.key === 'Enter' && keyword.length > 0) {
             const found = obatMasterKasir.find(o => 
                 (o.nama_obat || '').toLowerCase() === keyword || 
-                (o.kode_obat || '').toLowerCase() === keyword
+                (o.kode_obat || '').toLowerCase() === keyword ||
+                (o.barcode || '').toLowerCase() === keyword
             );
             if (found) {
                 if (found.stok <= 0) {
@@ -952,7 +953,8 @@
         
         const hasil = obatMasterKasir.filter(o => 
             (o.nama_obat || '').toLowerCase().includes(keyword) || 
-            (o.kode_obat || '').toLowerCase().includes(keyword)
+            (o.kode_obat || '').toLowerCase().includes(keyword) ||
+            (o.barcode || '').toLowerCase().includes(keyword)
         ).slice(0, 10);
         
         if (hasil.length === 0) {
@@ -1635,7 +1637,7 @@
         const saranBox = document.getElementById('racikanSaran');
         if (!keyword) { saranBox.style.display = 'none'; return; }
         const hasil = obatMasterKasir.filter(o =>
-            (o.nama_obat || '').toLowerCase().includes(keyword) || (o.kode_obat || '').toLowerCase().includes(keyword)
+            (o.nama_obat || '').toLowerCase().includes(keyword) || (o.kode_obat || '').toLowerCase().includes(keyword) || (o.barcode || '').toLowerCase().includes(keyword)
         ).slice(0, 15);
         if (hasil.length === 0) {
             saranBox.innerHTML = '<div style="padding:10px 12px;color:#7a8a9e;font-size:12px;">Tidak ditemukan</div>';

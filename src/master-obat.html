@@ -280,16 +280,13 @@
                         <input type="text" id="namaObat" placeholder="Paracetamol" required>
                     </div>
                     <div class="form-group">
-                        <label>Satuan</label>
-                        <select id="satuanObat" onchange="applyDefaultStokMinimal()">
-                            <option value="Tablet">Tablet</option>
-                            <option value="Kapsul">Kapsul</option>
-                            <option value="Sirup">Sirup</option>
-                            <option value="Salep">Salep</option>
-                            <option value="Botol">Botol</option>
-                            <option value="Strip">Strip</option>
-                            <option value="Ampul">Ampul</option>
-                        </select>
+                        <label>Barcode</label>
+                        <input type="text" id="barcodeObat" placeholder="Scan atau ketik barcode di sini" autocomplete="off">
+                        <span style="font-size:11px;color:#7a8a9e;">Opsional - kalau diisi, obat bisa dicari lewat scan barcode di Kasir & Pembelian</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Satuan <button type="button" onclick="openKategoriModal('satuan')" style="background:none;border:none;color:#2d6a9f;cursor:pointer;font-size:11px;font-weight:600;padding:0;margin-left:4px;"><i class="fas fa-pen"></i> Kelola</button></label>
+                        <select id="satuanObat" onchange="applyDefaultStokMinimal()"></select>
                     </div>
                     <div class="form-group">
                         <label>Harga Beli (Rp)</label>
@@ -346,7 +343,7 @@
                     <div class="file-upload-wrap">
                         <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel/CSV</label>
                         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, DD-MM-YYYY). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Barcode|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, DD-MM-YYYY). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
                     </div>
                 </div>
             </form>
@@ -527,7 +524,8 @@
         if (keyword) {
             filtered = filtered.filter(o => 
                 (o.kode_obat || '').toLowerCase().includes(keyword) ||
-                (o.nama_obat || '').toLowerCase().includes(keyword)
+                (o.nama_obat || '').toLowerCase().includes(keyword) ||
+                (o.barcode || '').toLowerCase().includes(keyword)
             );
         }
         if (status) {
@@ -541,35 +539,44 @@
     // ============================================================
     let kategoriJenis = [];
     let kategoriGolongan = [];
+    let kategoriSatuan = [];
     let activeKategoriTipe = 'jenis';
 
     async function loadKategoriObat() {
-        const [jenisRes, golonganRes] = await Promise.all([
+        const [jenisRes, golonganRes, satuanRes] = await Promise.all([
             getKategoriObat('jenis'),
-            getKategoriObat('golongan')
+            getKategoriObat('golongan'),
+            getKategoriObat('satuan')
         ]);
         kategoriJenis = jenisRes.data || [];
         kategoriGolongan = golonganRes.data || [];
+        kategoriSatuan = satuanRes.data || [];
         // Fallback kalau tabel kategori_obat belum ada / kosong (migration belum jalan)
         if (kategoriJenis.length === 0) kategoriJenis = [{ id: null, nama: 'Generik' }, { id: null, nama: 'Patented' }, { id: null, nama: 'Herbal' }, { id: null, nama: 'Alat Kesehatan' }];
         if (kategoriGolongan.length === 0) kategoriGolongan = [{ id: null, nama: 'Bebas' }, { id: null, nama: 'Terbatas' }, { id: null, nama: 'Keras' }, { id: null, nama: 'Narkotika' }, { id: null, nama: 'Prekursor' }];
+        if (kategoriSatuan.length === 0) kategoriSatuan = [{ id: null, nama: 'Tablet' }, { id: null, nama: 'Kapsul' }, { id: null, nama: 'Sirup' }, { id: null, nama: 'Salep' }, { id: null, nama: 'Botol' }, { id: null, nama: 'Strip' }, { id: null, nama: 'Ampul' }];
         renderKategoriSelects();
     }
 
     function renderKategoriSelects() {
         const jenisSelect = document.getElementById('jenisObat');
         const golonganSelect = document.getElementById('golonganObat');
+        const satuanSelect = document.getElementById('satuanObat');
         const prevJenis = jenisSelect.value;
         const prevGolongan = golonganSelect.value;
+        const prevSatuan = satuanSelect.value;
         jenisSelect.innerHTML = kategoriJenis.map(k => `<option value="${k.nama}">${k.nama}</option>`).join('');
         golonganSelect.innerHTML = kategoriGolongan.map(k => `<option value="${k.nama}">${k.nama}</option>`).join('');
+        satuanSelect.innerHTML = kategoriSatuan.map(k => `<option value="${k.nama}">${k.nama}</option>`).join('');
         if (prevJenis && kategoriJenis.some(k => k.nama === prevJenis)) jenisSelect.value = prevJenis;
         if (prevGolongan && kategoriGolongan.some(k => k.nama === prevGolongan)) golonganSelect.value = prevGolongan;
+        if (prevSatuan && kategoriSatuan.some(k => k.nama === prevSatuan)) satuanSelect.value = prevSatuan;
     }
 
     window.openKategoriModal = function(tipe) {
         activeKategoriTipe = tipe;
-        document.getElementById('kategoriModalTitle').textContent = 'Kelola ' + (tipe === 'jenis' ? 'Jenis' : 'Golongan');
+        const labelMap = { jenis: 'Jenis', golongan: 'Golongan', satuan: 'Satuan' };
+        document.getElementById('kategoriModalTitle').textContent = 'Kelola ' + (labelMap[tipe] || tipe);
         document.getElementById('kategoriInput').value = '';
         renderKategoriList();
         document.getElementById('kategoriModal').style.display = 'flex';
@@ -578,8 +585,14 @@
         document.getElementById('kategoriModal').style.display = 'none';
     };
 
+    function getActiveKategoriList() {
+        if (activeKategoriTipe === 'jenis') return kategoriJenis;
+        if (activeKategoriTipe === 'golongan') return kategoriGolongan;
+        return kategoriSatuan;
+    }
+
     function renderKategoriList() {
-        const list = activeKategoriTipe === 'jenis' ? kategoriJenis : kategoriGolongan;
+        const list = getActiveKategoriList();
         const wrap = document.getElementById('kategoriList');
         if (list.length === 0) {
             wrap.innerHTML = '<p style="font-size:12px;color:#9aa8b8;">Belum ada data.</p>';
@@ -597,7 +610,7 @@
         const input = document.getElementById('kategoriInput');
         const nama = input.value.trim();
         if (!nama) return;
-        const list = activeKategoriTipe === 'jenis' ? kategoriJenis : kategoriGolongan;
+        const list = getActiveKategoriList();
         if (list.some(k => k.nama.toLowerCase() === nama.toLowerCase())) {
             showToast('⚠️ "' + nama + '" sudah ada di daftar', true);
             return;
@@ -619,6 +632,7 @@
         if (error) { showToast('❌ Gagal menghapus: ' + error.message, true); return; }
         kategoriJenis = kategoriJenis.filter(k => k.id !== id);
         kategoriGolongan = kategoriGolongan.filter(k => k.id !== id);
+        kategoriSatuan = kategoriSatuan.filter(k => k.id !== id);
         renderKategoriList();
         renderKategoriSelects();
         showToast('🗑️ Berhasil dihapus');
@@ -686,6 +700,7 @@
         const data = {
             kode_obat: document.getElementById('kodeObat').value.trim(),
             nama_obat: document.getElementById('namaObat').value.trim(),
+            barcode: document.getElementById('barcodeObat').value.trim() || null,
             satuan: document.getElementById('satuanObat').value,
             harga_beli: Number(document.getElementById('hargaBeli').value) || 0,
             harga_jual: Number(document.getElementById('hargaJual').value) || 0,
@@ -713,6 +728,16 @@
         if (duplicate) {
             showToast('⚠️ Kode obat "' + data.kode_obat + '" sudah ada!', true);
             return;
+        }
+        // Cek duplikat barcode juga - kalau 2 obat pakai barcode yang
+        // sama, nanti hasil scan jadi ambigu (tidak jelas obat mana yang
+        // dimaksud).
+        if (data.barcode) {
+            const duplicateBarcode = obatData.find((o) => o.barcode === data.barcode && o.id !== editId);
+            if (duplicateBarcode) {
+                showToast('⚠️ Barcode ini sudah dipakai obat "' + duplicateBarcode.nama_obat + '"!', true);
+                return;
+            }
         }
 
         try {
@@ -744,6 +769,7 @@
         document.getElementById('editIndex').value = id;
         document.getElementById('kodeObat').value = o.kode_obat || '';
         document.getElementById('namaObat').value = o.nama_obat || '';
+        document.getElementById('barcodeObat').value = o.barcode || '';
         document.getElementById('satuanObat').value = o.satuan || 'Tablet';
         document.getElementById('hargaBeli').value = o.harga_beli || '';
         document.getElementById('hargaJual').value = o.harga_jual || '';
@@ -827,13 +853,13 @@
     }
 
     window.downloadTemplate = function() {
-        const headers = ['Kode Obat', 'Nama Obat', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
+        const headers = ['Kode Obat', 'Nama Obat', 'Barcode', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
         const contoh = [
-            ['OBT001', 'Paracetamol 500mg', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '31-12-2027'],
-            ['OBT002', 'Amoxicillin 500mg', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif', '']
+            ['OBT001', 'Paracetamol 500mg', '8991234567890', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '31-12-2027'],
+            ['OBT002', 'Amoxicillin 500mg', '', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif', '']
         ];
         const ws = XLSX.utils.aoa_to_sheet([headers, ...contoh]);
-        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Template Obat');
         XLSX.writeFile(wb, 'Template_Import_Obat.xlsx');
@@ -905,14 +931,15 @@
                     const item = {
                         kode_obat: kodeObat,
                         nama_obat: namaObat,
-                        satuan: String(cols[2] || 'Tablet').trim() || 'Tablet',
-                        harga_beli: parseRupiah(cols[3]),
-                        harga_jual: parseRupiah(cols[4]),
-                        stok: parseAngka(cols[5]),
-                        jenis: String(cols[6] || 'Generik').trim() || 'Generik',
-                        golongan: String(cols[7] || 'Bebas').trim() || 'Bebas',
-                        status: String(cols[8] || 'Aktif').trim() || 'Aktif',
-                        tanggal_exp: parseTanggalExpImport(cols[9]) || null
+                        barcode: String(cols[2] || '').trim() || null,
+                        satuan: String(cols[3] || 'Tablet').trim() || 'Tablet',
+                        harga_beli: parseRupiah(cols[4]),
+                        harga_jual: parseRupiah(cols[5]),
+                        stok: parseAngka(cols[6]),
+                        jenis: String(cols[7] || 'Generik').trim() || 'Generik',
+                        golongan: String(cols[8] || 'Bebas').trim() || 'Bebas',
+                        status: String(cols[9] || 'Aktif').trim() || 'Aktif',
+                        tanggal_exp: parseTanggalExpImport(cols[10]) || null
                     };
 
                     const sudahAda = obatData.find(o => o.kode_obat === item.kode_obat) || newData.find(o => o.kode_obat === item.kode_obat);
