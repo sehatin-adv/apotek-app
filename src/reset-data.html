@@ -586,15 +586,25 @@
                 throw new Error('Password admin salah!');
             }
 
-            // Urutan penghapusan berdasarkan foreign key
+            // Urutan penghapusan berdasarkan foreign key - detail dulu
+            // baru header, dan SEMUA tabel yang mereferensikan obat_id
+            // harus dibersihkan SEBELUM tabel "obat" sendiri dihapus,
+            // kalau tidak akan tertahan foreign key constraint (ini
+            // sebelumnya jadi penyebab "Reset Semua Data" gagal diam-diam
+            // utk Master Obat - retur_pembelian_detail & kasir_pending_detail
+            // belum ikut dibersihkan duluan).
             const tables = resetType === 'transaksi' 
                 ? [
                     'penjualan_detail',
                     'retur_detail',
                     'pembelian_detail',
+                    'retur_pembelian_detail',
+                    'kasir_pending_detail',
                     'penjualan_header',
                     'retur_penjualan',
                     'pembelian_header',
+                    'retur_pembelian',
+                    'kasir_pending',
                     'kartu_stok',
                     'stok_opname',
                     'shift_history'
@@ -603,28 +613,26 @@
                     'penjualan_detail',
                     'retur_detail',
                     'pembelian_detail',
+                    'retur_pembelian_detail',
+                    'kasir_pending_detail',
                     'penjualan_header',
                     'retur_penjualan',
                     'pembelian_header',
+                    'retur_pembelian',
+                    'kasir_pending',
                     'kartu_stok',
                     'stok_opname',
                     'shift_history',
                     'obat'
                   ];
 
-            let success = true;
             let errors = [];
 
             for (const table of tables) {
                 const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
                 if (error) {
-                    // Skip jika error, coba lanjut ke tabel lain
                     errors.push(`${table}: ${error.message}`);
                 }
-            }
-
-            if (errors.length > 0) {
-                console.warn('Beberapa tabel gagal dihapus:', errors);
             }
 
             // Bersihkan localStorage
@@ -640,12 +648,22 @@
             await logAudit(user.id, user.email, 'RESET_DATA', {
                 type: resetType,
                 tables_deleted: tables,
+                tables_failed: errors,
                 timestamp: new Date().toISOString()
             });
 
-            // Tampilkan hasil
-            showResult(true, `✅ Reset ${resetType === 'transaksi' ? 'Transaksi' : 'Semua Data'} Berhasil!`, 
-                `Data telah di-reset. ${resetType === 'transaksi' ? 'Master Obat tetap dipertahankan.' : 'Semua data telah dikosongkan.'}`);
+            // Tampilkan hasil - JUJUR kalau ada tabel yang gagal dihapus,
+            // jangan bilang "Berhasil" begitu saja padahal sebagiannya
+            // diam-diam gagal (ini penyebab bug sebelumnya - Master Obat
+            // "kelihatan" tidak terhapus padahal proses reset-nya sendiri
+            // melaporkan sukses).
+            if (errors.length > 0) {
+                showResult(false, '⚠️ Reset Sebagian Berhasil',
+                    `${tables.length - errors.length} dari ${tables.length} tabel berhasil dihapus. Tabel berikut GAGAL: ${errors.join('; ')}. Coba jalankan reset sekali lagi - biasanya ini terjadi kalau ada data yang masih saling terkait.`);
+            } else {
+                showResult(true, `✅ Reset ${resetType === 'transaksi' ? 'Transaksi' : 'Semua Data'} Berhasil!`, 
+                    `Data telah di-reset. ${resetType === 'transaksi' ? 'Master Obat tetap dipertahankan.' : 'Semua data telah dikosongkan.'}`);
+            }
 
         } catch(e) {
             console.error('Error executing reset:', e);
