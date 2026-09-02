@@ -896,26 +896,93 @@ ALTER TABLE obat ADD COLUMN IF NOT EXISTS barcode TEXT;
 -- aman daripada menebak nama constraint-nya.
 DO $$
 DECLARE
-    con RECORD;
+    con_rec RECORD;
 BEGIN
-    FOR con IN
+    FOR con_rec IN
         SELECT con.conname
         FROM pg_constraint con
         JOIN pg_class rel ON rel.oid = con.conrelid
         WHERE rel.relname = 'kategori_obat' AND con.contype = 'c'
     LOOP
-        EXECUTE format('ALTER TABLE kategori_obat DROP CONSTRAINT %I', con.conname);
+        EXECUTE format('ALTER TABLE kategori_obat DROP CONSTRAINT %I', con_rec.conname);
     END LOOP;
     ALTER TABLE kategori_obat ADD CONSTRAINT kategori_obat_tipe_check CHECK (tipe IN ('jenis', 'golongan', 'satuan'));
 END $$;
 
--- Isi default satuan (nilai yang sebelumnya hardcode di dropdown) -
--- aman dijalankan ulang.
-INSERT INTO kategori_obat (tipe, nama) VALUES
-    ('satuan', 'Tablet'), ('satuan', 'Kapsul'), ('satuan', 'Sirup'), ('satuan', 'Salep'),
-    ('satuan', 'Botol'), ('satuan', 'Strip'), ('satuan', 'Ampul')
-ON CONFLICT (tipe, nama) DO NOTHING;
+-- Pastikan ada constraint UNIQUE (tenant_id, tipe, nama) - PER TENANT,
+-- bukan global. Constraint (tipe, nama) tanpa tenant_id yang sempat
+-- dibuat sebelumnya itu SALAH untuk tabel multi-tenant (artinya cuma
+-- SATU apotek di seluruh sistem yang bisa punya "Tablet" tersimpan,
+-- yang lain kebentur unique-nya) - di sini diganti supaya benar-benar
+-- terpisah per apotek.
+DO $$
+DECLARE
+    con_rec2 RECORD;
+BEGIN
+    -- Buang constraint UNIQUE lama yang salah (kalau ada, apapun namanya)
+    FOR con_rec2 IN
+        SELECT con.conname
+        FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'kategori_obat' AND con.contype = 'u'
+    LOOP
+        EXECUTE format('ALTER TABLE kategori_obat DROP CONSTRAINT %I', con_rec2.conname);
+    END LOOP;
+
+    -- Jaga-jaga: buang dulu baris duplikat (tenant_id, tipe, nama) kalau
+    -- ada - constraint UNIQUE tidak akan bisa dibuat kalau masih ada
+    -- duplikat tersisa di data yang sudah ada.
+    DELETE FROM kategori_obat a USING kategori_obat b
+        WHERE a.id > b.id AND a.tenant_id = b.tenant_id AND a.tipe = b.tipe AND a.nama = b.nama;
+
+    ALTER TABLE kategori_obat ADD CONSTRAINT kategori_obat_tenant_tipe_nama_key UNIQUE (tenant_id, tipe, nama);
+END $$;
+
+-- Isi default satuan (nilai yang sebelumnya hardcode di dropdown) buat
+-- SEMUA tenant yang sudah ada - aman dijalankan ulang, dan sekarang
+-- benar-benar per-apotek (bukan cuma tenant pertama saja).
+DO $$
+DECLARE
+    t RECORD;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        INSERT INTO kategori_obat (tipe, nama, tenant_id) VALUES
+            ('satuan', 'Tablet', t.id), ('satuan', 'Kapsul', t.id), ('satuan', 'Sirup', t.id), ('satuan', 'Salep', t.id),
+            ('satuan', 'Botol', t.id), ('satuan', 'Strip', t.id), ('satuan', 'Ampul', t.id)
+        ON CONFLICT (tenant_id, tipe, nama) DO NOTHING;
+    END LOOP;
+END $$;
 
 -- ============================================================
 -- SELESAI (Barcode + Kelola Satuan)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 22) PENDAFTARAN TENANT (form publik) - calon pelanggan isi form
+--     tanpa perlu login, muncul di Kelola Tenant utk diproses admin
+--     platform jadi akun aktif.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tenant_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nama_apotek TEXT NOT NULL,
+    nama_pic TEXT NOT NULL,
+    email TEXT NOT NULL,
+    telepon TEXT,
+    alamat TEXT,
+    paket_diminati TEXT DEFAULT 'Basic' CHECK (paket_diminati IN ('Basic', 'Pro')),
+    catatan TEXT,
+    status TEXT DEFAULT 'Baru' CHECK (status IN ('Baru', 'Diproses', 'Selesai', 'Ditolak')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabel ini SENGAJA tidak per-tenant (tidak ada tenant_id) - ini data
+-- platform-level, cuma dibaca lewat admin-auth.js pakai service role
+-- key (sama seperti operasi platform lain di platform-tenants.html),
+-- jadi RLS ketat di sini (tidak ada akses langsung dari klien biasa).
+ALTER TABLE tenant_registrations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "No direct access" ON tenant_registrations;
+CREATE POLICY "No direct access" ON tenant_registrations FOR ALL USING (false) WITH CHECK (false);
+
+-- ============================================================
+-- SELESAI (Pendaftaran Tenant)
 -- ============================================================

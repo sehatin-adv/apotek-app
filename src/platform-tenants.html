@@ -112,6 +112,12 @@
     </div>
 
     <div class="card">
+        <div class="card-title"><i class="fas fa-inbox"></i> Pendaftaran Masuk <span id="registrationBadge" style="display:none;background:#dc3545;color:white;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px;margin-left:8px;">0</span></div>
+        <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Pendaftaran dari calon pelanggan lewat halaman <code>/daftar.html</code> muncul di sini - review lalu klik "Proses Jadi Tenant" untuk buatkan akunnya.</p>
+        <div id="registrationListWrap"><p style="font-size:13px;color:#9aa8b8;">Memuat...</p></div>
+    </div>
+
+    <div class="card">
         <div class="card-title"><i class="fas fa-plus-circle"></i> Daftarkan Apotek Baru</div>
         <div class="form-group" style="margin-bottom:12px;">
             <label>Nama Apotek</label>
@@ -171,6 +177,7 @@
             document.getElementById('mainWrap').style.display = 'block';
             loadQrisSetting();
             loadSubscriptionPrice();
+            loadRegistrations();
         }
     };
 
@@ -199,6 +206,95 @@
         renderTenants();
         return true;
     }
+
+    // ============================================================
+    // PENDAFTARAN MASUK (dari form publik /daftar.html)
+    // ============================================================
+    let registrations = [];
+    let currentProcessingRegistrationId = null;
+
+    async function loadRegistrations() {
+        const { data, error } = await callPlatformApi('list-registrations', {});
+        if (error) {
+            document.getElementById('registrationListWrap').innerHTML = '<p style="color:#dc3545;font-size:13px;">Gagal memuat: ' + error + '</p>';
+            return;
+        }
+        registrations = data || [];
+        renderRegistrations();
+    }
+
+    function renderRegistrations() {
+        const wrap = document.getElementById('registrationListWrap');
+        const badge = document.getElementById('registrationBadge');
+        const baru = registrations.filter(r => r.status === 'Baru');
+        if (baru.length > 0) {
+            badge.textContent = baru.length;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+
+        // Tampilkan yang "Baru" dan "Diproses" saja (yang "Selesai"/"Ditolak"
+        // disembunyikan biar daftar tidak penuh riwayat lama).
+        const tampil = registrations.filter(r => r.status === 'Baru' || r.status === 'Diproses');
+        if (tampil.length === 0) {
+            wrap.innerHTML = '<p style="font-size:13px;color:#9aa8b8;">Tidak ada pendaftaran baru.</p>';
+            return;
+        }
+        wrap.innerHTML = tampil.map(r => `
+            <div style="border:1px solid #eef2f7;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                    <div>
+                        <strong>${r.nama_apotek}</strong>
+                        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.paket_diminati === 'Pro' ? '#eaf2fb' : '#f0f2f7'};color:${r.paket_diminati === 'Pro' ? '#2d6a9f' : '#5b6b7c'};margin-left:6px;">${r.paket_diminati}</span>
+                        ${r.status === 'Diproses' ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#fff3cd;color:#856404;margin-left:4px;">Diproses</span>' : ''}
+                        <div style="font-size:12px;color:#7a8a9e;margin-top:3px;">
+                            ${r.nama_pic} · ${r.email}${r.telepon ? ' · ' + r.telepon : ''}
+                        </div>
+                        ${r.alamat ? `<div style="font-size:12px;color:#9aa8b8;margin-top:2px;">${r.alamat}</div>` : ''}
+                        ${r.catatan ? `<div style="font-size:12px;color:#5b6b7c;margin-top:4px;font-style:italic;">"${r.catatan}"</div>` : ''}
+                        <div style="font-size:11px;color:#c3cbd3;margin-top:4px;">${formatTanggal(r.created_at)}</div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <button class="btn btn-primary btn-sm" onclick="prosesJadiTenant('${r.id}')"><i class="fas fa-user-plus"></i> Proses Jadi Tenant</button>
+                        <button class="btn btn-danger-outline btn-sm" onclick="tolakRegistration('${r.id}')"><i class="fas fa-times"></i> Tolak</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    window.prosesJadiTenant = async function(id) {
+        const reg = registrations.find(r => r.id === id);
+        if (!reg) return;
+        currentProcessingRegistrationId = id;
+        // Isi otomatis form "Daftarkan Apotek Baru" pakai data pendaftaran ini
+        document.getElementById('fNamaApotek').value = reg.nama_apotek;
+        document.getElementById('fAdminNama').value = reg.nama_pic;
+        document.getElementById('fAdminEmail').value = reg.email;
+        document.getElementById('fAdminPassword').value = '';
+        document.getElementById('fPlan').value = reg.paket_diminati || 'Basic';
+        document.getElementById('fAdminNama').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('fAdminPassword').focus();
+
+        // Tandai statusnya "Diproses" supaya tidak dobel diproses org lain
+        if (reg.status === 'Baru') {
+            await callPlatformApi('update-registration-status', { registration_id: id, status: 'Diproses' });
+            reg.status = 'Diproses';
+            renderRegistrations();
+        }
+        showToast('📋 Data pendaftaran "' + reg.nama_apotek + '" sudah diisi ke form di bawah - lengkapi password lalu klik "Buat Tenant & Akun Admin"');
+    };
+
+    window.tolakRegistration = async function(id) {
+        if (!confirm('Tolak pendaftaran ini? Datanya tetap tersimpan tapi tidak akan tampil lagi di daftar.')) return;
+        const { error } = await callPlatformApi('update-registration-status', { registration_id: id, status: 'Ditolak' });
+        if (error) { showToast('❌ ' + error, true); return; }
+        const reg = registrations.find(r => r.id === id);
+        if (reg) reg.status = 'Ditolak';
+        renderRegistrations();
+        showToast('Pendaftaran ditolak');
+    };
 
     function formatTanggal(iso) {
         if (!iso) return '-';
@@ -406,6 +502,16 @@
 
         if (error) { showToast('❌ ' + error, true); return; }
 
+        // Kalau proses ini berasal dari sebuah pendaftaran masuk, tandai
+        // "Selesai" sekarang (akun sudah benar-benar dibuat).
+        if (currentProcessingRegistrationId) {
+            await callPlatformApi('update-registration-status', { registration_id: currentProcessingRegistrationId, status: 'Selesai' });
+            const reg = registrations.find(r => r.id === currentProcessingRegistrationId);
+            if (reg) reg.status = 'Selesai';
+            renderRegistrations();
+            currentProcessingRegistrationId = null;
+        }
+
         const resultBox = document.getElementById('resultBox');
         resultBox.style.display = 'block';
         resultBox.innerHTML = `
@@ -439,6 +545,7 @@
                 document.getElementById('mainWrap').style.display = 'block';
                 loadQrisSetting();
                 loadSubscriptionPrice();
+                loadRegistrations();
             } else {
                 sessionStorage.removeItem('platformSecret');
             }

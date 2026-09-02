@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/logo-icon.png">
+    <title>Daftar Berlangganan - Sehatin+</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#f0f2f7; color:#0f1e2e; line-height:1.6; }
+        .topbar { background:#0f1e2e; padding:16px 24px; display:flex; align-items:center; gap:10px; }
+        .topbar img { height:32px; width:32px; border-radius:6px; background:white; padding:2px; }
+        .topbar span { color:white; font-weight:800; font-size:18px; }
+        .wrap { max-width:560px; margin:0 auto; padding:40px 24px 80px; }
+        h1 { font-size:26px; margin-bottom:6px; }
+        .subtitle { color:#7a8a9e; font-size:14px; margin-bottom:24px; }
+        .plan-hint { display:flex; gap:10px; margin-bottom:24px; }
+        .plan-card { flex:1; background:white; border-radius:12px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .plan-card .nama { font-weight:800; font-size:14px; margin-bottom:4px; }
+        .plan-card .harga { font-size:13px; color:#2d6a9f; font-weight:700; }
+        .plan-card.pro .nama { color:#f0b429; }
+        .card { background:white; border-radius:16px; padding:26px 24px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+        .form-group { margin-bottom:16px; }
+        .form-group label { display:block; font-size:13px; font-weight:600; color:#34495e; margin-bottom:5px; }
+        .form-group label .req { color:#dc3545; }
+        .form-group input, .form-group textarea, .form-group select { width:100%; padding:10px 14px; border:2px solid #e8edf3; border-radius:10px; font-size:14px; font-family:inherit; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color:#2d6a9f; outline:none; }
+        .form-group textarea { resize:vertical; min-height:70px; }
+        .plan-select { display:flex; gap:10px; }
+        .plan-option { flex:1; border:2px solid #e8edf3; border-radius:10px; padding:12px; text-align:center; cursor:pointer; transition:0.15s; }
+        .plan-option.selected { border-color:#2d6a9f; background:#eaf2fb; }
+        .plan-option .nama { font-weight:800; font-size:14px; }
+        .plan-option .harga { font-size:12px; color:#7a8a9e; margin-top:2px; }
+        .btn-submit { width:100%; padding:14px; background:#2d6a9f; color:white; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; }
+        .btn-submit:hover { background:#1a4a7a; }
+        .btn-submit:disabled { opacity:0.6; cursor:not-allowed; }
+        .success-box { text-align:center; padding:30px 10px; }
+        .success-box i { font-size:52px; color:#28a745; margin-bottom:16px; display:block; }
+        .success-box h2 { font-size:20px; margin-bottom:8px; }
+        .success-box p { color:#7a8a9e; font-size:14px; }
+        .error-text { color:#dc3545; font-size:13px; margin-top:10px; display:none; }
+        .footer-nav { text-align:center; margin-top:24px; font-size:13px; }
+        .footer-nav a { color:#2d6a9f; text-decoration:none; margin:0 10px; font-weight:600; }
+        .footer-nav a:hover { text-decoration:underline; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <img src="/logo-icon.png" alt="Sehatin+">
+        <span>Sehatin+</span>
+    </div>
+    <div class="wrap">
+        <h1>Daftar Berlangganan Sehatin+</h1>
+        <p class="subtitle">Isi form di bawah ini, tim kami akan menghubungi Anda untuk aktivasi akun apotek.</p>
+
+        <div id="formSection">
+            <div class="card">
+                <form id="daftarForm" onsubmit="return false;">
+                    <div class="form-group">
+                        <label>Nama Apotek <span class="req">*</span></label>
+                        <input type="text" id="namaApotek" placeholder="Contoh: Apotek Sehat Sentosa" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nama Pemilik / PIC <span class="req">*</span></label>
+                        <input type="text" id="namaPic" placeholder="Nama lengkap" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email <span class="req">*</span></label>
+                        <input type="email" id="email" placeholder="email@contoh.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>No. Telepon / WhatsApp</label>
+                        <input type="text" id="telepon" placeholder="08xxxxxxxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label>Alamat Apotek</label>
+                        <textarea id="alamat" placeholder="Alamat lengkap apotek"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Paket yang Diminati</label>
+                        <div class="plan-select">
+                            <div class="plan-option selected" id="planBasicBtn" onclick="pilihPaket('Basic')">
+                                <div class="nama">Basic</div>
+                                <div class="harga">Rp 51.250/bulan</div>
+                            </div>
+                            <div class="plan-option" id="planProBtn" onclick="pilihPaket('Pro')">
+                                <div class="nama">Pro</div>
+                                <div class="harga">Rp 123.000/bulan</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Catatan Tambahan</label>
+                        <textarea id="catatan" placeholder="Pertanyaan atau kebutuhan khusus (opsional)"></textarea>
+                    </div>
+                    <button type="button" class="btn-submit" id="btnSubmit" onclick="submitDaftar()"><i class="fas fa-paper-plane"></i> Kirim Pendaftaran</button>
+                    <p class="error-text" id="errorText"></p>
+                </form>
+            </div>
+        </div>
+
+        <div id="successSection" style="display:none;">
+            <div class="card success-box">
+                <i class="fas fa-circle-check"></i>
+                <h2>Pendaftaran Terkirim!</h2>
+                <p>Terima kasih sudah mendaftar. Tim kami akan meninjau dan menghubungi Anda lewat email/WhatsApp untuk aktivasi akun dalam 1-2 hari kerja.</p>
+            </div>
+        </div>
+
+        <div class="footer-nav">
+            <a href="/index.html">Beranda</a>
+            <a href="/faq.html">FAQ</a>
+            <a href="/kontak.html">Kontak</a>
+        </div>
+    </div>
+
+<script>
+    let paketDipilih = 'Basic';
+    function pilihPaket(paket) {
+        paketDipilih = paket;
+        document.getElementById('planBasicBtn').classList.toggle('selected', paket === 'Basic');
+        document.getElementById('planProBtn').classList.toggle('selected', paket === 'Pro');
+    }
+
+    async function submitDaftar() {
+        const namaApotek = document.getElementById('namaApotek').value.trim();
+        const namaPic = document.getElementById('namaPic').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const telepon = document.getElementById('telepon').value.trim();
+        const alamat = document.getElementById('alamat').value.trim();
+        const catatan = document.getElementById('catatan').value.trim();
+        const errorText = document.getElementById('errorText');
+        errorText.style.display = 'none';
+
+        if (!namaApotek || !namaPic || !email) {
+            errorText.textContent = '⚠️ Nama apotek, nama PIC, dan email wajib diisi.';
+            errorText.style.display = 'block';
+            return;
+        }
+
+        const btn = document.getElementById('btnSubmit');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+
+        try {
+            const res = await fetch('/api/register-interest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nama_apotek: namaApotek,
+                    nama_pic: namaPic,
+                    email: email,
+                    telepon: telepon,
+                    alamat: alamat,
+                    paket_diminati: paketDipilih,
+                    catatan: catatan
+                })
+            });
+            const result = await res.json();
+            if (!res.ok || result.error) {
+                throw new Error(result.error || 'Gagal mengirim pendaftaran.');
+            }
+            document.getElementById('formSection').style.display = 'none';
+            document.getElementById('successSection').style.display = 'block';
+        } catch (e) {
+            errorText.textContent = '❌ ' + e.message;
+            errorText.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';
+        }
+    }
+</script>
+</body>
+</html>

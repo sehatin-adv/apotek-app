@@ -107,7 +107,7 @@ export async function onRequestPost(context) {
     // admin di app_users manapun - supaya admin satu apotek tidak bisa
     // bikin/lihat/matikan apotek lain.
     // ============================================================
-    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-plan', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting', 'get-setting', 'set-setting'];
+    const PLATFORM_ACTIONS = ['provision-tenant', 'list-tenants', 'update-tenant-status', 'update-tenant-plan', 'update-tenant-name', 'update-tenant-subscription', 'delete-tenant', 'get-qris-setting', 'set-qris-setting', 'get-setting', 'set-setting', 'list-registrations', 'update-registration-status', 'delete-registration'];
     if (PLATFORM_ACTIONS.includes(action)) {
         if (!env.PLATFORM_ADMIN_SECRET) {
             return new Response(JSON.stringify({ error: 'PLATFORM_ADMIN_SECRET belum diset di Cloudflare Pages.' }), { status: 500, headers: CORS_HEADERS });
@@ -122,6 +122,41 @@ export async function onRequestPost(context) {
                 const data = await res.json();
                 if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal memuat daftar tenant.' }), { status: res.status, headers: CORS_HEADERS });
                 return new Response(JSON.stringify({ data }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'list-registrations') {
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_registrations?select=*&order=created_at.desc`, { headers: serviceHeaders });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal memuat daftar pendaftaran.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'update-registration-status') {
+                const { registration_id, status } = body;
+                if (!registration_id || !['Baru', 'Diproses', 'Selesai', 'Ditolak'].includes(status)) {
+                    return new Response(JSON.stringify({ error: 'registration_id dan status wajib diisi dengan benar.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_registrations?id=eq.${registration_id}`, {
+                    method: 'PATCH',
+                    headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await res.json();
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal mengubah status pendaftaran.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: data[0] || null }), { headers: CORS_HEADERS });
+            }
+
+            if (action === 'delete-registration') {
+                const { registration_id } = body;
+                if (!registration_id) {
+                    return new Response(JSON.stringify({ error: 'registration_id wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
+                }
+                const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_registrations?id=eq.${registration_id}`, {
+                    method: 'DELETE',
+                    headers: serviceHeaders
+                });
+                if (!res.ok) return new Response(JSON.stringify({ error: 'Gagal menghapus pendaftaran.' }), { status: res.status, headers: CORS_HEADERS });
+                return new Response(JSON.stringify({ data: { deleted: true } }), { headers: CORS_HEADERS });
             }
 
             if (action === 'update-tenant-status') {

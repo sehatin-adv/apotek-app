@@ -380,11 +380,12 @@
                             <th style="width:90px;">Jenis</th>
                             <th style="width:100px;">Golongan</th>
                             <th style="width:80px;">Status</th>
+                            <th style="width:90px;">Tgl ED</th>
                             <th style="width:90px;">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="obatTableBody">
-                        <tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
+                        <tr><td colspan="12" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -456,7 +457,7 @@
     // ============================================================
     window.loadObat = async function() {
         const tbody = document.getElementById('obatTableBody');
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#7a8a9e;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
 
         try {
             const { data, error } = await getObat();
@@ -482,15 +483,29 @@
                 renderTable(obatData);
                 updateTotal(obatData.length);
             } else {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">❌ Gagal memuat data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#7a8a9e;">❌ Gagal memuat data</td></tr>';
             }
         }
     };
 
+    function formatTanggalEDList(tgl) {
+        if (!tgl) return '<span style="color:#c3cbd3;">-</span>';
+        const parts = String(tgl).split('-');
+        if (parts.length !== 3) return tgl;
+        const label = `${parts[2]}-${parts[1]}-${parts[0].slice(-2)}`;
+        const tglExp = new Date(tgl);
+        const today = new Date();
+        const in3Months = new Date(today);
+        in3Months.setMonth(in3Months.getMonth() + 3);
+        if (tglExp < today) return `<span style="color:#dc3545;font-weight:700;">${label}</span>`; // sudah lewat ED
+        if (tglExp <= in3Months) return `<span style="color:#b8860b;font-weight:700;">${label}</span>`; // mendekati ED (≤3 bulan)
+        return `<span style="color:#5b6b7c;">${label}</span>`;
+    }
+
     function renderTable(data) {
         const tbody = document.getElementById('obatTableBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Belum ada data obat</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;color:#7a8a9e;">📭 Belum ada data obat</td></tr>';
             return;
         }
         tbody.innerHTML = data.map((o, i) => `
@@ -505,6 +520,7 @@
                 <td>${o.jenis || '-'}</td>
                 <td>${o.golongan || '-'}</td>
                 <td><span class="badge ${o.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${o.status || 'Aktif'}</span></td>
+                <td>${formatTanggalEDList(o.tanggal_exp)}</td>
                 <td>
                     <button class="btn btn-primary btn-sm" onclick="editObat('${o.id}')"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-danger btn-sm" onclick="deleteObat('${o.id}')"><i class="fas fa-trash"></i></button>
