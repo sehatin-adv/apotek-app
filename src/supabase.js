@@ -55,6 +55,23 @@ export async function signUp(email, password, userData) {
     return { data, error };
 }
 
+// Kirim email reset password - Supabase otomatis kirim link, kliknya
+// mendarat di redirectTo (reset-password.html) yang biar user set
+// password baru.
+export async function resetPasswordForEmail(email) {
+    const redirectTo = `${window.location.origin}/reset-password.html`;
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    return { data, error };
+}
+
+// Dipanggil dari reset-password.html setelah user klik link email -
+// Supabase sudah otomatis login-kan sesi sementara lewat token di URL,
+// ini cuma update password akun yang sedang login itu.
+export async function updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    return { data, error };
+}
+
 export async function signOut() {
     const { error } = await supabase.auth.signOut();
     localStorage.removeItem('supabaseSession');
