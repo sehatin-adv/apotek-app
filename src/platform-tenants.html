@@ -140,10 +140,20 @@
             </div>
             <div class="form-group">
                 <label>Paket</label>
-                <select id="fPlan" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;">
+                <select id="fPlan" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;" onchange="updateDurasiHargaHint()">
                     <option value="Basic">Basic</option>
                     <option value="Pro">Pro</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Durasi Langganan Awal <span style="font-weight:400;color:#9aa8b8;">(opsional - kosongkan kalau cuma mau bikin Trial dulu)</span></label>
+                <select id="fDurasiBulan" style="width:100%;padding:9px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;" onchange="updateDurasiHargaHint()">
+                    <option value="">- Trial (belum bayar) -</option>
+                    <option value="1">1 Bulan</option>
+                    <option value="6">6 Bulan (Gratis 1 Bulan)</option>
+                    <option value="12">12 Bulan (Gratis 2 Bulan)</option>
+                </select>
+                <span id="fDurasiHargaHint" style="font-size:11px;color:#7a8a9e;"></span>
             </div>
         </div>
         <button class="btn btn-primary" id="btnProvision" onclick="provisionTenant()"><i class="fas fa-rocket"></i> Buat Tenant & Akun Admin</button>
@@ -223,6 +233,14 @@
         renderRegistrations();
     }
 
+    const HARGA_BULANAN_PLATFORM = { Basic: 51250, Pro: 123000 };
+    const DURASI_BAYAR_MAP = { 1: 1, 6: 5, 12: 10 };
+    function hitungHargaDurasi(paket, durasiBulan) {
+        const bayarBulan = DURASI_BAYAR_MAP[durasiBulan] || durasiBulan;
+        return (HARGA_BULANAN_PLATFORM[paket] || 0) * bayarBulan;
+    }
+    function formatRupiahPlatform(v) { return 'Rp ' + Number(v || 0).toLocaleString('id-ID'); }
+
     function renderRegistrations() {
         const wrap = document.getElementById('registrationListWrap');
         const badge = document.getElementById('registrationBadge');
@@ -241,12 +259,16 @@
             wrap.innerHTML = '<p style="font-size:13px;color:#9aa8b8;">Tidak ada pendaftaran baru.</p>';
             return;
         }
-        wrap.innerHTML = tampil.map(r => `
+        wrap.innerHTML = tampil.map(r => {
+            const durasi = r.durasi_bulan || 1;
+            const hargaBayar = hitungHargaDurasi(r.paket_diminati, durasi);
+            return `
             <div style="border:1px solid #eef2f7;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
                     <div>
                         <strong>${r.nama_apotek}</strong>
                         <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${r.paket_diminati === 'Pro' ? '#eaf2fb' : '#f0f2f7'};color:${r.paket_diminati === 'Pro' ? '#2d6a9f' : '#5b6b7c'};margin-left:6px;">${r.paket_diminati}</span>
+                        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#f0fdf4;color:#1e7e34;margin-left:4px;">${durasi} Bulan · ${formatRupiahPlatform(hargaBayar)}</span>
                         ${r.status === 'Diproses' ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#fff3cd;color:#856404;margin-left:4px;">Diproses</span>' : ''}
                         <div style="font-size:12px;color:#7a8a9e;margin-top:3px;">
                             ${r.nama_pic} · ${r.email}${r.telepon ? ' · ' + r.telepon : ''}
@@ -261,8 +283,18 @@
                     </div>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
+
+    window.updateDurasiHargaHint = function() {
+        const paket = document.getElementById('fPlan').value;
+        const durasi = document.getElementById('fDurasiBulan').value;
+        const hint = document.getElementById('fDurasiHargaHint');
+        if (!durasi) { hint.textContent = ''; return; }
+        const harga = hitungHargaDurasi(paket, Number(durasi));
+        hint.textContent = 'Total tagihan: ' + formatRupiahPlatform(harga);
+    };
 
     window.prosesJadiTenant = async function(id) {
         const reg = registrations.find(r => r.id === id);
@@ -274,6 +306,8 @@
         document.getElementById('fAdminEmail').value = reg.email;
         document.getElementById('fAdminPassword').value = '';
         document.getElementById('fPlan').value = reg.paket_diminati || 'Basic';
+        document.getElementById('fDurasiBulan').value = String(reg.durasi_bulan || 1);
+        updateDurasiHargaHint();
         document.getElementById('fAdminNama').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'center' });
         document.getElementById('fAdminPassword').focus();
 
@@ -485,6 +519,7 @@
         const admin_email = document.getElementById('fAdminEmail').value.trim();
         const admin_password = document.getElementById('fAdminPassword').value.trim();
         const plan = document.getElementById('fPlan').value;
+        const durasi_bulan = document.getElementById('fDurasiBulan').value ? Number(document.getElementById('fDurasiBulan').value) : null;
 
         if (!nama_apotek || !admin_email || !admin_password) {
             showToast('⚠️ Nama apotek, email, dan password wajib diisi', true);
@@ -495,7 +530,7 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
 
-        const { data, error } = await callPlatformApi('provision-tenant', { nama_apotek, admin_nama, admin_email, admin_password, plan });
+        const { data, error } = await callPlatformApi('provision-tenant', { nama_apotek, admin_nama, admin_email, admin_password, plan, durasi_bulan });
 
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-rocket"></i> Buat Tenant & Akun Admin';
@@ -524,6 +559,8 @@
         document.getElementById('fAdminEmail').value = '';
         document.getElementById('fAdminPassword').value = '';
         document.getElementById('fPlan').value = 'Basic';
+        document.getElementById('fDurasiBulan').value = '';
+        document.getElementById('fDurasiHargaHint').textContent = '';
         showToast('✅ Tenant baru berhasil dibuat!');
         loadTenants();
     };

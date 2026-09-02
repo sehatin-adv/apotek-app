@@ -36,6 +36,7 @@ export async function onRequestPost(context) {
         const telepon = String(body.telepon || '').trim();
         const alamat = String(body.alamat || '').trim();
         const paket_diminati = ['Basic', 'Pro'].includes(body.paket_diminati) ? body.paket_diminati : 'Basic';
+        const durasi_bulan = [1, 6, 12].includes(Number(body.durasi_bulan)) ? Number(body.durasi_bulan) : 1;
         const catatan = String(body.catatan || '').trim();
 
         if (!nama_apotek || !nama_pic || !email) {
@@ -56,7 +57,7 @@ export async function onRequestPost(context) {
         const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_registrations`, {
             method: 'POST',
             headers: serviceHeaders,
-            body: JSON.stringify({ nama_apotek, nama_pic, email, telepon, alamat, paket_diminati, catatan, status: 'Baru' })
+            body: JSON.stringify({ nama_apotek, nama_pic, email, telepon, alamat, paket_diminati, durasi_bulan, catatan, status: 'Baru' })
         });
         const data = await res.json();
         if (!res.ok) {

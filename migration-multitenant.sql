@@ -986,3 +986,12 @@ CREATE POLICY "No direct access" ON tenant_registrations FOR ALL USING (false) W
 -- ============================================================
 -- SELESAI (Pendaftaran Tenant)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 23) DURASI LANGGANAN (1/6/12 bulan) di form pendaftaran
+-- ------------------------------------------------------------
+ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS durasi_bulan INTEGER DEFAULT 1 CHECK (durasi_bulan IN (1, 6, 12));
+
+-- ============================================================
+-- SELESAI (Durasi Langganan)
+-- ============================================================

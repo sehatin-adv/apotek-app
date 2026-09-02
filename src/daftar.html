@@ -33,6 +33,13 @@
         .plan-option.selected { border-color:#2d6a9f; background:#eaf2fb; }
         .plan-option .nama { font-weight:800; font-size:14px; }
         .plan-option .harga { font-size:12px; color:#7a8a9e; margin-top:2px; }
+        .durasi-option { border:2px solid #e8edf3; border-radius:10px; padding:10px 14px; cursor:pointer; transition:0.15s; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+        .durasi-option.selected { border-color:#28a745; background:#f0fdf4; }
+        .durasi-option .durasi-label { font-weight:700; font-size:13px; }
+        .durasi-option .durasi-hemat { font-size:11px; color:#28a745; font-weight:700; }
+        .durasi-option .durasi-harga { text-align:right; }
+        .durasi-option .harga-asli { font-size:11px; color:#c3cbd3; text-decoration:line-through; }
+        .durasi-option .harga-bayar { font-size:14px; font-weight:800; color:#0f1e2e; }
         .btn-submit { width:100%; padding:14px; background:#2d6a9f; color:white; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; }
         .btn-submit:hover { background:#1a4a7a; }
         .btn-submit:disabled { opacity:0.6; cursor:not-allowed; }
@@ -92,6 +99,11 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label>Durasi Langganan</label>
+                        <div id="durasiOptions"></div>
+                        <div id="hargaSummary" style="margin-top:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-size:13px;"></div>
+                    </div>
+                    <div class="form-group">
                         <label>Catatan Tambahan</label>
                         <textarea id="catatan" placeholder="Pertanyaan atau kebutuhan khusus (opsional)"></textarea>
                     </div>
@@ -117,12 +129,62 @@
     </div>
 
 <script>
+    const HARGA_BULANAN = { Basic: 51250, Pro: 123000 };
+    const DURASI_LIST = [
+        { bulan: 1, bayarBulan: 1, label: '1 Bulan', hemat: null },
+        { bulan: 6, bayarBulan: 5, label: '6 Bulan', hemat: 'Gratis 1 Bulan' },
+        { bulan: 12, bayarBulan: 10, label: '12 Bulan', hemat: 'Gratis 2 Bulan' }
+    ];
+
     let paketDipilih = 'Basic';
+    let durasiDipilih = 1;
+
+    function formatRupiah(v) { return 'Rp ' + v.toLocaleString('id-ID'); }
+
+    function renderDurasiOptions() {
+        const wrap = document.getElementById('durasiOptions');
+        const hargaPerBulan = HARGA_BULANAN[paketDipilih];
+        wrap.innerHTML = DURASI_LIST.map(d => {
+            const hargaAsli = hargaPerBulan * d.bulan;
+            const hargaBayar = hargaPerBulan * d.bayarBulan;
+            const selected = d.bulan === durasiDipilih;
+            return `
+                <div class="durasi-option ${selected ? 'selected' : ''}" onclick="pilihDurasi(${d.bulan})">
+                    <div>
+                        <div class="durasi-label">${d.label}</div>
+                        ${d.hemat ? `<div class="durasi-hemat">${d.hemat}</div>` : ''}
+                    </div>
+                    <div class="durasi-harga">
+                        ${d.hemat ? `<div class="harga-asli">${formatRupiah(hargaAsli)}</div>` : ''}
+                        <div class="harga-bayar">${formatRupiah(hargaBayar)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        updateHargaSummary();
+    }
+
+    function updateHargaSummary() {
+        const d = DURASI_LIST.find(x => x.bulan === durasiDipilih);
+        const hargaBayar = HARGA_BULANAN[paketDipilih] * d.bayarBulan;
+        document.getElementById('hargaSummary').innerHTML =
+            `<i class="fas fa-circle-check" style="color:#28a745;"></i> Paket <strong>${paketDipilih}</strong>, aktif <strong>${d.bulan} bulan</strong>, bayar <strong style="color:#28a745;">${formatRupiah(hargaBayar)}</strong>`;
+    }
+
+    window.pilihDurasi = function(bulan) {
+        durasiDipilih = bulan;
+        renderDurasiOptions();
+    };
+
     function pilihPaket(paket) {
         paketDipilih = paket;
         document.getElementById('planBasicBtn').classList.toggle('selected', paket === 'Basic');
         document.getElementById('planProBtn').classList.toggle('selected', paket === 'Pro');
+        renderDurasiOptions();
     }
+    window.pilihPaket = pilihPaket;
+
+    document.addEventListener('DOMContentLoaded', renderDurasiOptions);
 
     async function submitDaftar() {
         const namaApotek = document.getElementById('namaApotek').value.trim();
@@ -155,6 +217,7 @@
                     telepon: telepon,
                     alamat: alamat,
                     paket_diminati: paketDipilih,
+                    durasi_bulan: durasiDipilih,
                     catatan: catatan
                 })
             });

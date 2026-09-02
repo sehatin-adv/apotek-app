@@ -315,7 +315,7 @@ export async function onRequestPost(context) {
             }
 
             if (action === 'provision-tenant') {
-                const { nama_apotek, admin_nama, admin_email, admin_password, plan } = body;
+                const { nama_apotek, admin_nama, admin_email, admin_password, plan, durasi_bulan } = body;
                 if (!nama_apotek || !admin_email || !admin_password) {
                     return new Response(JSON.stringify({ error: 'Nama apotek, email admin, dan password admin wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
                 }
@@ -324,11 +324,25 @@ export async function onRequestPost(context) {
                 }
                 const tenantPlan = ['Basic', 'Pro'].includes(plan) ? plan : 'Basic';
 
+                // Kalau durasi langganan awal disertakan (dari pendaftaran
+                // yang sudah dikonfirmasi bayar), langsung aktifkan +
+                // set tanggal jatuh tempo sesuai durasinya. Kalau tidak
+                // disertakan (provisioning manual biasa), tetap seperti
+                // semula - status Trial tanpa tanggal jatuh tempo.
+                const durasiValid = [1, 6, 12].includes(Number(durasi_bulan)) ? Number(durasi_bulan) : null;
+                const tenantBody = { nama: nama_apotek.trim(), status: 'Trial', plan: tenantPlan };
+                if (durasiValid) {
+                    const expiry = new Date();
+                    expiry.setMonth(expiry.getMonth() + durasiValid);
+                    tenantBody.status = 'Aktif';
+                    tenantBody.subscription_expires_at = expiry.toISOString().split('T')[0];
+                }
+
                 // 1. Buat tenant
                 const tenantRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenants`, {
                     method: 'POST',
                     headers: { ...serviceHeaders, 'Prefer': 'return=representation' },
-                    body: JSON.stringify({ nama: nama_apotek.trim(), status: 'Trial', plan: tenantPlan })
+                    body: JSON.stringify(tenantBody)
                 });
                 const tenantData = await tenantRes.json();
                 if (!tenantRes.ok) return new Response(JSON.stringify({ error: 'Gagal membuat tenant: ' + (tenantData.message || '') }), { status: tenantRes.status, headers: CORS_HEADERS });
