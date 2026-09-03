@@ -965,18 +965,17 @@
                 </td>
                 <td>
                     <input type="text" class="editable" data-index="${index}" data-field="satuan" value="${item.satuan || 'Tablet'}" style="width:70px;">
-                    ${item._fromScan ? `
-                        <button type="button" onclick="toggleKonversiSatuan(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-arrows-rotate"></i> Konversi</button>
-                        ${item._showKonversi ? `
-                            <div style="margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;padding:7px;">
-                                <span style="font-size:11px;">=</span>
-                                <input type="number" id="konversiQty_${index}" value="${item.konversi_qty || ''}" placeholder="qty" step="any" style="width:55px;padding:4px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:5px;">
-                                <span style="font-size:11px;font-weight:600;">${item.satuan_kecil_master || 'Tablet'}</span>
-                                <button type="button" onclick="terapkanKonversi(${index})" style="font-size:11px;font-weight:700;background:#28a745;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;">OK</button>
+                    <button type="button" onclick="toggleKonversiSatuan(${index})" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;font-weight:700;color:white;background:#28a745;border:2px solid #1e7e34;border-radius:8px;padding:6px 12px;cursor:pointer;"><i class="fas fa-arrows-rotate"></i> Konversi</button>
+                    ${item._showKonversi ? `
+                        <div style="margin-top:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;padding:7px;">
+                            <span style="font-size:11px;">=</span>
+                            <input type="number" id="konversiQty_${index}" value="${item.konversi_qty || ''}" placeholder="qty" step="any" style="width:55px;padding:4px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:5px;">
+                            <input type="text" id="konversiSatuan_${index}" value="${item.satuan_kecil_master || ''}" placeholder="Tablet" style="width:65px;padding:4px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:5px;">
+                            <button type="button" onclick="terapkanKonversi(${index})" style="font-size:11px;font-weight:700;background:#28a745;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;">OK</button>
                                 <button type="button" onclick="batalKonversi(${index})" style="font-size:11px;font-weight:700;background:white;color:#7a8a9e;border:1px solid #e8edf3;border-radius:5px;padding:5px 10px;cursor:pointer;">Batal</button>
                             </div>
+                            <div style="font-size:10px;color:#7a8a9e;width:100%;margin-top:2px;">Satuan beli (distributor): <strong>${item.satuan || '-'}</strong> &rarr; satuan jual di atas</div>
                         ` : ''}
-                    ` : ''}
                 </td>
                 <td>
                     <input type="number" class="editable" data-index="${index}" data-field="harga_beli" value="${item.harga_beli}" min="0" step="any">
@@ -1256,13 +1255,18 @@
     };
     window.terapkanKonversi = function(index) {
         const qtyInput = document.getElementById('konversiQty_' + index);
+        const satuanInput = document.getElementById('konversiSatuan_' + index);
         const konversiQty = Number(qtyInput.value) || 0;
+        const satuanKecil = (satuanInput.value || '').trim();
         if (konversiQty <= 0) {
             showToast('⚠️ Isi dulu jumlah konversinya (harus lebih dari 0)', true);
             return;
         }
+        if (!satuanKecil) {
+            showToast('⚠️ Isi dulu satuan jualnya (contoh: Tablet, Strip, Botol)', true);
+            return;
+        }
         const item = items[index];
-        const satuanKecil = item.satuan_kecil_master || 'Tablet';
 
         // Simpan data ASLI cuma sekali (kalau user konversi ulang, yang
         // jadi acuan tetap data sebelum konversi pertama kali, bukan

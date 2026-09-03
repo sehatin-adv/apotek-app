@@ -811,6 +811,26 @@
             updateTotal(obatData.length);
             showToast('🗑️ Data obat berhasil dihapus!');
         } catch(e) {
+            // Obat yang sudah pernah ada transaksinya (pembelian/penjualan/
+            // opname) TIDAK BISA dihapus - itu wajar & disengaja (supaya
+            // riwayat Kartu Stok tidak ikut hilang/rusak). Sebelumnya error
+            // mentah dari database yang tampil, sekarang dijelaskan dengan
+            // jalan keluarnya (nonaktifkan saja, jangan hapus).
+            if (e.message && e.message.includes('foreign key constraint') && e.message.includes('kartu_stok')) {
+                if (confirm('Obat ini tidak bisa dihapus karena sudah punya riwayat transaksi (Kartu Stok) - menghapusnya akan merusak riwayat tersebut.\n\nApakah mau NONAKTIFKAN obat ini sebagai gantinya? (obat nonaktif tidak akan muncul lagi di pencarian Kasir/Pembelian, tapi riwayatnya tetap aman)')) {
+                    const obat = obatData.find(o => o.id === id);
+                    if (obat) {
+                        const { error: updateError } = await saveObat({ ...obat, status: 'Tidak Aktif' });
+                        if (!updateError) {
+                            await loadObat();
+                            showToast('✅ Obat dinonaktifkan (riwayat transaksinya tetap aman)');
+                        } else {
+                            showToast('❌ Gagal menonaktifkan: ' + updateError.message, true);
+                        }
+                    }
+                }
+                return;
+            }
             showToast('❌ Gagal menghapus data: ' + e.message, true);
         }
     };
