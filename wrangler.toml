@@ -50,3 +50,8 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # terkendala IP whitelist):
 #   npx wrangler pages secret put XENDIT_SECRET_KEY
 #   npx wrangler pages secret put XENDIT_CALLBACK_TOKEN
+
+# OPSIONAL - Cloudflare Turnstile (verifikasi anti-spam/bot di form
+# pendaftaran publik /daftar.html). Secret Key didapat dari
+# dashboard Cloudflare > Turnstile > widget yang dibuat:
+#   npx wrangler pages secret put TURNSTILE_SECRET_KEY

@@ -38,6 +38,7 @@ export async function onRequestPost(context) {
         const paket_diminati = ['Basic', 'Pro'].includes(body.paket_diminati) ? body.paket_diminati : 'Basic';
         const durasi_bulan = [1, 6, 12].includes(Number(body.durasi_bulan)) ? Number(body.durasi_bulan) : 1;
         const catatan = String(body.catatan || '').trim();
+        const turnstile_token = String(body.turnstile_token || '').trim();
 
         if (!nama_apotek || !nama_pic || !email) {
             return new Response(JSON.stringify({ error: 'Nama apotek, nama PIC, dan email wajib diisi.' }), { status: 400, headers: CORS_HEADERS });
@@ -45,6 +46,30 @@ export async function onRequestPost(context) {
         // Validasi email sederhana - cukup buat menyaring input asal-asalan
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             return new Response(JSON.stringify({ error: 'Format email tidak valid.' }), { status: 400, headers: CORS_HEADERS });
+        }
+
+        // Verifikasi Cloudflare Turnstile - mencegah bot/spam otomatis
+        // submit form ini berkali-kali. Token dari frontend dicek ulang
+        // ke server Cloudflare (WAJIB dicek di server, tidak cukup cuma
+        // widget-nya "tampil sukses" di sisi klien - itu bisa dipalsukan).
+        if (!env.TURNSTILE_SECRET_KEY) {
+            return new Response(JSON.stringify({ error: 'Server belum dikonfigurasi lengkap (Turnstile).' }), { status: 500, headers: CORS_HEADERS });
+        }
+        if (!turnstile_token) {
+            return new Response(JSON.stringify({ error: 'Verifikasi keamanan belum diselesaikan. Coba lagi.' }), { status: 400, headers: CORS_HEADERS });
+        }
+        const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                secret: env.TURNSTILE_SECRET_KEY,
+                response: turnstile_token,
+                remoteip: request.headers.get('CF-Connecting-IP') || ''
+            })
+        });
+        const turnstileData = await turnstileRes.json();
+        if (!turnstileData.success) {
+            return new Response(JSON.stringify({ error: 'Verifikasi keamanan gagal. Silakan coba lagi.' }), { status: 400, headers: CORS_HEADERS });
         }
 
         const serviceHeaders = {

@@ -7,6 +7,7 @@
     <title>Daftar Berlangganan - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#f0f2f7; color:#0f1e2e; line-height:1.6; }
@@ -107,6 +108,7 @@
                         <label>Catatan Tambahan</label>
                         <textarea id="catatan" placeholder="Pertanyaan atau kebutuhan khusus (opsional)"></textarea>
                     </div>
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAAAElerQFDAOyB1BpA" data-callback="onTurnstileSuccess" style="margin-bottom:14px;"></div>
                     <button type="button" class="btn-submit" id="btnSubmit" onclick="submitDaftar()"><i class="fas fa-paper-plane"></i> Kirim Pendaftaran</button>
                     <p class="error-text" id="errorText"></p>
                 </form>
@@ -186,6 +188,11 @@
 
     document.addEventListener('DOMContentLoaded', renderDurasiOptions);
 
+    let turnstileToken = null;
+    window.onTurnstileSuccess = function(token) {
+        turnstileToken = token;
+    };
+
     async function submitDaftar() {
         const namaApotek = document.getElementById('namaApotek').value.trim();
         const namaPic = document.getElementById('namaPic').value.trim();
@@ -198,6 +205,11 @@
 
         if (!namaApotek || !namaPic || !email) {
             errorText.textContent = '⚠️ Nama apotek, nama PIC, dan email wajib diisi.';
+            errorText.style.display = 'block';
+            return;
+        }
+        if (!turnstileToken) {
+            errorText.textContent = '⚠️ Selesaikan dulu verifikasi keamanan di atas (centang "Saya bukan robot").';
             errorText.style.display = 'block';
             return;
         }
@@ -218,7 +230,8 @@
                     alamat: alamat,
                     paket_diminati: paketDipilih,
                     durasi_bulan: durasiDipilih,
-                    catatan: catatan
+                    catatan: catatan,
+                    turnstile_token: turnstileToken
                 })
             });
             const result = await res.json();
@@ -232,6 +245,10 @@
             errorText.style.display = 'block';
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';
+            // Token Turnstile cuma bisa dipakai sekali - reset widget-nya
+            // supaya user bisa coba kirim ulang tanpa perlu refresh halaman.
+            turnstileToken = null;
+            if (window.turnstile) window.turnstile.reset();
         }
     }
 </script>
