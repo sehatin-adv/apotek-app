@@ -10,7 +10,7 @@ import { getCurrentUserPermissions, getMyTenantInfo } from './database.js';
 // role individu.
 const PRO_ONLY_MODULES = new Set([
     'forecasting_stok', 'forecasting_pbf', 'forecasting_rekomendasi', 'forecasting_sp',
-    'laporan_laba_rugi', 'audit_log'
+    'laporan_laba_rugi', 'audit_log', 'riwayat_pemesanan'
 ]);
 
 // currentModuleKey = module_key milik HALAMAN INI (lihat DEFAULT_MODULES

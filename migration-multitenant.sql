@@ -1034,3 +1034,81 @@ END $$;
 -- ============================================================
 -- SELESAI (No. Faktur Unik Per-Apotek)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 25) SURAT PESANAN TERSIMPAN (bisa diedit) + RIWAYAT PEMESANAN
+--     (khusus Pro) - trigger dari tombol "Pesan" di Forecasting >
+--     Surat Pesanan.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS surat_pesanan (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    no_sp TEXT NOT NULL,
+    tanggal DATE NOT NULL,
+    supplier_id UUID REFERENCES supplier(id),
+    supplier_nama TEXT,
+    total_item INTEGER DEFAULT 0,
+    dipesan_oleh TEXT,
+    status TEXT DEFAULT 'Dipesan' CHECK (status IN ('Dipesan', 'Selesai', 'Dibatalkan')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS surat_pesanan_detail (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    surat_pesanan_id UUID REFERENCES surat_pesanan(id) ON DELETE CASCADE,
+    obat_id UUID REFERENCES obat(id),
+    kode_obat TEXT,
+    nama_obat TEXT,
+    satuan TEXT,
+    qty NUMERIC NOT NULL,
+    harga INTEGER DEFAULT 0
+);
+
+ALTER TABLE surat_pesanan ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+ALTER TABLE surat_pesanan_detail ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+
+DO $$
+DECLARE
+    v_tenant_id UUID;
+BEGIN
+    SELECT id INTO v_tenant_id FROM tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE surat_pesanan SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+        UPDATE surat_pesanan_detail SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+    END IF;
+END $$;
+
+ALTER TABLE surat_pesanan ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE surat_pesanan_detail ALTER COLUMN tenant_id SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'surat_pesanan_tenant_no_sp_key') THEN
+        ALTER TABLE surat_pesanan ADD CONSTRAINT surat_pesanan_tenant_no_sp_key UNIQUE (tenant_id, no_sp);
+    END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_tenant_surat_pesanan ON surat_pesanan;
+CREATE TRIGGER trg_tenant_surat_pesanan BEFORE INSERT ON surat_pesanan FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+DROP TRIGGER IF EXISTS trg_tenant_surat_pesanan_detail ON surat_pesanan_detail;
+CREATE TRIGGER trg_tenant_surat_pesanan_detail BEFORE INSERT ON surat_pesanan_detail FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+DO $$
+DECLARE
+    t TEXT;
+    pol RECORD;
+    tbls TEXT[] := ARRAY['surat_pesanan', 'surat_pesanan_detail'];
+BEGIN
+    FOREACH t IN ARRAY tbls LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = t LOOP
+            EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, t);
+        END LOOP;
+        EXECUTE format(
+            'CREATE POLICY "Tenant isolation" ON %I FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id())',
+            t
+        );
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (Surat Pesanan + Riwayat Pemesanan)
+-- ============================================================

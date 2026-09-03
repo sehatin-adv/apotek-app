@@ -162,9 +162,11 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
+                <div class="menu-item" data-module="riwayat_penjualan" onclick="navigate('riwayat-penjualan.html')"><i class="fas fa-receipt"></i> Riwayat Penjualan</div>
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
         <div class="menu-group">
@@ -227,7 +229,7 @@
 
 <script type="module">
     import { supabase, getCurrentUser, signOut } from './supabase.js';
-    import { getSupplierWithKatalog, getSupplierSelections } from './database.js';
+    import { getSupplierWithKatalog, getSupplierSelections, saveSuratPesanan } from './database.js';
     import { getPengaturanApotek } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Surat Pesanan');
@@ -264,6 +266,7 @@
         if (user) {
             document.getElementById('userBadge').textContent = user.email || 'admin';
             document.getElementById('usernameDisplay').textContent = user.user_metadata?.full_name || user.email || 'admin';
+            currentUserDisplayNameSp = user.user_metadata?.full_name || user.email || 'admin';
         }
     }
 
@@ -294,23 +297,27 @@
             wrap.innerHTML = '<div class="empty-state"><i class="fas fa-clipboard-list"></i>Belum ada obat yang dipilih. Pilih PBF untuk tiap obat di halaman <a href="forecasting-rekomendasi.html" style="color:#2d6a9f;font-weight:600;">Rekomendasi Pesanan</a>.</div>';
             return;
         }
-        wrap.innerHTML = spGroups.map(group => {
+        wrap.innerHTML = spGroups.map((group, gi) => {
             const total = group.items.reduce((s, it) => s + (Number(it.harga) || 0) * (Number(it.qty) || 0), 0);
             return `
                 <div class="group-card">
                     <div class="group-head">
                         <div><span class="nama"><i class="fas fa-file-lines"></i> ${group.pbfNama}</span><span class="count">${group.items.length} item</span></div>
-                        <button class="btn btn-primary" onclick="printSp('${group.pbfId}')"><i class="fas fa-print"></i> Cetak Surat Pesanan</button>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn" style="background:#28a745;color:white;" onclick="pesanSuratPesanan('${group.pbfId}')"><i class="fas fa-paper-plane"></i> Pesan</button>
+                            <button class="btn btn-primary" onclick="printSp('${group.pbfId}')"><i class="fas fa-print"></i> Cetak Surat Pesanan</button>
+                        </div>
                     </div>
                     <table>
-                        <thead><tr><th>Nama Obat</th><th style="text-align:right;">Jumlah</th><th>Satuan</th><th style="text-align:right;">Subtotal</th></tr></thead>
+                        <thead><tr><th>Nama Obat</th><th style="text-align:right;width:90px;">Jumlah</th><th style="width:80px;">Satuan</th><th style="text-align:right;">Subtotal</th><th style="width:40px;"></th></tr></thead>
                         <tbody>
-                            ${group.items.map(it => `
+                            ${group.items.map((it, ii) => `
                                 <tr>
                                     <td>${it.produk_nama}</td>
-                                    <td style="text-align:right;font-family:monospace;">${it.qty}</td>
+                                    <td style="text-align:right;"><input type="number" value="${it.qty}" min="1" step="any" style="width:70px;padding:5px 6px;border:1px solid #e8edf3;border-radius:6px;text-align:right;" onchange="updateQtySp(${gi}, ${ii}, this.value)"></td>
                                     <td>${it.satuan || '-'}</td>
                                     <td style="text-align:right;">${it.harga ? formatRupiah((Number(it.harga)||0) * (Number(it.qty)||0)) : '-'}</td>
+                                    <td><button onclick="hapusItemSp(${gi}, ${ii})" style="background:none;border:none;color:#dc3545;cursor:pointer;"><i class="fas fa-trash"></i></button></td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -320,6 +327,66 @@
             `;
         }).join('');
     }
+
+    window.updateQtySp = function(groupIndex, itemIndex, value) {
+        const qty = Number(value) || 0;
+        if (qty <= 0) { showToastSp('⚠️ Jumlah harus lebih dari 0', true); renderGroups(); return; }
+        spGroups[groupIndex].items[itemIndex].qty = qty;
+        renderGroups();
+    };
+    window.hapusItemSp = function(groupIndex, itemIndex) {
+        spGroups[groupIndex].items.splice(itemIndex, 1);
+        if (spGroups[groupIndex].items.length === 0) spGroups.splice(groupIndex, 1);
+        renderGroups();
+    };
+
+    function showToastSp(message, isError = false) {
+        let toast = document.getElementById('toastSp');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toastSp';
+            toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#28a745;color:white;padding:14px 22px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.2);font-weight:600;font-size:13px;z-index:3000;display:none;';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.style.background = isError ? '#dc3545' : '#28a745';
+        toast.style.display = 'block';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    window.pesanSuratPesanan = async function(pbfId) {
+        const group = spGroups.find(g => g.pbfId === pbfId);
+        if (!group) return;
+        if (!confirm(`Catat pemesanan ke "${group.pbfNama}" sebanyak ${group.items.length} item? Ini akan tersimpan di Riwayat Pemesanan.`)) return;
+
+        const now = new Date();
+        const noSp = 'SP-' + now.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
+        const header = {
+            no_sp: noSp,
+            tanggal: now.toISOString().split('T')[0],
+            supplier_id: group.pbfId,
+            supplier_nama: group.pbfNama,
+            total_item: group.items.length,
+            dipesan_oleh: currentUserDisplayNameSp
+        };
+        const details = group.items.map(it => ({
+            obat_id: it.obat_id || null,
+            kode_obat: it.kode_obat || '',
+            nama_obat: it.produk_nama,
+            satuan: it.satuan || '-',
+            qty: it.qty,
+            harga: it.harga || 0
+        }));
+
+        const { error } = await saveSuratPesanan(header, details);
+        if (error) {
+            showToastSp('❌ Gagal mencatat pemesanan: ' + error.message, true);
+            return;
+        }
+        showToastSp('✅ Pemesanan ke "' + group.pbfNama + '" tercatat di Riwayat Pemesanan');
+    };
+    let currentUserDisplayNameSp = 'admin';
 
     window.printSp = function(pbfId) {
         const group = spGroups.find(g => g.pbfId === pbfId);

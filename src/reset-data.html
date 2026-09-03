@@ -14,6 +14,8 @@
             }
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#f0f2f7; }
@@ -187,9 +189,11 @@
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
             <div class="sub-menu">
+                <div class="menu-item" data-module="riwayat_penjualan" onclick="navigate('riwayat-penjualan.html')"><i class="fas fa-receipt"></i> Riwayat Penjualan</div>
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
         <div class="menu-group">
@@ -238,6 +242,13 @@
             <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
         </div>
 
+        <div class="card" style="background:linear-gradient(135deg,#eaf2fb,#f0f7ff);border:1px solid #c9e0f7;">
+            <div class="card-title"><span class="icon" style="color:#2d6a9f;"><i class="fas fa-file-zipper"></i></span> Backup Data (Download Semua)</div>
+            <p style="font-size:13px;color:#5b6b7c;margin-bottom:14px;">Download seluruh data aplikasi Anda dalam satu file ZIP (berisi file Excel terpisah per modul - Master Obat, Pembelian, Penjualan, Retur, Kartu Stok, Stok Opname, Forecasting, dll). <strong>Sangat disarankan sebelum melakukan Reset Data</strong> di bawah ini, sebagai cadangan.</p>
+            <button class="btn" style="background:#2d6a9f;color:white;" id="btnBackup" onclick="backupData()"><i class="fas fa-download"></i> Download Backup (ZIP)</button>
+            <div id="backupProgress" style="display:none;margin-top:12px;font-size:12px;color:#7a8a9e;"></div>
+        </div>
+
         <div class="card" id="statusCard">
             <div class="card-title"><span class="icon"><i class="fas fa-info-circle"></i></span> Status Data Saat Ini</div>
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px;" id="dataStats">
@@ -268,7 +279,6 @@
             </div>
             <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" onclick="loadStats()"><i class="fas fa-sync"></i> Refresh Statistik</button>
-                <button class="btn btn-outline btn-sm" onclick="backupData()"><i class="fas fa-download"></i> Backup Data</button>
             </div>
         </div>
 
@@ -476,31 +486,92 @@
     // ============================================================
     // BACKUP DATA
     // ============================================================
-    window.backupData = async function() {
-        try {
-            showToast('📥 Memulai backup data...');
+    // Daftar tabel yang di-backup, dari Master Data sampai Forecasting -
+    // key = nama tabel di database, value = nama sheet Excel yang ramah
+    // dibaca manusia.
+    const BACKUP_TABLES = [
+        ['obat', 'Master Obat'],
+        ['kategori_obat', 'Jenis-Golongan-Satuan'],
+        ['supplier', 'Data Supplier'],
+        ['apoteker', 'Data Apoteker'],
+        ['pembelian_header', 'Pembelian (Header)'],
+        ['pembelian_detail', 'Pembelian (Detail)'],
+        ['retur_pembelian', 'Retur Pembelian (Header)'],
+        ['retur_pembelian_detail', 'Retur Pembelian (Detail)'],
+        ['pembelian_pembayaran', 'Cicilan Pembelian Kredit'],
+        ['penjualan_header', 'Penjualan (Header)'],
+        ['penjualan_detail', 'Penjualan (Detail)'],
+        ['retur_penjualan', 'Retur Penjualan (Header)'],
+        ['retur_detail', 'Retur Penjualan (Detail)'],
+        ['kasir_pending', 'Kasir Pending (Header)'],
+        ['kasir_pending_detail', 'Kasir Pending (Detail)'],
+        ['penolakan_obat', 'Penolakan Obat'],
+        ['kartu_stok', 'Kartu Stok'],
+        ['stok_opname', 'Stok Opname'],
+        ['shift_history', 'Riwayat Shift'],
+        ['pengeluaran', 'Pengeluaran'],
+        ['supplier_katalog', 'Forecasting - Katalog PBF'],
+        ['supplier_selections', 'Forecasting - Rekomendasi Pesanan'],
+        ['surat_pesanan', 'Surat Pesanan (Header)'],
+        ['surat_pesanan_detail', 'Surat Pesanan (Detail)']
+    ];
 
-            const tables = ['obat', 'penjualan_header', 'penjualan_detail', 'retur_penjualan', 'retur_detail', 
-                           'pembelian_header', 'pembelian_detail', 'kartu_stok', 'stok_opname', 'shift_history',
-                           'pengeluaran'];
-            
-            const backup = {};
-            for (const table of tables) {
+    window.backupData = async function() {
+        const btn = document.getElementById('btnBackup');
+        const progressEl = document.getElementById('backupProgress');
+        btn.disabled = true;
+        progressEl.style.display = 'block';
+
+        try {
+            const zip = new JSZip();
+            let sheetsIncluded = 0;
+
+            for (let i = 0; i < BACKUP_TABLES.length; i++) {
+                const [table, sheetName] = BACKUP_TABLES[i];
+                progressEl.textContent = `Mengambil data: ${sheetName} (${i + 1}/${BACKUP_TABLES.length})...`;
+
                 const { data, error } = await supabase.from(table).select('*');
-                if (!error) backup[table] = data;
+                // Tabel yang belum pernah dipakai / belum ada datanya
+                // dilewati saja (bukan error) - tidak semua apotek pasti
+                // sudah pakai semua modul.
+                if (error) {
+                    console.warn(`Backup: lewati tabel "${table}" (${error.message})`);
+                    continue;
+                }
+                if (!data || data.length === 0) continue;
+
+                // Setiap tabel jadi 1 file Excel terpisah di dalam ZIP -
+                // supaya gampang dibuka satu-satu tanpa perlu buka semua
+                // sekaligus.
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31)); // batas nama sheet Excel 31 karakter
+                const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                zip.file(`${sheetName}.xlsx`, excelBuffer);
+                sheetsIncluded++;
             }
 
-            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+            if (sheetsIncluded === 0) {
+                showToast('⚠️ Tidak ada data untuk di-backup (semua modul masih kosong)', true);
+                return;
+            }
+
+            progressEl.textContent = 'Menyusun file ZIP...';
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `Backup_Sehatin_${new Date().toISOString().slice(0,10)}.zip`;
             a.click();
             URL.revokeObjectURL(url);
 
-            showToast('✅ Backup berhasil diunduh!');
+            showToast(`✅ Backup berhasil diunduh! (${sheetsIncluded} modul)`);
         } catch(e) {
+            console.error('Error backupData:', e);
             showToast('❌ Gagal backup: ' + e.message, true);
+        } finally {
+            btn.disabled = false;
+            progressEl.style.display = 'none';
         }
     };
 

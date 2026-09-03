@@ -2299,3 +2299,96 @@ export async function cekNoFakturPenjualan(noFaktur) {
         return { data: null, error: e };
     }
 }
+
+// ============================================================
+// RIWAYAT PENJUALAN LENGKAP (utk Laporan) - join item + kasir
+// ============================================================
+export async function getPenjualanLengkap(tanggalMulai, tanggalAkhir) {
+    try {
+        let query = supabase
+            .from('penjualan_header')
+            .select('*, penjualan_detail(*)')
+            .order('tanggal', { ascending: false })
+            .order('jam', { ascending: false });
+        if (tanggalMulai && tanggalAkhir) {
+            query = query.gte('tanggal', tanggalMulai).lte('tanggal', tanggalAkhir);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getPenjualanLengkap:', e);
+        return { data: [], error: e };
+    }
+}
+
+// ============================================================
+// SURAT PESANAN (bisa diedit) + RIWAYAT PEMESANAN (khusus Pro)
+// ============================================================
+export async function saveSuratPesanan(header, details) {
+    try {
+        const { data: headerData, error: headerError } = await supabase
+            .from('surat_pesanan')
+            .insert(header)
+            .select();
+        if (headerError) throw headerError;
+
+        const detailsWithId = details.map(d => ({ ...d, surat_pesanan_id: headerData[0].id }));
+        const { error: detailError } = await supabase
+            .from('surat_pesanan_detail')
+            .insert(detailsWithId);
+        if (detailError) throw detailError;
+
+        return { data: headerData[0], error: null };
+    } catch(e) {
+        console.error('Error saveSuratPesanan:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function getRiwayatPemesanan() {
+    try {
+        const { data, error } = await supabase
+            .from('surat_pesanan')
+            .select('*, surat_pesanan_detail(*)')
+            .order('tanggal', { ascending: false })
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getRiwayatPemesanan:', e);
+        return { data: [], error: e };
+    }
+}
+
+// Update satu surat pesanan yang sudah tersimpan - dipakai buat fitur
+// "edit" (ubah qty/hapus item/tambah item setelah sempat disimpan).
+// Cara termudah & paling aman: hapus semua detail lama, insert ulang
+// detail yang baru (bukan update baris satu-satu) - supaya tidak perlu
+// hitung selisih index yang rawan salah.
+export async function updateSuratPesanan(suratPesananId, header, details) {
+    try {
+        const { error: headerError } = await supabase
+            .from('surat_pesanan')
+            .update(header)
+            .eq('id', suratPesananId);
+        if (headerError) throw headerError;
+
+        const { error: deleteError } = await supabase
+            .from('surat_pesanan_detail')
+            .delete()
+            .eq('surat_pesanan_id', suratPesananId);
+        if (deleteError) throw deleteError;
+
+        const detailsWithId = details.map(d => ({ ...d, surat_pesanan_id: suratPesananId }));
+        const { error: insertError } = await supabase
+            .from('surat_pesanan_detail')
+            .insert(detailsWithId);
+        if (insertError) throw insertError;
+
+        return { error: null };
+    } catch(e) {
+        console.error('Error updateSuratPesanan:', e);
+        return { error: e };
+    }
+}
