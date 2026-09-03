@@ -995,3 +995,42 @@ ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS durasi_bulan INTEGER D
 -- ============================================================
 -- SELESAI (Durasi Langganan)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 24) NO. FAKTUR UNIK PER-APOTEK (bukan global)
+-- ------------------------------------------------------------
+-- BUG SERIUS: constraint UNIQUE pada no_faktur di penjualan_header dan
+-- pembelian_header sebelumnya berlaku GLOBAL ke SEMUA apotek pengguna
+-- Sehatin+ (bukan per-apotek) - artinya kalau Apotek A pakai nomor
+-- faktur "INV-001", Apotek B TIDAK BISA pakai nomor yang sama, padahal
+-- itu 2 apotek yang sama sekali tidak berhubungan. Di bawah ini
+-- diperbaiki supaya keunikannya per-apotek (tenant_id, no_faktur).
+DO $$
+DECLARE
+    con_rec3 RECORD;
+    tbl TEXT;
+BEGIN
+    FOREACH tbl IN ARRAY ARRAY['penjualan_header', 'pembelian_header'] LOOP
+        FOR con_rec3 IN
+            SELECT con.conname
+            FROM pg_constraint con
+            JOIN pg_class rel ON rel.oid = con.conrelid
+            WHERE rel.relname = tbl AND con.contype = 'u'
+        LOOP
+            EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', tbl, con_rec3.conname);
+        END LOOP;
+
+        -- Jaga-jaga: buang dulu baris duplikat (tenant_id, no_faktur)
+        -- kalau ada (kemungkinan sangat kecil, tapi jaga-jaga tetap perlu)
+        EXECUTE format(
+            'DELETE FROM %I a USING %I b WHERE a.id > b.id AND a.tenant_id = b.tenant_id AND a.no_faktur = b.no_faktur',
+            tbl, tbl
+        );
+
+        EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I UNIQUE (tenant_id, no_faktur)', tbl, tbl || '_tenant_no_faktur_key');
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (No. Faktur Unik Per-Apotek)
+-- ============================================================

@@ -729,6 +729,12 @@
     </div>
 </div>
 
+<div id="globalLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,30,46,0.55);z-index:5000;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:32px 44px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+        <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#2d6a9f;margin-bottom:14px;display:block;"></i>
+        <p id="globalLoadingText" style="font-size:14px;color:#34495e;font-weight:600;margin:0;">Menyimpan...</p>
+    </div>
+</div>
 <div class="toast" id="toastKasir"></div>
 
 <script type="module">
@@ -1396,6 +1402,7 @@
         sedangMenyimpanKasir = true;
         const btnSimpan = document.getElementById('btnSimpanKasir');
         if (btnSimpan) { btnSimpan.disabled = true; btnSimpan.style.opacity = '0.6'; btnSimpan.style.cursor = 'not-allowed'; }
+        showGlobalLoading('Menyimpan transaksi, mohon tunggu...');
         
         try {
             // Kalau transaksi ini hasil "Lanjutkan Pending", stok SUDAH
@@ -1444,6 +1451,7 @@
         } finally {
             sedangMenyimpanKasir = false;
             if (btnSimpan) { btnSimpan.disabled = false; btnSimpan.style.opacity = ''; btnSimpan.style.cursor = ''; }
+            hideGlobalLoading();
         }
     };
     
@@ -1854,7 +1862,9 @@
             berat_badan_pasien: item.berat_badan_pasien || null
         }));
 
+        showGlobalLoading('Menyimpan sebagai pending...');
         const { error } = await savePendingTransaksi(header, details);
+        hideGlobalLoading();
         if (error) {
             showToastKasir('❌ Gagal menyimpan pending: ' + error.message, true);
             return;
@@ -1904,7 +1914,9 @@
         const pending = (window.__pendingListCache || []).find(p => p.id === pendingId);
         if (!pending) return;
         if (!confirm(`Batalkan pending "${pending.no_pending}"? Stok akan dikembalikan.`)) return;
+        showGlobalLoading('Membatalkan pending...');
         const { error } = await batalkanPendingTransaksi(pendingId, pending.kasir_pending_detail || []);
+        hideGlobalLoading();
         if (error) {
             showToastKasir('❌ Gagal membatalkan pending: ' + error.message, true);
             return;
@@ -1953,6 +1965,14 @@
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
     
+    function showGlobalLoading(text) {
+        document.getElementById('globalLoadingText').textContent = text || 'Menyimpan...';
+        document.getElementById('globalLoadingOverlay').style.display = 'flex';
+    }
+    function hideGlobalLoading() {
+        document.getElementById('globalLoadingOverlay').style.display = 'none';
+    }
+
     function showToastKasir(message, isError = false) {
         const toast = document.getElementById('toastKasir');
         toast.textContent = message;

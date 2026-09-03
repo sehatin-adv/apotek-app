@@ -332,7 +332,8 @@
             <div class="form-grid-3">
                 <div class="form-group">
                     <label>No. Faktur *</label>
-                    <input type="text" id="noFaktur" placeholder="INV-2026-001" required>
+                    <input type="text" id="noFaktur" placeholder="INV-2026-001" required onblur="cekDuplikatNoFaktur()">
+                    <span id="noFakturWarning" style="display:none;font-size:11px;color:#dc3545;font-weight:600;"><i class="fas fa-triangle-exclamation"></i> No. Faktur ini sudah pernah diinput sebelumnya!</span>
                 </div>
                 <div class="form-group">
                     <label>Tanggal Faktur</label>
@@ -610,11 +611,17 @@
     </div>
 </div>
 
+<div id="globalLoadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,30,46,0.55);z-index:5000;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:32px 44px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.25);">
+        <i class="fas fa-spinner fa-spin" style="font-size:32px;color:#2d6a9f;margin-bottom:14px;display:block;"></i>
+        <p id="globalLoadingText" style="font-size:14px;color:#34495e;font-weight:600;margin:0;">Menyimpan...</p>
+    </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
     import { supabase } from './supabase.js';
-    import { getObat, getSupplier, savePembelian, saveObat, getMyTenantInfo } from './database.js';
+    import { getObat, getSupplier, savePembelian, saveObat, getMyTenantInfo, cekNoFakturPembelian } from './database.js';
     import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Pembelian');
@@ -1579,6 +1586,15 @@
             document.getElementById('noFaktur').focus();
             return;
         }
+        // Cek ulang duplikat di sini (bukan cuma waktu blur) - jaga-jaga
+        // kalau user paste/edit lagi setelah cek pertama, atau langsung
+        // klik Simpan tanpa sempat keluar dari kolomnya dulu.
+        await cekDuplikatNoFaktur();
+        if (noFakturSudahDipakai) {
+            showToast('⚠️ No. Faktur "' + noFaktur + '" sudah pernah diinput sebelumnya! Cek lagi No. Faktur-nya.', true);
+            document.getElementById('noFaktur').focus();
+            return;
+        }
         if (!supplierId) {
             showToast('⚠️ Supplier wajib dipilih!', true);
             document.getElementById('pilihSupplier').focus();
@@ -1677,10 +1693,12 @@
         
         lastSavedData = data;
         
+        showGlobalLoading('Menyimpan pembelian, mohon tunggu...');
         try {
             const { data: result, error } = await savePembelian(data, data.items);
             if (error) throw error;
             
+            hideGlobalLoading();
             showSuccess('✅ Pembelian Berhasil!', 
                 'Data pembelian No. ' + noFaktur + ' telah disimpan.',
                 'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
@@ -1695,6 +1713,7 @@
                 resetFormSilent();
             }, 500);
         } catch(e) {
+            hideGlobalLoading();
             // PENTING: dulu di sini ada fallback "berhasil (offline)" yang
             // menyembunyikan error asli DAN mereset form - persis pola bug
             // yang dulu ditemukan di Retur Penjualan (data terlihat "sukses"
@@ -1724,6 +1743,8 @@
     
     function resetFormSilent() {
         document.getElementById('noFaktur').value = '';
+        document.getElementById('noFakturWarning').style.display = 'none';
+        noFakturSudahDipakai = false;
         document.getElementById('noFakturPajak').value = '';
         document.getElementById('pilihSupplier').value = '';
         document.getElementById('pilihGudang').value = 'GUDANG UTAMA';
@@ -1894,6 +1915,30 @@
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
     
+    let noFakturSudahDipakai = false;
+    window.cekDuplikatNoFaktur = async function() {
+        const input = document.getElementById('noFaktur');
+        const warning = document.getElementById('noFakturWarning');
+        const noFaktur = input.value.trim();
+        noFakturSudahDipakai = false;
+        warning.style.display = 'none';
+        if (!noFaktur) return;
+
+        const { data } = await cekNoFakturPembelian(noFaktur);
+        if (data) {
+            noFakturSudahDipakai = true;
+            warning.style.display = 'block';
+        }
+    };
+
+    function showGlobalLoading(text) {
+        document.getElementById('globalLoadingText').textContent = text || 'Menyimpan...';
+        document.getElementById('globalLoadingOverlay').style.display = 'flex';
+    }
+    function hideGlobalLoading() {
+        document.getElementById('globalLoadingOverlay').style.display = 'none';
+    }
+
     function showToast(message, isError = false) {
         const toast = document.getElementById('toast');
         toast.textContent = message;

@@ -2263,3 +2263,39 @@ export async function getObatMendekatiExpired() {
         return { data: [], error: e };
     }
 }
+
+// ============================================================
+// CEK NO. FAKTUR DUPLIKAT (Pembelian & Penjualan)
+// RLS otomatis membatasi pencarian ini cuma ke tenant sendiri.
+// ============================================================
+export async function cekNoFakturPembelian(noFaktur) {
+    try {
+        if (!noFaktur || !noFaktur.trim()) return { data: null, error: null };
+        const { data, error } = await supabase
+            .from('pembelian_header')
+            .select('id, no_faktur, supplier_nama, tanggal_faktur')
+            .eq('no_faktur', noFaktur.trim())
+            .maybeSingle();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error cekNoFakturPembelian:', e);
+        return { data: null, error: e };
+    }
+}
+
+export async function cekNoFakturPenjualan(noFaktur) {
+    try {
+        if (!noFaktur || !noFaktur.trim()) return { data: null, error: null };
+        const { data, error } = await supabase
+            .from('penjualan_header')
+            .select('id, no_faktur, tanggal, jam')
+            .eq('no_faktur', noFaktur.trim())
+            .maybeSingle();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error cekNoFakturPenjualan:', e);
+        return { data: null, error: e };
+    }
+}
