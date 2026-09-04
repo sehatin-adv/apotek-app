@@ -38,6 +38,9 @@ export async function onRequestPost(context) {
         const paket_diminati = ['Basic', 'Pro'].includes(body.paket_diminati) ? body.paket_diminati : 'Basic';
         const durasi_bulan = [1, 6, 12].includes(Number(body.durasi_bulan)) ? Number(body.durasi_bulan) : 1;
         const catatan = String(body.catatan || '').trim();
+        const minta_demo = body.minta_demo === true;
+        const tanggal_demo = minta_demo ? (String(body.tanggal_demo || '').trim() || null) : null;
+        const waktu_demo = minta_demo ? (String(body.waktu_demo || '').trim() || null) : null;
         const turnstile_token = String(body.turnstile_token || '').trim();
 
         if (!nama_apotek || !nama_pic || !email) {
@@ -82,7 +85,7 @@ export async function onRequestPost(context) {
         const res = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_registrations`, {
             method: 'POST',
             headers: serviceHeaders,
-            body: JSON.stringify({ nama_apotek, nama_pic, email, telepon, alamat, paket_diminati, durasi_bulan, catatan, status: 'Baru' })
+            body: JSON.stringify({ nama_apotek, nama_pic, email, telepon, alamat, paket_diminati, durasi_bulan, catatan, minta_demo, tanggal_demo, waktu_demo, status: 'Baru' })
         });
         const data = await res.json();
         if (!res.ok) {

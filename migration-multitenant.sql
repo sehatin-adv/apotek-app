@@ -1112,3 +1112,14 @@ END $$;
 -- ============================================================
 -- SELESAI (Surat Pesanan + Riwayat Pemesanan)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 26) JADWAL DEMO di form pendaftaran
+-- ------------------------------------------------------------
+ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS minta_demo BOOLEAN DEFAULT false;
+ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS tanggal_demo DATE;
+ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS waktu_demo TEXT;
+
+-- ============================================================
+-- SELESAI (Jadwal Demo)
+-- ============================================================

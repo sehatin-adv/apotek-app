@@ -105,6 +105,23 @@
                         <div id="hargaSummary" style="margin-top:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-size:13px;"></div>
                     </div>
                     <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="mintaDemo" onchange="toggleJadwalDemo()" style="width:16px;height:16px;">
+                            Saya ingin demo aplikasi dulu sebelum berlangganan
+                        </label>
+                    </div>
+                    <div id="jadwalDemoWrap" style="display:none;background:#f0f7ff;border:1px solid #dbeafe;border-radius:10px;padding:14px;margin-bottom:16px;">
+                        <div style="font-size:11px;font-weight:700;color:#2d6a9f;text-transform:uppercase;margin-bottom:10px;">Jadwal Demo</div>
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label style="font-size:13px;">Tanggal yang Diinginkan</label>
+                            <input type="date" id="tanggalDemo">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label style="font-size:13px;">Jam yang Diinginkan</label>
+                            <input type="text" id="waktuDemo" placeholder="Contoh: 10.00-12.00 WIB, atau bebas Senin-Jumat">
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label>Catatan Tambahan</label>
                         <textarea id="catatan" placeholder="Pertanyaan atau kebutuhan khusus (opsional)"></textarea>
                     </div>
@@ -178,6 +195,11 @@
         renderDurasiOptions();
     };
 
+    window.toggleJadwalDemo = function() {
+        const checked = document.getElementById('mintaDemo').checked;
+        document.getElementById('jadwalDemoWrap').style.display = checked ? 'block' : 'none';
+    };
+
     function pilihPaket(paket) {
         paketDipilih = paket;
         document.getElementById('planBasicBtn').classList.toggle('selected', paket === 'Basic');
@@ -200,6 +222,9 @@
         const telepon = document.getElementById('telepon').value.trim();
         const alamat = document.getElementById('alamat').value.trim();
         const catatan = document.getElementById('catatan').value.trim();
+        const mintaDemo = document.getElementById('mintaDemo').checked;
+        const tanggalDemo = document.getElementById('tanggalDemo').value;
+        const waktuDemo = document.getElementById('waktuDemo').value.trim();
         const errorText = document.getElementById('errorText');
         errorText.style.display = 'none';
 
@@ -231,6 +256,9 @@
                     paket_diminati: paketDipilih,
                     durasi_bulan: durasiDipilih,
                     catatan: catatan,
+                    minta_demo: mintaDemo,
+                    tanggal_demo: mintaDemo ? (tanggalDemo || null) : null,
+                    waktu_demo: mintaDemo ? (waktuDemo || null) : null,
                     turnstile_token: turnstileToken
                 })
             });
