@@ -891,6 +891,9 @@ export async function saveStokOpname(opnameData) {
             stok_sistem: item.stok_sistem || 0,
             stok_fisik: item.stok_fisik || 0,
             selisih: item.selisih || 0,
+            stok_kadaluarsa: item.stok_kadaluarsa || 0,
+            harga_beli: item.harga_beli || 0,
+            nilai_kerugian: item.nilai_kerugian || 0,
             tanggal: tanggal,
             jam: jam,
             keterangan: keterangan || 'Stok Opname',
@@ -913,7 +916,11 @@ export async function saveStokOpname(opnameData) {
                     .single();
 
                 if (!obatError && obatData) {
-                    const stokBaru = Math.max(0, Number(item.stok_fisik) || 0);
+                    const stokFisik = Number(item.stok_fisik) || 0;
+                    const stokKadaluarsa = Number(item.stok_kadaluarsa) || 0;
+                    // Stok kadaluarsa otomatis dikeluarkan dari stok akhir yang
+                    // tersimpan - fisik ada di rak, tapi tidak layak jual lagi.
+                    const stokBaru = Math.max(0, stokFisik - stokKadaluarsa);
                     const updatePayload = { stok: stokBaru };
                     if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
                     await supabase
@@ -921,6 +928,7 @@ export async function saveStokOpname(opnameData) {
                         .update(updatePayload)
                         .eq('id', obatData.id);
 
+                    // Catatan pergerakan biasa (selisih hasil hitung fisik vs sistem)
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -933,19 +941,42 @@ export async function saveStokOpname(opnameData) {
                             keterangan: 'Stok Opname (' + (item.selisih > 0 ? 'Lebih' : 'Kurang') + ')',
                             masuk: item.selisih > 0 ? item.selisih : 0,
                             keluar: item.selisih < 0 ? Math.abs(item.selisih) : 0,
-                            sisa_stok: stokBaru,
+                            sisa_stok: stokFisik,
                             tanggal_exp: item.tanggal_exp || null
                         });
+
+                    // Catatan TERPISAH utk write-off obat kadaluarsa, supaya
+                    // jelas kelihatan di Kartu Stok mana yang karena selisih
+                    // hitung dan mana yang karena kadaluarsa.
+                    if (stokKadaluarsa > 0) {
+                        await supabase
+                            .from('kartu_stok')
+                            .insert({
+                                obat_id: obatData.id,
+                                kode_obat: item.kode_obat,
+                                nama_obat: item.nama_obat || '',
+                                tanggal: tanggal,
+                                jam: jam,
+                                no_bukti: 'OPNAME-ED-' + sesiId,
+                                keterangan: 'Write-off Obat Kadaluarsa (Stok Opname)',
+                                masuk: 0,
+                                keluar: stokKadaluarsa,
+                                sisa_stok: stokBaru,
+                                tanggal_exp: item.tanggal_exp || null
+                            });
+                    }
                 }
             }
         }
 
         const history = JSON.parse(localStorage.getItem('opname_history') || '[]');
+        const totalKerugian = items.reduce((sum, i) => sum + (i.nilai_kerugian || 0), 0);
         const record = {
             id: sesiId,
             tanggal_mulai: new Date().toISOString(),
             tanggal_selesai: new Date().toISOString(),
             total_selisih: total_selisih || items.reduce((sum, i) => sum + (i.selisih || 0), 0),
+            total_kerugian: totalKerugian,
             jumlah_item: items.length,
             items: items.map(item => ({
                 id: item.id || item.obat_id,
@@ -955,7 +986,10 @@ export async function saveStokOpname(opnameData) {
                 snapshot_stok: item.snapshot_stok || 0,
                 stok_sistem: item.stok_sistem || 0,
                 stok_fisik: item.stok_fisik || 0,
-                selisih: item.selisih || 0
+                selisih: item.selisih || 0,
+                stok_kadaluarsa: item.stok_kadaluarsa || 0,
+                harga_beli: item.harga_beli || 0,
+                nilai_kerugian: item.nilai_kerugian || 0
             })),
             status: 'Selesai',
             keterangan: keterangan || 'Stok Opname'
@@ -967,7 +1001,7 @@ export async function saveStokOpname(opnameData) {
         items.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
             if (obat) {
-                obat.stok = Math.max(0, Number(item.stok_fisik) || 0);
+                obat.stok = Math.max(0, (Number(item.stok_fisik) || 0) - (Number(item.stok_kadaluarsa) || 0));
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
@@ -996,7 +1030,7 @@ export async function saveStokOpname(opnameData) {
             opnameData.items.forEach(item => {
                 const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
                 if (obat) {
-                    obat.stok = Math.max(0, Number(item.stok_fisik) || 0);
+                    obat.stok = Math.max(0, (Number(item.stok_fisik) || 0) - (Number(item.stok_kadaluarsa) || 0));
                 }
             });
             localStorage.setItem('obat', JSON.stringify(obatLocal));

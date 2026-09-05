@@ -1194,3 +1194,28 @@ UPDATE obat SET stok_minimal = 2
 -- ============================================================
 -- SELESAI (Perbarui Stok Minimal Retroaktif)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 31) Stok Kadaluarsa & Kerugian di Stok Opname
+-- ------------------------------------------------------------
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS jumlah_kadaluarsa NUMERIC DEFAULT 0;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS harga_beli_saat_opname INTEGER DEFAULT 0;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS nilai_kerugian INTEGER DEFAULT 0;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS kode_obat TEXT;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS nama_obat TEXT;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS satuan TEXT;
+
+-- ============================================================
+-- SELESAI (Stok Kadaluarsa & Kerugian)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 31) Stok Kadaluarsa & Nilai Kerugian di Stok Opname
+-- ------------------------------------------------------------
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS stok_kadaluarsa NUMERIC DEFAULT 0;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS harga_beli INTEGER DEFAULT 0;
+ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS nilai_kerugian INTEGER DEFAULT 0;
+
+-- ============================================================
+-- SELESAI (Stok Kadaluarsa & Nilai Kerugian)
+-- ============================================================

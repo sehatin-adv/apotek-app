@@ -14,6 +14,8 @@
             }
         }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#f0f2f7; }
@@ -159,6 +161,8 @@
                 <div class="menu-item active" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -228,6 +232,7 @@
                 </div>
                 <div>
                     <button class="btn btn-outline btn-sm" onclick="downloadCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                    <button class="btn btn-outline btn-sm" onclick="downloadPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
                 </div>
             </div>
 
@@ -545,6 +550,42 @@
         a.click();
         URL.revokeObjectURL(url);
         showToast('📥 Download berhasil');
+    };
+
+    window.downloadPDF = function() {
+        if (!laporanData || laporanData.length === 0) {
+            alert('Tidak ada data untuk di-download');
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Laporan Penjualan Per Obat - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Obat: ${selectedObat?.nama_obat || '-'} (${selectedObat?.kode_obat || '-'})`, 14, 22);
+        doc.setFontSize(9);
+        doc.text(`Periode: ${document.getElementById('tglAwal').value || '-'} s/d ${document.getElementById('tglAkhir').value || '-'}`, 14, 28);
+
+        let totalQty = 0, totalNilai = 0;
+        const rows = laporanData.map((d, i) => {
+            const subtotal = d.subtotal || d.jumlah * d.harga_jual;
+            totalQty += Number(d.jumlah) || 0;
+            totalNilai += Number(subtotal) || 0;
+            return [i + 1, d.tanggal, d.jam || '00:00', d.no_faktur || '-', d.jumlah || 0, formatRupiah(d.harga_jual), formatRupiah(subtotal), d.kasir || '-'];
+        });
+
+        doc.autoTable({
+            startY: 33,
+            head: [['No', 'Tanggal', 'Jam', 'No. Transaksi', 'Qty', 'Harga', 'Total', 'Kasir']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [45, 106, 159] },
+            foot: [['', '', '', '', totalQty, '', formatRupiah(totalNilai), '']],
+            footStyles: { fillColor: [248, 250, 252], textColor: [15, 30, 46], fontStyle: 'bold' }
+        });
+
+        doc.save(`Laporan_${selectedObat?.kode_obat || 'obat'}_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToast('📥 PDF berhasil diunduh');
     };
 
     // ============================================================

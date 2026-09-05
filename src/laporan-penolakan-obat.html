@@ -10,6 +10,8 @@
     <script type="importmap">
         { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#eef2f8; }
@@ -144,6 +146,8 @@
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item active" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -208,6 +212,10 @@
                     <label>Tanggal Akhir</label>
                     <input type="date" id="searchTglAkhir" onchange="renderList()">
                 </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:14px;">
+                <button class="btn btn-outline" onclick="downloadPenolakanCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                <button class="btn btn-outline" onclick="downloadPenolakanPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
             </div>
             <div class="table-wrap">
                 <table>
@@ -275,7 +283,7 @@
         renderList();
     }
 
-    window.renderList = function() {
+    function getFilteredPenolakan() {
         const keyword = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
         const tglAwal = document.getElementById('searchTglAwal').value;
         const tglAkhir = document.getElementById('searchTglAkhir').value;
@@ -289,8 +297,11 @@
         }
         if (tglAwal) results = results.filter(p => (p.tanggal || '') >= tglAwal);
         if (tglAkhir) results = results.filter(p => (p.tanggal || '') <= tglAkhir);
+        return [...results].sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.jam || '').localeCompare(a.jam || ''));
+    }
 
-        results = [...results].sort((a, b) => (b.tanggal || '').localeCompare(a.tanggal || '') || (b.jam || '').localeCompare(a.jam || ''));
+    window.renderList = function() {
+        const results = getFilteredPenolakan();
 
         const tbody = document.getElementById('listBody');
         if (results.length === 0) {
@@ -308,6 +319,47 @@
                 <td>${p.petugas || '-'}</td>
             </tr>
         `).join('');
+    };
+
+    window.downloadPenolakanCSV = function() {
+        const results = getFilteredPenolakan();
+        if (results.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        let csv = 'Tanggal,Jam,Nama Obat,Jumlah Diminta,Keterangan,Petugas\n';
+        results.forEach(p => {
+            csv += `${p.tanggal},${p.jam || '-'},"${p.nama_obat}",${p.jumlah_diminta || '-'},"${p.keterangan || '-'}","${p.petugas || '-'}"\n`;
+        });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Laporan_Penolakan_Obat_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('📥 Download berhasil');
+    };
+
+    window.downloadPenolakanPDF = function() {
+        const results = getFilteredPenolakan();
+        if (results.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Laporan Penolakan Obat - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(9);
+        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
+
+        const rows = results.map((p, i) => [i + 1, formatTanggal(p.tanggal), p.jam || '-', p.nama_obat, p.jumlah_diminta || '-', p.keterangan || '-', p.petugas || '-']);
+
+        doc.autoTable({
+            startY: 26,
+            head: [['No', 'Tanggal', 'Jam', 'Nama Obat', 'Jml Diminta', 'Keterangan', 'Petugas']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [45, 106, 159] }
+        });
+
+        doc.save(`Laporan_Penolakan_Obat_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToast('📥 PDF berhasil diunduh');
     };
 
     let currentUserDisplayName = 'admin';

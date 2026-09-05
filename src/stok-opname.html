@@ -222,6 +222,8 @@
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -308,10 +310,10 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:70px;">Status</th><th style="width:120px;">Tgl ED</th></tr></thead>
-                    <tbody id="opnameTableBody"><tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:90px;">Stok Kadaluarsa</th><th style="width:100px;">Nilai Kerugian</th><th style="width:70px;">Status</th><th style="width:120px;">Tgl ED</th></tr></thead>
+                    <tbody id="opnameTableBody"><tr><td colspan="12" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
                     <tfoot id="opnameTableFoot" style="display:none;">
-                        <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td></tr>
+                        <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td><td id="totalKerugianOpname" style="text-align:right;font-weight:700;color:#dc3545;">Rp 0</td><td></td><td></td></tr>
                     </tfoot>
                 </table>
             </div>
@@ -448,7 +450,8 @@
         const timestamp = now.toISOString();
         const snapshot = obatMaster.map(o => ({
             id: o.id, kode_obat: o.kode_obat, nama_obat: o.nama_obat,
-            satuan: o.satuan || 'Tablet', snapshot_stok: Number(o.stok) || 0
+            satuan: o.satuan || 'Tablet', snapshot_stok: Number(o.stok) || 0,
+            harga_beli: Number(o.harga_beli) || 0
         }));
         sessionData = {
             id: 'SO-' + new Date().toISOString().split('T')[0].replace(/-/g, '') + '-' + String(Date.now()).slice(-4),
@@ -457,7 +460,7 @@
             snapshot: snapshot
         };
         localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
-        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, status: 'Belum diinput' }));
+        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, stok_kadaluarsa: 0, nilai_kerugian: 0, status: 'Belum diinput' }));
         renderUI();
         showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
     };
@@ -494,6 +497,8 @@
                     stok_fisik: 0,
                     stok_sistem: s.snapshot_stok,
                     selisih: 0,
+                    stok_kadaluarsa: 0,
+                    nilai_kerugian: 0,
                     status: 'Belum diinput'
                 }));
             }
@@ -505,7 +510,9 @@
                     const idx = opnameItems.findIndex(item => item.id === savedItem.id);
                     if (idx !== -1) {
                         opnameItems[idx].stok_fisik = savedItem.stok_fisik || 0;
+                        opnameItems[idx].stok_kadaluarsa = savedItem.stok_kadaluarsa || 0;
                         opnameItems[idx].selisih = opnameItems[idx].stok_fisik - opnameItems[idx].stok_sistem;
+                        opnameItems[idx].nilai_kerugian = hitungNilaiKerugian(opnameItems[idx]);
                         opnameItems[idx].status = opnameItems[idx].selisih === 0 ? 'Aman' : 
                             (opnameItems[idx].selisih > 0 ? 'Lebih' : 'Kurang');
                     }
@@ -534,6 +541,17 @@
     // ============================================================
     // RENDER TABEL OPNAME - DIPERBAIKI
     // ============================================================
+    // Nilai kerugian = (jumlah stok yg kurang dari hasil hitung + jumlah
+    // stok kadaluarsa yg di-write-off) x harga beli - keduanya sama-sama
+    // kerugian riil (barang hilang/rusak/kadaluarsa dinilai di harga modal,
+    // bukan harga jual).
+    function hitungNilaiKerugian(item) {
+        const kurang = item.selisih < 0 ? Math.abs(item.selisih) : 0;
+        const kadaluarsa = Number(item.stok_kadaluarsa) || 0;
+        const hargaBeli = Number(item.harga_beli) || 0;
+        return (kurang + kadaluarsa) * hargaBeli;
+    }
+
     function renderOpnameTable(data) {
         const tbody = document.getElementById('opnameTableBody');
         const tfoot = document.getElementById('opnameTableFoot');
@@ -541,16 +559,18 @@
         if (!tbody) return;
         
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#7a8a9e;padding:30px;">Belum ada data</td></tr>';
             if (tfoot) tfoot.style.display = 'none';
             return;
         }
         
-        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
+        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0, totalKerugian = 0;
         tbody.innerHTML = data.map((item, index) => {
             const selisih = item.selisih || 0;
+            item.nilai_kerugian = hitungNilaiKerugian(item);
             totalFisik += item.stok_fisik || 0;
             totalSelisih += selisih;
+            totalKerugian += item.nilai_kerugian;
             if (selisih !== 0) jumlahSelisih++;
             
             let statusClass = 'badge-info', statusText = 'Belum';
@@ -574,6 +594,14 @@
                            onblur="updateStokFisik(${index}, this.value)">
                 </td>
                 <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
+                <td>
+                    <input type="number" class="stok-kadaluarsa-input" data-index="${index}"
+                           value="${item.stok_kadaluarsa || 0}" min="0" step="any"
+                           oninput="updateStokKadaluarsa(${index}, this.value)"
+                           onblur="updateStokKadaluarsa(${index}, this.value)"
+                           style="border-color:${item.stok_kadaluarsa > 0 ? '#dc3545' : '#e8edf3'};">
+                </td>
+                <td style="text-align:right;color:${item.nilai_kerugian > 0 ? '#dc3545' : '#7a8a9e'};font-weight:${item.nilai_kerugian > 0 ? '700' : '400'};">${item.nilai_kerugian > 0 ? formatRupiahOpname(item.nilai_kerugian) : '-'}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
                 <td><input type="date" class="tgl-exp-input" data-index="${index}" value="${item.tanggal_exp || ''}" onchange="updateTglExpOpname(${index}, this.value)" style="width:100%;padding:5px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:6px;"></td>
             </tr>`;
@@ -583,13 +611,17 @@
         const totalSelisihEl = document.getElementById('totalSelisih');
         const footerTotalSelisih = document.getElementById('footerTotalSelisih');
         const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
+        const totalKerugianEl = document.getElementById('totalKerugianOpname');
         
         if (totalFisikEl) totalFisikEl.textContent = totalFisik;
         if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
         if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
         if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
+        if (totalKerugianEl) totalKerugianEl.textContent = formatRupiahOpname(totalKerugian);
         if (tfoot) tfoot.style.display = 'table-footer-group';
     }
+
+    function formatRupiahOpname(v) { return 'Rp ' + Number(v || 0).toLocaleString('id-ID'); }
 
     // ============================================================
     // UPDATE STOK FISIK
@@ -606,20 +638,24 @@
         const item = opnameItems[index];
         item.stok_fisik = stokFisik;
         item.selisih = stokFisik - item.stok_sistem;
+        item.nilai_kerugian = hitungNilaiKerugian(item);
         item.status = item.selisih === 0 ? 'Aman' : (item.selisih > 0 ? 'Lebih' : 'Kurang');
         const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
         if (row) {
             const cells = row.querySelectorAll('td');
-            if (cells.length >= 9) {
+            if (cells.length >= 11) {
                 cells[7].textContent = item.selisih !== 0 ? item.selisih : '-';
                 cells[7].style.color = item.selisih === 0 ? '#28a745' : '#dc3545';
+                cells[9].textContent = item.nilai_kerugian > 0 ? formatRupiahOpname(item.nilai_kerugian) : '-';
+                cells[9].style.color = item.nilai_kerugian > 0 ? '#dc3545' : '#7a8a9e';
+                cells[9].style.fontWeight = item.nilai_kerugian > 0 ? '700' : '400';
                 let statusClass = 'badge-info', statusText = 'Belum';
                 if (item.stok_fisik > 0 || (item.stok_fisik === 0 && item.status !== 'Belum diinput')) {
                     if (item.selisih === 0) { statusClass = 'badge-success'; statusText = 'Aman'; }
                     else if (item.selisih > 0) { statusClass = 'badge-warning'; statusText = 'Lebih +' + item.selisih; }
                     else { statusClass = 'badge-danger'; statusText = 'Kurang ' + item.selisih; }
                 }
-                cells[8].innerHTML = `<span class="badge ${statusClass}">${statusText}</span>`;
+                cells[10].innerHTML = `<span class="badge ${statusClass}">${statusText}</span>`;
             }
         }
         updateTotalOpname();
@@ -629,21 +665,44 @@
         simpanProgress();
     };
 
+    window.updateStokKadaluarsa = function(index, value) {
+        if (index < 0 || index >= opnameItems.length) return;
+        const item = opnameItems[index];
+        item.stok_kadaluarsa = Math.max(0, Number(value) || 0);
+        item.nilai_kerugian = hitungNilaiKerugian(item);
+        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
+        if (row) {
+            const cells = row.querySelectorAll('td');
+            if (cells.length >= 11) {
+                cells[9].textContent = item.nilai_kerugian > 0 ? formatRupiahOpname(item.nilai_kerugian) : '-';
+                cells[9].style.color = item.nilai_kerugian > 0 ? '#dc3545' : '#7a8a9e';
+                cells[9].style.fontWeight = item.nilai_kerugian > 0 ? '700' : '400';
+                const input = cells[8].querySelector('.stok-kadaluarsa-input');
+                if (input) input.style.borderColor = item.stok_kadaluarsa > 0 ? '#dc3545' : '#e8edf3';
+            }
+        }
+        updateTotalOpname();
+        simpanProgress();
+    };
+
     function updateTotalOpname() {
-        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0;
+        let totalFisik = 0, totalSelisih = 0, jumlahSelisih = 0, totalKerugian = 0;
         opnameItems.forEach(item => {
             totalFisik += item.stok_fisik || 0;
             totalSelisih += item.selisih || 0;
+            totalKerugian += item.nilai_kerugian || 0;
             if (item.selisih !== 0) jumlahSelisih++;
         });
         const totalFisikEl = document.getElementById('totalFisik');
         const totalSelisihEl = document.getElementById('totalSelisih');
         const footerTotalSelisih = document.getElementById('footerTotalSelisih');
         const footerJumlahSelisih = document.getElementById('footerJumlahSelisih');
+        const totalKerugianEl = document.getElementById('totalKerugianOpname');
         if (totalFisikEl) totalFisikEl.textContent = totalFisik;
         if (totalSelisihEl) totalSelisihEl.textContent = totalSelisih;
         if (footerTotalSelisih) footerTotalSelisih.textContent = totalSelisih;
         if (footerJumlahSelisih) footerJumlahSelisih.textContent = jumlahSelisih;
+        if (totalKerugianEl) totalKerugianEl.textContent = formatRupiahOpname(totalKerugian);
     }
 
     window.filterOpname = function() {
@@ -702,6 +761,9 @@
                 stok_sistem: item.stok_sistem || 0,
                 stok_fisik: item.stok_fisik || 0,
                 selisih: item.selisih || 0,
+                stok_kadaluarsa: item.stok_kadaluarsa || 0,
+                harga_beli: item.harga_beli || 0,
+                nilai_kerugian: item.nilai_kerugian || 0,
                 tanggal_exp: item.tanggal_exp || null
             })),
             total_selisih: totalSelisih,
@@ -732,8 +794,12 @@
             opnameItems.forEach(item => {
                 const obat = obatLocal.find(o => o.id === item.id);
                 if (obat) {
-                    obat.stok = (Number(obat.stok) || 0) + (item.selisih || 0);
-                    if (obat.stok < 0) obat.stok = 0;
+                    // PENTING: stok kadaluarsa juga harus ikut dikurangi di
+                    // jalur cadangan offline ini - sebelumnya cuma selisih
+                    // yang diterapkan, stok_kadaluarsa diam-diam terlewat.
+                    const stokFisikLocal = Number(item.stok_fisik) || 0;
+                    const stokKadaluarsaLocal = Number(item.stok_kadaluarsa) || 0;
+                    obat.stok = Math.max(0, stokFisikLocal - stokKadaluarsaLocal);
                 }
             });
             localStorage.setItem('obat', JSON.stringify(obatLocal));
@@ -792,15 +858,17 @@
         document.getElementById('detailTitle').textContent = 'Detail Stok Opname - ' + record.id;
         const content = document.getElementById('detailContent');
         if (record.items && record.items.length > 0) {
+            const totalKerugianRecord = record.items.reduce((sum, i) => sum + (i.nilai_kerugian || 0), 0);
             let html = `<div style="margin-bottom:8px;display:flex;gap:20px;flex-wrap:wrap;"><span><strong>Tanggal Mulai:</strong> ${new Date(record.tanggal_mulai).toLocaleString()}</span>
             <span><strong>Tanggal Selesai:</strong> ${record.tanggal_selesai ? new Date(record.tanggal_selesai).toLocaleString() : '-'}</span>
-            <span><strong>Total Selisih:</strong> <span style="color:${record.total_selisih===0?'#28a745':'#dc3545'};font-weight:700;">${record.total_selisih}</span></span></div>
-            <div class="table-wrap"><table><thead><tr><th>No</th><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th>Snapshot</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th></tr></thead><tbody>`;
+            <span><strong>Total Selisih:</strong> <span style="color:${record.total_selisih===0?'#28a745':'#dc3545'};font-weight:700;">${record.total_selisih}</span></span>
+            <span><strong>Total Kerugian:</strong> <span style="color:#dc3545;font-weight:700;">${formatRupiahOpname(totalKerugianRecord)}</span></span></div>
+            <div class="table-wrap"><table><thead><tr><th>No</th><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th>Snapshot</th><th>Stok Sistem</th><th>Stok Fisik</th><th>Selisih</th><th>Stok Kadaluarsa</th><th>Nilai Kerugian</th></tr></thead><tbody>`;
             record.items.forEach((item, idx) => {
                 const selisih = item.selisih || 0;
-                html += `<tr><td>${idx+1}</td><td>${item.kode_obat||'-'}</td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td style="text-align:right;">${item.snapshot_stok}</td><td style="text-align:right;font-weight:600;">${item.stok_sistem}</td><td style="text-align:right;">${item.stok_fisik||0}</td><td style="text-align:right;font-weight:700;color:${selisih===0?'#28a745':'#dc3545'};">${selisih}</td></tr>`;
+                html += `<tr><td>${idx+1}</td><td>${item.kode_obat||'-'}</td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td style="text-align:right;">${item.snapshot_stok}</td><td style="text-align:right;font-weight:600;">${item.stok_sistem}</td><td style="text-align:right;">${item.stok_fisik||0}</td><td style="text-align:right;font-weight:700;color:${selisih===0?'#28a745':'#dc3545'};">${selisih}</td><td style="text-align:right;">${item.stok_kadaluarsa||0}</td><td style="text-align:right;color:${item.nilai_kerugian>0?'#dc3545':'#7a8a9e'};">${item.nilai_kerugian>0?formatRupiahOpname(item.nilai_kerugian):'-'}</td></tr>`;
             });
-            html += `</tbody><tfoot><tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td style="text-align:right;font-weight:700;">${record.items.reduce((sum,i)=>sum+(i.stok_fisik||0),0)}</td><td style="text-align:right;font-weight:700;color:${record.total_selisih===0?'#28a745':'#dc3545'};">${record.total_selisih}</td></tr></tfoot></table></div>`;
+            html += `</tbody><tfoot><tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td style="text-align:right;font-weight:700;">${record.items.reduce((sum,i)=>sum+(i.stok_fisik||0),0)}</td><td style="text-align:right;font-weight:700;color:${record.total_selisih===0?'#28a745':'#dc3545'};">${record.total_selisih}</td><td style="text-align:right;">${record.items.reduce((sum,i)=>sum+(i.stok_kadaluarsa||0),0)}</td><td style="text-align:right;font-weight:700;color:#dc3545;">${formatRupiahOpname(totalKerugianRecord)}</td></tr></tfoot></table></div>`;
             content.innerHTML = html;
         } else { content.innerHTML = '<p>Tidak ada data item.</p>'; }
         document.getElementById('modalDetailOpname').classList.add('active');
@@ -814,14 +882,15 @@
     window.cetakDetail = function() {
         if (!detailOpnameData) { showToast('Tidak ada data untuk dicetak', true); return; }
         const record = detailOpnameData;
+        const totalKerugianRecord = record.items.reduce((sum, i) => sum + (i.nilai_kerugian || 0), 0);
         let html = `<html><head><title>Detail Stok Opname</title><style>body{font-family:Arial,sans-serif;padding:20px;}h1{text-align:center;color:#0f1e2e;border-bottom:2px solid #2d6a9f;padding-bottom:10px;}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px;}table th{background:#f0f2f7;padding:8px;border:1px solid #d0d7de;text-align:left;}table td{padding:6px;border:1px solid #d0d7de;}.right{text-align:right;}.total-row{font-weight:700;background:#f8fafc;}.footer{text-align:center;margin-top:20px;font-size:12px;color:#7a8a9e;border-top:1px solid #d0d7de;padding-top:12px;}</style></head><body>
-        <h1>DETAIL STOK OPNAME</h1><div style="display:flex;gap:30px;margin:16px 0;"><div><strong>ID:</strong> ${record.id}</div><div><strong>Tanggal Mulai:</strong> ${new Date(record.tanggal_mulai).toLocaleString()}</div><div><strong>Total Selisih:</strong> ${record.total_selisih}</div></div>
-        <table><thead><tr><th>No</th><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th class="right">Snapshot</th><th class="right">Stok Sistem</th><th class="right">Stok Fisik</th><th class="right">Selisih</th></tr></thead><tbody>`;
+        <h1>DETAIL STOK OPNAME</h1><div style="display:flex;gap:30px;margin:16px 0;flex-wrap:wrap;"><div><strong>ID:</strong> ${record.id}</div><div><strong>Tanggal Mulai:</strong> ${new Date(record.tanggal_mulai).toLocaleString()}</div><div><strong>Total Selisih:</strong> ${record.total_selisih}</div><div><strong>Total Kerugian:</strong> ${formatRupiahOpname(totalKerugianRecord)}</div></div>
+        <table><thead><tr><th>No</th><th>Kode</th><th>Nama Obat</th><th>Satuan</th><th class="right">Snapshot</th><th class="right">Stok Sistem</th><th class="right">Stok Fisik</th><th class="right">Selisih</th><th class="right">Stok Kadaluarsa</th><th class="right">Nilai Kerugian</th></tr></thead><tbody>`;
         record.items.forEach((item, idx) => {
             const selisih = item.selisih || 0;
-            html += `<tr><td>${idx+1}</td><td>${item.kode_obat||'-'}</td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td class="right">${item.snapshot_stok}</td><td class="right">${item.stok_sistem}</td><td class="right">${item.stok_fisik||0}</td><td class="right">${selisih}</td></tr>`;
+            html += `<tr><td>${idx+1}</td><td>${item.kode_obat||'-'}</td><td>${item.nama_obat||'-'}</td><td>${item.satuan||'-'}</td><td class="right">${item.snapshot_stok}</td><td class="right">${item.stok_sistem}</td><td class="right">${item.stok_fisik||0}</td><td class="right">${selisih}</td><td class="right">${item.stok_kadaluarsa||0}</td><td class="right">${item.nilai_kerugian>0?formatRupiahOpname(item.nilai_kerugian):'-'}</td></tr>`;
         });
-        html += `</tbody><tfoot><tr class="total-row"><td colspan="6" class="right">TOTAL</td><td class="right">${record.items.reduce((sum,i)=>sum+(i.stok_fisik||0),0)}</td><td class="right">${record.total_selisih}</td></tr></tfoot></table>
+        html += `</tbody><tfoot><tr class="total-row"><td colspan="6" class="right">TOTAL</td><td class="right">${record.items.reduce((sum,i)=>sum+(i.stok_fisik||0),0)}</td><td class="right">${record.total_selisih}</td><td class="right">${record.items.reduce((sum,i)=>sum+(i.stok_kadaluarsa||0),0)}</td><td class="right">${formatRupiahOpname(totalKerugianRecord)}</td></tr></tfoot></table>
         <div class="footer">Dicetak: ${new Date().toLocaleString()} | ${window.__apotekName || 'Sehatin+'}</div>
         <script>window.print();setTimeout(function(){window.close();},1000);<\/script></body></html>`;
         const win = window.open('', '_blank', 'width=900,height=700');
@@ -830,9 +899,9 @@
 
     window.downloadOpnameCSV = function() {
         if (!opnameItems || opnameItems.length === 0) { alert('Tidak ada data untuk di-download'); return; }
-        let csv = 'Kode Obat,Nama Obat,Satuan,Snapshot,Stok Sistem,Stok Fisik,Selisih,Status\n';
-        opnameItems.forEach(item => { csv += `${item.kode_obat},${item.nama_obat},${item.satuan},${item.snapshot_stok},${item.stok_sistem},${item.stok_fisik},${item.selisih},${item.status}\n`; });
-        const blob = new Blob([csv], { type: 'text/csv' });
+        let csv = 'Kode Obat,Nama Obat,Satuan,Snapshot,Stok Sistem,Stok Fisik,Selisih,Stok Kadaluarsa,Nilai Kerugian,Status\n';
+        opnameItems.forEach(item => { csv += `${item.kode_obat},${item.nama_obat},${item.satuan},${item.snapshot_stok},${item.stok_sistem},${item.stok_fisik},${item.selisih},${item.stok_kadaluarsa || 0},${item.nilai_kerugian || 0},${item.status}\n`; });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

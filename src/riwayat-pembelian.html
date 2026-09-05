@@ -10,6 +10,8 @@
     <script type="importmap">
         { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#eef2f8; }
@@ -144,6 +146,8 @@
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -209,9 +213,15 @@
                     <input type="date" id="searchTglAkhir" onchange="renderList()">
                 </div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <button class="btn" id="tabCash" onclick="switchTab('TUNAI')" style="background:#2d6a9f;color:white;"><i class="fas fa-money-bill-wave"></i> Pembelian Cash</button>
-                <button class="btn btn-outline" id="tabKredit" onclick="switchTab('KREDIT')"><i class="fas fa-credit-card"></i> Pembelian Kredit</button>
+            <div style="display:flex;gap:8px;margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;">
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" id="tabCash" onclick="switchTab('TUNAI')" style="background:#2d6a9f;color:white;"><i class="fas fa-money-bill-wave"></i> Pembelian Cash</button>
+                    <button class="btn btn-outline" id="tabKredit" onclick="switchTab('KREDIT')"><i class="fas fa-credit-card"></i> Pembelian Kredit</button>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-outline" onclick="downloadPembelianCSV()"><i class="fas fa-download"></i> Download CSV</button>
+                    <button class="btn btn-outline" onclick="downloadPembelianPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                </div>
             </div>
             <div class="table-wrap">
                 <table>
@@ -314,6 +324,74 @@
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
     }
 
+    window.downloadPembelianCSV = function() {
+        const results = getFilteredPembelian();
+        if (results.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        let csv;
+        if (activeTab === 'KREDIT') {
+            csv = 'No. Faktur,Tanggal,Supplier,TOP,Jatuh Tempo,Total,Dibayar,Sisa,Status\n';
+            results.forEach(p => {
+                const dibayar = Number(p.total_dibayar) || 0;
+                const total = Number(p.total) || 0;
+                const sisa = Math.max(0, total - dibayar);
+                const status = sisa <= 0 ? 'Lunas' : (p.tanggal_jatuh_tempo && p.tanggal_jatuh_tempo < new Date().toISOString().split('T')[0] ? 'Telat Bayar' : 'Belum Lunas');
+                csv += `${p.no_faktur || '-'},${p.tanggal_faktur},"${p.supplier_nama || '-'}",${p.top_hari || '-'},${p.tanggal_jatuh_tempo || '-'},${total},${dibayar},${sisa},${status}\n`;
+            });
+        } else {
+            csv = 'No. Faktur,Tanggal,Supplier,Jenis,Total\n';
+            results.forEach(p => { csv += `${p.no_faktur || '-'},${p.tanggal_faktur},"${p.supplier_nama || '-'}",${p.jenis || 'TUNAI'},${p.total || 0}\n`; });
+        }
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Riwayat_Pembelian_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('📥 Download berhasil');
+    };
+
+    window.downloadPembelianPDF = function() {
+        const results = getFilteredPembelian();
+        if (results.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Riwayat Pembelian ${activeTab === 'KREDIT' ? 'Kredit' : 'Cash'} - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(9);
+        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
+
+        if (activeTab === 'KREDIT') {
+            const today = new Date().toISOString().split('T')[0];
+            const rows = results.map(p => {
+                const dibayar = Number(p.total_dibayar) || 0;
+                const total = Number(p.total) || 0;
+                const sisa = Math.max(0, total - dibayar);
+                const status = sisa <= 0 ? 'Lunas' : (p.tanggal_jatuh_tempo && p.tanggal_jatuh_tempo < today ? 'Telat Bayar' : 'Belum Lunas');
+                return [p.no_faktur || '-', formatTanggal(p.tanggal_faktur), p.supplier_nama || '-', p.top_hari ? p.top_hari + ' hari' : '-', formatTanggal(p.tanggal_jatuh_tempo), formatRupiah(total), formatRupiah(dibayar), formatRupiah(sisa), status];
+            });
+            doc.autoTable({
+                startY: 26,
+                head: [['No. Faktur', 'Tanggal', 'Supplier', 'TOP', 'Jatuh Tempo', 'Total', 'Dibayar', 'Sisa', 'Status']],
+                body: rows,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [45, 106, 159] }
+            });
+        } else {
+            const rows = results.map(p => [p.no_faktur || '-', formatTanggal(p.tanggal_faktur), p.supplier_nama || '-', p.jenis || 'TUNAI', formatRupiah(p.total)]);
+            doc.autoTable({
+                startY: 26,
+                head: [['No. Faktur', 'Tanggal', 'Supplier', 'Jenis', 'Total']],
+                body: rows,
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [45, 106, 159] }
+            });
+        }
+
+        doc.save(`Riwayat_Pembelian_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToast('📥 PDF berhasil diunduh');
+    };
+
     async function loadData() {
         const { data, error } = await getPembelian();
         if (error) {
@@ -339,7 +417,7 @@
         renderList();
     };
 
-    window.renderList = function() {
+    function getFilteredPembelian() {
         const keyword = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
         const tglAwal = document.getElementById('searchTglAwal').value;
         const tglAkhir = document.getElementById('searchTglAkhir').value;
@@ -353,8 +431,11 @@
         }
         if (tglAwal) results = results.filter(p => (p.tanggal_faktur || '') >= tglAwal);
         if (tglAkhir) results = results.filter(p => (p.tanggal_faktur || '') <= tglAkhir);
+        return [...results].sort((a, b) => (b.tanggal_faktur || '').localeCompare(a.tanggal_faktur || ''));
+    }
 
-        results = [...results].sort((a, b) => (b.tanggal_faktur || '').localeCompare(a.tanggal_faktur || ''));
+    window.renderList = function() {
+        const results = getFilteredPembelian();
 
         const tbody = document.getElementById('listBody');
         if (results.length === 0) {

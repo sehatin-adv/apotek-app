@@ -10,6 +10,8 @@
     <script type="importmap">
         { "imports": { "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm" } }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#eef2f8; }
@@ -144,6 +146,8 @@
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -211,6 +215,7 @@
             </div>
             <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
                 <button class="btn btn-outline" onclick="downloadRiwayatPenjualan()"><i class="fas fa-download"></i> Download Excel</button>
+                <button class="btn btn-outline" onclick="downloadRiwayatPenjualanPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
             </div>
             <div class="table-wrap">
                 <table>
@@ -383,6 +388,43 @@
         a.click();
         URL.revokeObjectURL(url);
         showToast('📥 Download berhasil');
+    };
+
+    window.downloadRiwayatPenjualanPDF = function() {
+        if (allPenjualan.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Riwayat Penjualan - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(9);
+        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
+
+        const rows = [];
+        let totalKeseluruhan = 0;
+        allPenjualan.forEach(p => {
+            const items = p.penjualan_detail || [];
+            totalKeseluruhan += Number(p.total) || 0;
+            if (items.length === 0) {
+                rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', '-', '-', formatRupiah(p.total)]);
+            } else {
+                items.forEach(it => {
+                    rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', it.nama_obat || '-', it.jumlah, formatRupiah(it.subtotal)]);
+                });
+            }
+        });
+
+        doc.autoTable({
+            startY: 26,
+            head: [['No. Faktur', 'Tanggal', 'Jam', 'Kasir', 'Nama Obat', 'Jml', 'Subtotal']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [45, 106, 159] },
+            foot: [['', '', '', '', '', 'TOTAL', formatRupiah(totalKeseluruhan)]],
+            footStyles: { fillColor: [248, 250, 252], textColor: [15, 30, 46], fontStyle: 'bold' }
+        });
+
+        doc.save(`Riwayat_Penjualan_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToast('📥 PDF berhasil diunduh');
     };
 
     let currentUserDisplayName = 'admin';

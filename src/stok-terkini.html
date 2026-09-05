@@ -14,6 +14,8 @@
             }
         }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Inter',sans-serif; background:#f0f2f7; }
@@ -150,6 +152,8 @@
                 <div class="menu-item" data-module="laporan_obat" onclick="navigate('laporan-obat.html')"><i class="fas fa-pills"></i> Penjualan Per Obat</div>
                 <div class="menu-item" data-module="laporan_laba_rugi" onclick="navigate('laporan-laba-rugi.html')"><i class="fas fa-chart-line"></i> Laba Rugi</div>
                 <div class="menu-item" data-module="laporan_penolakan_obat" onclick="navigate('laporan-penolakan-obat.html')"><i class="fas fa-ban"></i> Penolakan Obat</div>
+                <div class="menu-item" data-module="laporan_stok_opname" onclick="navigate('laporan-stok-opname.html')"><i class="fas fa-clipboard-check"></i> Stok Opname</div>
+                <div class="menu-item" data-module="laporan_obat_kadaluarsa" onclick="navigate('laporan-obat-kadaluarsa.html')"><i class="fas fa-triangle-exclamation"></i> Obat Kadaluarsa</div>
                 <div class="menu-item" data-module="riwayat_pemesanan" onclick="navigate('riwayat-pemesanan.html')"><i class="fas fa-truck-fast"></i> Riwayat Pemesanan <span style="font-size:9px;background:#f0b429;color:#0f1e2e;padding:1px 6px;border-radius:8px;font-weight:800;margin-left:4px;">PRO</span></div>
             </div>
         </div>
@@ -212,6 +216,7 @@
                 <div>
                     <button class="btn btn-outline btn-sm" onclick="loadStokTerkini()"><i class="fas fa-sync"></i> Refresh</button>
                     <button class="btn btn-outline btn-sm" onclick="downloadStokTerkini()"><i class="fas fa-download"></i> Download CSV</button>
+                    <button class="btn btn-outline btn-sm" onclick="downloadStokTerkiniPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
                     <span id="totalData" style="font-size:12px;color:#7a8a9e;margin-left:8px;"></span>
                 </div>
             </div>
@@ -363,6 +368,37 @@
         a.click();
         URL.revokeObjectURL(url);
         showToastStokTerkini('📥 Download berhasil');
+    };
+
+    window.downloadStokTerkiniPDF = function() {
+        if (!currentDisplayedData || currentDisplayedData.length === 0) {
+            showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true);
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Laporan Stok Terkini - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(9);
+        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
+
+        const rows = currentDisplayedData.map((o, i) => {
+            const stok = Number(o.stok) || 0;
+            const stokMinimal = Number(o.stok_minimal) || 0;
+            const status = stok <= 0 ? 'Habis' : (stok <= stokMinimal ? 'Menipis' : 'Aman');
+            return [i + 1, o.kode_obat || '-', o.nama_obat || '-', o.satuan || '-', stok, formatRupiahStok(o.harga_beli), formatRupiahStok(o.harga_jual), status];
+        });
+
+        doc.autoTable({
+            startY: 26,
+            head: [['No', 'Kode', 'Nama Obat', 'Satuan', 'Stok', 'Harga Beli', 'Harga Jual', 'Status']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [45, 106, 159] }
+        });
+
+        doc.save(`Stok_Terkini_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToastStokTerkini('📥 PDF berhasil diunduh');
     };
 
     function showToastStokTerkini(message, isError = false) {
