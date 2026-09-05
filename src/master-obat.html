@@ -345,7 +345,7 @@
                     <div class="file-upload-wrap">
                         <label class="file-upload-label" for="excelFile"><i class="fas fa-file-upload"></i> Import Excel/CSV</label>
                         <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" onchange="importExcel(event)">
-                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Barcode|Satuan|Harga Beli|Harga Jual|Stok|Jenis|Golongan|Status|Tgl ED (opsional, DD-MM-YYYY). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
+                        <span style="font-size:12px;color:#7a8a9e;">Format: Kode|Nama|Barcode|Satuan|Harga Beli|Harga Jual|Stok|Stok Minimal|Stok Maksimal (opsional)|Jenis|Golongan|Status|Tgl ED (opsional, DD-MM-YYYY). Pakai tombol Download Template supaya formatnya pasti sesuai.</span>
                     </div>
                 </div>
             </form>
@@ -709,7 +709,11 @@
         document.getElementById('editIndex').value = '';
         document.getElementById('obatForm').reset();
         applyDefaultStokMinimal();
-        document.getElementById('kodeObat').focus();
+        // Kode Obat otomatis terisi (bisa diubah manual kalau mau) -
+        // pakai fungsi yang sama seperti saat import, supaya tidak perlu
+        // mengetik kode sendiri tiap tambah obat baru.
+        document.getElementById('kodeObat').value = generateKodeObatOtomatis(new Set(obatData.map(o => o.kode_obat)));
+        document.getElementById('namaObat').focus();
     };
 
     window.saveObat = async function(e) {
@@ -891,13 +895,13 @@
     }
 
     window.downloadTemplate = function() {
-        const headers = ['Kode Obat', 'Nama Obat', 'Barcode', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
+        const headers = ['Kode Obat', 'Nama Obat', 'Barcode', 'Satuan', 'Harga Beli', 'Harga Jual', 'Stok', 'Stok Minimal', 'Stok Maksimal', 'Jenis', 'Golongan', 'Status', 'Tanggal Kadaluarsa (ED)'];
         const contoh = [
-            ['OBT001', 'Paracetamol 500mg', '8991234567890', 'Tablet', 500, 1000, 100, 'Generik', 'Bebas', 'Aktif', '31-12-2027'],
-            ['OBT002', 'Amoxicillin 500mg', '', 'Kapsul', 800, 1500, 50, 'Generik', 'Bebas Terbatas', 'Aktif', '']
+            ['OBT001', 'Paracetamol 500mg', '8991234567890', 'Tablet', 500, 1000, 100, 10, '', 'Generik', 'Bebas', 'Aktif', '31-12-2027'],
+            ['OBT002', 'Amoxicillin 500mg', '', 'Kapsul', 800, 1500, 50, 10, 200, 'Generik', 'Bebas Terbatas', 'Aktif', '']
         ];
         const ws = XLSX.utils.aoa_to_sheet([headers, ...contoh]);
-        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
+        ws['!cols'] = [{ wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 10 }, { wch: 20 }];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Template Obat');
         XLSX.writeFile(wb, 'Template_Import_Obat.xlsx');
@@ -935,6 +939,37 @@
         return ''; // format tidak dikenali - jangan paksa isi tanggal yang salah
     }
 
+    // Buat Kode Obat otomatis kalau kolom Kode Obat kosong di file import -
+    // format: [awalan dari nama apotek][4 angka acak], dicek dulu supaya
+    // tidak bentrok dengan kode yang sudah ada.
+    function generateKodeObatOtomatis(existingCodes) {
+        const namaApotek = window.__apotekName || 'APT';
+        const prefix = (namaApotek.split(' ')[0] || 'APT').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'APT';
+        let kode, attempts = 0;
+        do {
+            const randomPart = Math.floor(1000 + Math.random() * 9000);
+            kode = `${prefix}${randomPart}`;
+            attempts++;
+        } while (existingCodes.has(kode) && attempts < 50);
+        return kode;
+    }
+
+    // Kalau nilai Satuan/Jenis/Golongan dari file import belum ada di
+    // daftar kategori tenant ini, otomatis tambahkan sebagai kategori
+    // baru (sama seperti tambah manual lewat tombol "Kelola") - supaya
+    // tidak perlu bolak-balik ke menu Kelola dulu sebelum import.
+    async function pastikanKategoriAda(tipe, nilai) {
+        if (!nilai) return;
+        const list = tipe === 'jenis' ? kategoriJenis : tipe === 'golongan' ? kategoriGolongan : kategoriSatuan;
+        const sudahAda = list.some(k => k.nama.toLowerCase() === nilai.toLowerCase());
+        if (sudahAda) return;
+        const { data, error } = await addKategoriObat(tipe, nilai);
+        if (!error && data) {
+            list.push(data);
+            list.sort((a, b) => a.nama.localeCompare(b.nama));
+        }
+    }
+
     window.importExcel = function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -959,25 +994,40 @@
                 let imported = 0;
                 let skipped = 0;
                 const newData = [];
+                const existingCodes = new Set(obatData.map(o => o.kode_obat));
                 for (let i = startIndex; i < rows.length; i++) {
                     const cols = rows[i];
                     if (!cols || cols.length === 0) continue;
                     const namaObat = String(cols[1] || '').trim();
                     if (!namaObat) continue; // baris kosong, lewati
 
-                    const kodeObat = String(cols[0] || '').trim() || `OBT${String(obatData.length + newData.length + 1).padStart(3, '0')}`;
+                    let kodeObat = String(cols[0] || '').trim();
+                    if (!kodeObat) {
+                        kodeObat = generateKodeObatOtomatis(existingCodes);
+                    }
+                    existingCodes.add(kodeObat);
+
+                    const satuanImport = String(cols[3] || 'Tablet').trim() || 'Tablet';
+                    const jenisImport = String(cols[9] || 'Generik').trim() || 'Generik';
+                    const golonganImport = String(cols[10] || 'Bebas').trim() || 'Bebas';
+                    await pastikanKategoriAda('satuan', satuanImport);
+                    await pastikanKategoriAda('jenis', jenisImport);
+                    await pastikanKategoriAda('golongan', golonganImport);
+
                     const item = {
                         kode_obat: kodeObat,
                         nama_obat: namaObat,
                         barcode: String(cols[2] || '').trim() || null,
-                        satuan: String(cols[3] || 'Tablet').trim() || 'Tablet',
+                        satuan: satuanImport,
                         harga_beli: parseRupiah(cols[4]),
                         harga_jual: parseRupiah(cols[5]),
                         stok: parseAngka(cols[6]),
-                        jenis: String(cols[7] || 'Generik').trim() || 'Generik',
-                        golongan: String(cols[8] || 'Bebas').trim() || 'Bebas',
-                        status: String(cols[9] || 'Aktif').trim() || 'Aktif',
-                        tanggal_exp: parseTanggalExpImport(cols[10]) || null
+                        stok_minimal: cols[7] !== undefined && cols[7] !== '' ? parseAngka(cols[7]) : 10,
+                        stok_maksimal: cols[8] !== undefined && cols[8] !== '' ? parseAngka(cols[8]) : null,
+                        jenis: jenisImport,
+                        golongan: golonganImport,
+                        status: String(cols[11] || 'Aktif').trim() || 'Aktif',
+                        tanggal_exp: parseTanggalExpImport(cols[12]) || null
                     };
 
                     const sudahAda = obatData.find(o => o.kode_obat === item.kode_obat) || newData.find(o => o.kode_obat === item.kode_obat);
@@ -1009,6 +1059,7 @@
                 localStorage.setItem('obat', JSON.stringify(obatData));
                 renderTable(obatData);
                 updateTotal(obatData.length);
+                renderKategoriSelects(); // refresh dropdown Satuan/Jenis/Golongan kalau ada kategori baru yang otomatis dibuat
                 finishProgress(true, `Berhasil import ${imported} data obat!` + (skipped > 0 ? ` (${skipped} dilewati krn kode obat sudah ada)` : ''));
                 showToast(`✅ Berhasil import ${imported} data obat!` + (skipped > 0 ? ` (${skipped} dilewati krn kode obat sudah ada)` : ''));
                 event.target.value = '';
@@ -1037,9 +1088,15 @@
     // ============================================================
     // INIT
     // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
         loadKategoriObat();
-        loadObat();
+        await loadObat();
+        // Isi Kode Obat otomatis begitu halaman pertama kali dibuka (baru
+        // ada gunanya setelah obatData selesai dimuat, supaya pengecekan
+        // "belum pernah dipakai" akurat).
+        if (!document.getElementById('editIndex').value) {
+            document.getElementById('kodeObat').value = generateKodeObatOtomatis(new Set(obatData.map(o => o.kode_obat)));
+        }
     });
 </script>
 </body>
