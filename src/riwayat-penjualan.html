@@ -297,7 +297,7 @@
         renderList();
     }
 
-    window.renderList = function() {
+    function getFilteredPenjualan() {
         const keyword = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
         const tglAwal = document.getElementById('searchTglAwal').value;
         const tglAkhir = document.getElementById('searchTglAkhir').value;
@@ -311,6 +311,11 @@
         }
         if (tglAwal) results = results.filter(p => (p.tanggal || '') >= tglAwal);
         if (tglAkhir) results = results.filter(p => (p.tanggal || '') <= tglAkhir);
+        return results;
+    }
+
+    window.renderList = function() {
+        const results = getFilteredPenjualan();
 
         const tbody = document.getElementById('listBody');
         if (results.length === 0) {
@@ -369,15 +374,17 @@
     };
 
     window.downloadRiwayatPenjualan = function() {
-        if (allPenjualan.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
-        let csv = 'No. Faktur,Tanggal,Jam,Kasir,Nama Obat,Jumlah,Satuan,Harga,Subtotal,Total Faktur\n';
-        allPenjualan.forEach(p => {
+        const dataUntukDownload = getFilteredPenjualan();
+        if (dataUntukDownload.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        let csv = 'No. Faktur,Tanggal,Jam,Kasir,Nama Obat,Jumlah,Satuan,Harga Satuan,Subtotal Item,Total Faktur\n';
+        dataUntukDownload.forEach(p => {
             const items = p.penjualan_detail || [];
             if (items.length === 0) {
                 csv += `"${p.no_faktur || '-'}",${p.tanggal},${p.jam || '-'},"${p.kasir || '-'}",-,-,-,-,-,${p.total}\n`;
             } else {
                 items.forEach(it => {
-                    csv += `"${p.no_faktur || '-'}",${p.tanggal},${p.jam || '-'},"${p.kasir || '-'}","${it.nama_obat || '-'}",${it.jumlah},${it.satuan || '-'},${it.harga_jual},${it.subtotal},${p.total}\n`;
+                    const namaLengkap = (it.nama_obat || '-') + (it.is_resep ? ' (Resep)' : '') + (it.racikan_nama ? ` (${it.racikan_nama})` : '');
+                    csv += `"${p.no_faktur || '-'}",${p.tanggal},${p.jam || '-'},"${p.kasir || '-'}","${namaLengkap}",${it.jumlah},${it.satuan || '-'},${it.harga_jual},${it.subtotal},${p.total}\n`;
                 });
             }
         });
@@ -392,7 +399,8 @@
     };
 
     window.downloadRiwayatPenjualanPDF = function() {
-        if (allPenjualan.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
+        const dataUntukDownload = getFilteredPenjualan();
+        if (dataUntukDownload.length === 0) { showToast('⚠️ Tidak ada data untuk di-download', true); return; }
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.setFontSize(14);
@@ -402,25 +410,26 @@
 
         const rows = [];
         let totalKeseluruhan = 0;
-        allPenjualan.forEach(p => {
+        dataUntukDownload.forEach(p => {
             const items = p.penjualan_detail || [];
             totalKeseluruhan += Number(p.total) || 0;
             if (items.length === 0) {
-                rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', '-', '-', formatRupiah(p.total)]);
+                rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', '-', '-', '-', '-', formatRupiah(p.total)]);
             } else {
                 items.forEach(it => {
-                    rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', it.nama_obat || '-', it.jumlah, formatRupiah(it.subtotal)]);
+                    const namaLengkap = (it.nama_obat || '-') + (it.is_resep ? ' (Resep)' : '') + (it.racikan_nama ? ` (${it.racikan_nama})` : '');
+                    rows.push([p.no_faktur || '-', formatTanggal(p.tanggal), p.jam || '-', p.kasir || '-', namaLengkap, it.jumlah, it.satuan || '-', formatRupiah(it.harga_jual), formatRupiah(it.subtotal)]);
                 });
             }
         });
 
         doc.autoTable({
             startY: 26,
-            head: [['No. Faktur', 'Tanggal', 'Jam', 'Kasir', 'Nama Obat', 'Jml', 'Subtotal']],
+            head: [['No. Faktur', 'Tanggal', 'Jam', 'Kasir', 'Nama Obat', 'Jml', 'Satuan', 'Harga', 'Subtotal']],
             body: rows,
-            styles: { fontSize: 8 },
+            styles: { fontSize: 7 },
             headStyles: { fillColor: [45, 106, 159] },
-            foot: [['', '', '', '', '', 'TOTAL', formatRupiah(totalKeseluruhan)]],
+            foot: [['', '', '', '', '', '', '', 'TOTAL', formatRupiah(totalKeseluruhan)]],
             footStyles: { fillColor: [248, 250, 252], textColor: [15, 30, 46], fontStyle: 'bold' }
         });
 

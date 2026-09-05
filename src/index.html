@@ -119,7 +119,15 @@
             loading.style.display = 'none';
             
             if (error) {
-                errorEl.textContent = '❌ ' + error.message;
+                // Supabase kasih pesan teknis mentah ("Invalid login credentials")
+                // - diterjemahkan ke pesan yang jelas dalam Bahasa Indonesia.
+                if (error.message && error.message.toLowerCase().includes('invalid login credentials')) {
+                    errorEl.textContent = '❌ Email atau Kata Sandi Salah';
+                } else if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+                    errorEl.textContent = '❌ Email belum dikonfirmasi. Cek kotak masuk email Anda.';
+                } else {
+                    errorEl.textContent = '❌ ' + error.message;
+                }
                 errorEl.style.display = 'block';
             } else {
                 localStorage.setItem('supabaseSession', JSON.stringify(data.session));
