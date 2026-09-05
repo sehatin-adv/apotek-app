@@ -1183,7 +1183,7 @@ END $$;
 --     tidak menimpa stok minimal yang sudah sengaja Anda kustomisasi
 --     sendiri secara manual.
 -- ------------------------------------------------------------
-UPDATE obat SET stok_minimal = 30
+UPDATE obat SET stok_minimal = 20
     WHERE satuan IN ('Tablet', 'Kapsul')
     AND (stok_minimal IS NULL OR stok_minimal IN (20, 10, 1));
 
