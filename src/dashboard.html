@@ -74,6 +74,8 @@
         @keyframes spin { to { transform:rotate(360deg); } }
         @media (max-width:768px) { .hamburger-btn { display:flex; } .sidebar { position:fixed; left:-270px; top:0; width:260px; height:100vh; z-index:2000; transition:left 0.25s ease; } .sidebar.mobile-open { left:0; } .main-content { margin-left:0; padding:16px; padding-top:64px;} .grid-4 { grid-template-columns:1fr 1fr; } }
         @media (max-width:480px) { .grid-4 { grid-template-columns:1fr; } }
+        .grid-2-chart { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        @media (max-width:768px) { .grid-2-chart { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -241,6 +243,21 @@
             <div class="stat-card omset" style="border-left-color:#28a745;"><div class="label"><i class="fas fa-chart-line"></i> Omset Hari Ini</div><div class="value" id="omsetHarian">Rp 0</div><div class="sub" id="omsetSub">Belum ada transaksi</div></div>
         </div>
         <div class="card"><div class="card-title">Grafik Penjualan 7 Hari Terakhir</div><div class="chart-container"><canvas id="chartPenjualan"></canvas></div></div>
+
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div class="card-title" style="margin:0;"><i class="fas fa-calendar" style="color:#2d6a9f;"></i> Grafik Tahunan</div>
+            <div>
+                <label style="font-size:12px;font-weight:600;color:#5b6b7c;margin-right:6px;">Tahun:</label>
+                <select id="filterTahunGrafik" onchange="loadGrafikBulanan()" style="padding:6px 12px;border:2px solid #e8edf3;border-radius:8px;font-size:13px;font-weight:600;"></select>
+            </div>
+        </div>
+        <div class="grid-2-chart">
+            <div class="card"><div class="card-title"><i class="fas fa-cart-shopping" style="color:#2d6a9f;"></i> Grafik Penjualan per Bulan</div><div class="chart-container"><canvas id="chartPenjualanBulanan"></canvas></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-truck-fast" style="color:#f0b429;"></i> Grafik Pembelian Obat per Bulan</div><div class="chart-container"><canvas id="chartPembelianBulanan"></canvas></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-money-bill-wave" style="color:#dc3545;"></i> Grafik Biaya Operasional per Bulan</div><div class="chart-container"><canvas id="chartBiayaOperasional"></canvas></div></div>
+            <div class="card"><div class="card-title"><i class="fas fa-user-tie" style="color:#8b5cf6;"></i> Penjualan Terbanyak per Kasir</div><div class="chart-container"><canvas id="chartKasir"></canvas></div></div>
+        </div>
+
         <div class="card"><div class="card-title"><i class="fas fa-star" style="color:#ffc107;"></i> Menu Favorit</div>
             <div class="btn-group">
                 <button class="btn btn-primary" onclick="navigate('master-obat.html')"><i class="fas fa-capsules"></i> Data Obat</button>
@@ -260,7 +277,7 @@
 
 <script type="module">
     import { getCurrentUser, signOut } from './supabase.js';
-    import { getObat, getSupplier, getPenjualan, getPembelianJatuhTempo, getObatMendekatiExpired } from './database.js';
+    import { getObat, getSupplier, getPenjualan, getPembelianJatuhTempo, getObatMendekatiExpired, getPembelian, getPengeluaran } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Dashboard');
     import { enforcePermissions } from './permissions.js';
@@ -399,8 +416,110 @@
                 data: { labels, datasets: [{ label: 'Penjualan (Rp)', data: values, backgroundColor: '#2d6a9f', borderRadius: 8 }] },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
+
+            await loadGrafikBulanan();
         } catch(e) { console.error('Error loading dashboard:', e); } finally { loading.classList.remove('active'); }
     }
+    isiFilterTahun();
+
+    // ============================================================
+    // GRAFIK PER BULAN (12 bulan penuh sesuai tahun yg dipilih) +
+    // Grafik per Kasir
+    // ============================================================
+    let chartInstances = {}; // simpan instance Chart.js supaya bisa di-destroy sebelum render ulang (ganti tahun)
+
+    function namaBulanSingkat(bulan) {
+        const nama = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        return nama[bulan];
+    }
+    function daftar12BulanTahun(tahun) {
+        const list = [];
+        for (let b = 0; b < 12; b++) {
+            list.push({ tahun, bulan: b, key: tahun + '-' + String(b + 1).padStart(2, '0') });
+        }
+        return list;
+    }
+    function isiFilterTahun() {
+        const select = document.getElementById('filterTahunGrafik');
+        const tahunSekarang = new Date().getFullYear();
+        let html = '';
+        for (let t = tahunSekarang; t >= tahunSekarang - 4; t--) {
+            html += `<option value="${t}">${t}</option>`;
+        }
+        select.innerHTML = html;
+        select.value = tahunSekarang;
+    }
+    function buatAtauPerbaruiChart(canvasId, config) {
+        if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+        chartInstances[canvasId] = new Chart(document.getElementById(canvasId), config);
+    }
+
+    window.loadGrafikBulanan = async function() {
+        const tahun = Number(document.getElementById('filterTahunGrafik').value) || new Date().getFullYear();
+        const bulanList = daftar12BulanTahun(tahun);
+        const tglMulai = tahun + '-01-01';
+        const tglAkhir = tahun + '-12-31';
+
+        // --- Penjualan per Bulan + per Kasir (sekaligus, dari data yang sama) ---
+        const { data: penjualanAll } = await getPenjualan(tglMulai, tglAkhir);
+        const penjualanPerBulan = {}; const penjualanPerKasir = {};
+        (penjualanAll || []).forEach(p => {
+            const key = (p.tanggal || '').slice(0, 7);
+            penjualanPerBulan[key] = (penjualanPerBulan[key] || 0) + (Number(p.total) || 0);
+            const kasirNama = p.kasir || 'Tidak diketahui';
+            penjualanPerKasir[kasirNama] = (penjualanPerKasir[kasirNama] || 0) + (Number(p.total) || 0);
+        });
+        buatAtauPerbaruiChart('chartPenjualanBulanan', {
+            type: 'bar',
+            data: {
+                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
+                datasets: [{ label: 'Penjualan (Rp)', data: bulanList.map(b => penjualanPerBulan[b.key] || 0), backgroundColor: '#2d6a9f', borderRadius: 8 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        const topKasir = Object.entries(penjualanPerKasir).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        buatAtauPerbaruiChart('chartKasir', {
+            type: 'bar',
+            data: {
+                labels: topKasir.map(k => k[0]),
+                datasets: [{ label: 'Total Penjualan (Rp)', data: topKasir.map(k => k[1]), backgroundColor: '#8b5cf6', borderRadius: 8 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }
+        });
+
+        // --- Pembelian Obat per Bulan ---
+        const { data: pembelianAll } = await getPembelian();
+        const pembelianPerBulan = {};
+        (pembelianAll || []).filter(p => (p.tanggal_faktur || '') >= tglMulai && (p.tanggal_faktur || '') <= tglAkhir).forEach(p => {
+            const key = (p.tanggal_faktur || '').slice(0, 7);
+            pembelianPerBulan[key] = (pembelianPerBulan[key] || 0) + (Number(p.total) || 0);
+        });
+        buatAtauPerbaruiChart('chartPembelianBulanan', {
+            type: 'bar',
+            data: {
+                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
+                datasets: [{ label: 'Pembelian (Rp)', data: bulanList.map(b => pembelianPerBulan[b.key] || 0), backgroundColor: '#f0b429', borderRadius: 8 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // --- Biaya Operasional per Bulan ---
+        const { data: pengeluaranAll } = await getPengeluaran(tglMulai, tglAkhir);
+        const pengeluaranPerBulan = {};
+        (pengeluaranAll || []).forEach(p => {
+            const key = (p.tanggal || '').slice(0, 7);
+            pengeluaranPerBulan[key] = (pengeluaranPerBulan[key] || 0) + (Number(p.nominal) || 0);
+        });
+        buatAtauPerbaruiChart('chartBiayaOperasional', {
+            type: 'bar',
+            data: {
+                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
+                datasets: [{ label: 'Biaya Operasional (Rp)', data: bulanList.map(b => pengeluaranPerBulan[b.key] || 0), backgroundColor: '#dc3545', borderRadius: 8 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    };
     await checkAuth();
     await loadDashboard();
     loadJatuhTempoBanner();
