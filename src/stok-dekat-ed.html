@@ -206,6 +206,7 @@
 
         <div class="grid-4">
             <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Batch</div><div class="value" id="totalObat">0</div><div class="sub">Mendekati ED (6 bulan)</div></div>
+            <div class="stat-card" style="border-left-color:#8a2020;"><div class="label">Sudah Lewat ED</div><div class="value" id="stokLewat">0</div><div class="sub">Segera keluarkan lewat Opname</div></div>
             <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Segera (&le; 1 Bulan)</div><div class="value" id="stokUrgent">0</div><div class="sub">Perlu tindakan cepat</div></div>
             <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Waspada (1-3 Bulan)</div><div class="value" id="stokWaspada">0</div><div class="sub">Pantau terus</div></div>
             <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Estimasi Nilai Stok</div><div class="value" id="totalNilai" style="font-size:16px;">Rp 0</div><div class="sub">Harga beli x stok</div></div>
@@ -225,6 +226,7 @@
                 <input type="text" id="searchStokTerkini" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterStokTerkini()">
                 <select id="filterStokTerkini" onchange="filterStokTerkini()">
                     <option value="">Semua</option>
+                    <option value="lewat">Sudah Lewat ED</option>
                     <option value="urgent">Segera (&le; 1 bulan)</option>
                     <option value="waspada">Waspada (1-3 bulan)</option>
                     <option value="aman">Masih Longgar (3-6 bulan)</option>
@@ -281,6 +283,7 @@
         return Math.round((exp - today) / (1000 * 60 * 60 * 24));
     }
     function kategoriUrgensi(hari) {
+        if (hari < 0) return 'lewat';
         if (hari <= 30) return 'urgent';
         if (hari <= 90) return 'waspada';
         return 'aman';
@@ -328,11 +331,12 @@
             tbody.innerHTML = data.map((o, i) => {
                 const hari = sisaHari(o.tanggal_exp);
                 const kategori = kategoriUrgensi(hari);
-                let statusClass, statusText;
-                if (kategori === 'urgent') { statusClass = 'badge-danger'; statusText = 'Segera'; }
-                else if (kategori === 'waspada') { statusClass = 'badge-warning'; statusText = 'Waspada'; }
-                else { statusClass = 'badge-success'; statusText = 'Longgar'; }
-                return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong>${o.no_batch ? `<div style="font-size:10px;color:#7a8a9e;">Batch: ${o.no_batch}</div>` : ''}</td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${o.stok}</strong></td><td>${formatTanggal(o.tanggal_exp)}</td><td style="text-align:right;">${hari} hari</td><td>${formatRupiahStok(o.harga_beli)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
+                let statusClass, statusText, hariText;
+                if (kategori === 'lewat') { statusClass = 'badge-danger'; statusText = 'Sudah Lewat ED'; hariText = `Lewat ${Math.abs(hari)} hari`; }
+                else if (kategori === 'urgent') { statusClass = 'badge-danger'; statusText = 'Segera'; hariText = hari + ' hari'; }
+                else if (kategori === 'waspada') { statusClass = 'badge-warning'; statusText = 'Waspada'; hariText = hari + ' hari'; }
+                else { statusClass = 'badge-success'; statusText = 'Longgar'; hariText = hari + ' hari'; }
+                return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong>${o.no_batch ? `<div style="font-size:10px;color:#7a8a9e;">Batch: ${o.no_batch}</div>` : ''}</td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${o.stok}</strong></td><td>${formatTanggal(o.tanggal_exp)}</td><td style="text-align:right;color:${kategori==='lewat'?'#dc3545':'inherit'};font-weight:${kategori==='lewat'?'700':'400'};">${hariText}</td><td>${formatRupiahStok(o.harga_beli)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
             }).join('');
         }
         updateStatsDekatED(data);
@@ -340,15 +344,17 @@
     }
 
     function updateStatsDekatED(data) {
-        let totalNilai = 0, urgent = 0, waspada = 0;
+        let totalNilai = 0, urgent = 0, waspada = 0, lewat = 0;
         data.forEach(o => {
             const hari = sisaHari(o.tanggal_exp);
             const kategori = kategoriUrgensi(hari);
-            if (kategori === 'urgent') urgent++;
+            if (kategori === 'lewat') lewat++;
+            else if (kategori === 'urgent') urgent++;
             else if (kategori === 'waspada') waspada++;
             totalNilai += (Number(o.harga_beli) || 0) * (Number(o.stok) || 0);
         });
         document.getElementById('totalObat').textContent = data.length;
+        document.getElementById('stokLewat').textContent = lewat;
         document.getElementById('stokUrgent').textContent = urgent;
         document.getElementById('stokWaspada').textContent = waspada;
         document.getElementById('totalNilai').textContent = formatRupiahStok(totalNilai);
@@ -367,13 +373,19 @@
         renderStokDekatED(filtered);
     };
 
+    function labelStatusKategori(kategori) {
+        if (kategori === 'lewat') return 'Sudah Lewat ED';
+        if (kategori === 'urgent') return 'Segera';
+        if (kategori === 'waspada') return 'Waspada';
+        return 'Longgar';
+    }
+
     window.downloadStokDekatED = function() {
         if (!currentDisplayedData || currentDisplayedData.length === 0) { showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true); return; }
         let csv = 'No,Kode Obat,Nama Obat,No. Batch,Satuan,Stok,Tanggal ED,Sisa Hari,Harga Beli,Status\n';
         currentDisplayedData.forEach((o, i) => {
             const hari = sisaHari(o.tanggal_exp);
-            const kategori = kategoriUrgensi(hari);
-            const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
+            const status = labelStatusKategori(kategoriUrgensi(hari));
             const nama = String(o.nama_obat || '-').replace(/"/g, '""');
             csv += `${i+1},${o.kode_obat||'-'},"${nama}",${o.no_batch||'-'},${o.satuan||'-'},${o.stok},${o.tanggal_exp},${hari},${o.harga_beli||0},${status}\n`;
         });
@@ -398,8 +410,7 @@
 
         const rows = currentDisplayedData.map((o, i) => {
             const hari = sisaHari(o.tanggal_exp);
-            const kategori = kategoriUrgensi(hari);
-            const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
+            const status = labelStatusKategori(kategoriUrgensi(hari));
             return [i+1, o.kode_obat||'-', o.nama_obat||'-', o.no_batch||'-', o.satuan||'-', o.stok, formatTanggal(o.tanggal_exp), hari, formatRupiahStok(o.harga_beli), status];
         });
 

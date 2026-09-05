@@ -2304,14 +2304,14 @@ export async function getObatMendekatiExpired() {
         const today = new Date();
         const in3Months = new Date(today);
         in3Months.setMonth(in3Months.getMonth() + 3);
-        const oneWeekAgo = new Date(today);
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
+        // Sengaja TIDAK ada batas bawah - obat yang sudah lewat ED tetap
+        // muncul selama stok masih ada & belum di-write-off lewat Stok
+        // Opname (lihat juga getObatDekatED/getBatchDekatED).
         const { data, error } = await supabase
             .from('obat')
             .select('id, kode_obat, nama_obat, stok, tanggal_exp')
             .not('tanggal_exp', 'is', null)
-            .gte('tanggal_exp', oneWeekAgo.toISOString().split('T')[0])
             .lte('tanggal_exp', in3Months.toISOString().split('T')[0])
             .gt('stok', 0)
             .order('tanggal_exp', { ascending: true });
@@ -2333,11 +2333,15 @@ export async function getObatDekatED(bulanAmbang = 6) {
         const batasAtas = new Date(today);
         batasAtas.setMonth(batasAtas.getMonth() + bulanAmbang);
 
+        // TIDAK ada batas bawah (.gte hari ini) dengan sengaja - obat yang
+        // SUDAH lewat ED harus tetap muncul di sini selama stoknya masih
+        // ada & belum di-write-off lewat Stok Opname. Kalau dibatasi ke
+        // "belum lewat ED" saja, begitu tanggalnya lewat obat itu malah
+        // hilang dari pantauan padahal itu justru yang paling mendesak.
         const { data, error } = await supabase
             .from('obat')
             .select('*')
             .not('tanggal_exp', 'is', null)
-            .gte('tanggal_exp', today.toISOString().split('T')[0])
             .lte('tanggal_exp', batasAtas.toISOString().split('T')[0])
             .gt('stok', 0)
             .order('tanggal_exp', { ascending: true });
@@ -2439,12 +2443,14 @@ export async function getBatchDekatED(bulanAmbang = 6) {
         const batasAtas = new Date(today);
         batasAtas.setMonth(batasAtas.getMonth() + bulanAmbang);
 
+        // Sama seperti getObatDekatED - sengaja TIDAK ada batas bawah,
+        // batch yang sudah lewat ED tetap tampil selama stok_batch masih
+        // >0 (belum di-write-off lewat Stok Opname).
         const { data, error } = await supabase
             .from('obat_batch')
             .select('*, obat(kode_obat, nama_obat, satuan, harga_beli)')
             .gt('stok_batch', 0)
             .not('tanggal_exp', 'is', null)
-            .gte('tanggal_exp', today.toISOString().split('T')[0])
             .lte('tanggal_exp', batasAtas.toISOString().split('T')[0])
             .order('tanggal_exp', { ascending: true });
         if (error) throw error;
