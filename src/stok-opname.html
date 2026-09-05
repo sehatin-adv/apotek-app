@@ -604,7 +604,7 @@
                 </td>
                 <td style="text-align:right;color:${item.nilai_kerugian > 0 ? '#dc3545' : '#7a8a9e'};font-weight:${item.nilai_kerugian > 0 ? '700' : '400'};">${item.nilai_kerugian > 0 ? formatRupiahOpname(item.nilai_kerugian) : '-'}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
-                <td><input type="date" class="tgl-exp-input" data-index="${index}" value="${item.tanggal_exp || ''}" onchange="updateTglExpOpname(${index}, this.value)" style="width:100%;padding:5px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:6px;"></td>
+                <td><input type="text" class="tgl-exp-input" data-index="${index}" value="${item.tanggal_exp ? formatTglEDTampilan(item.tanggal_exp) : ''}" placeholder="9/26 = 09-2026" onchange="updateTglExpOpname(${index}, this.value)" style="width:100%;padding:5px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:6px;"></td>
             </tr>`;
         }).join('');
         
@@ -627,9 +627,68 @@
     // ============================================================
     // UPDATE STOK FISIK
     // ============================================================
+    // Parsing cepat tanggal ED - ketik "9/26" atau "9-26" otomatis jadi
+    // tanggal 1 bulan 9 tahun 2026 (asumsi tanggal 1 kalau cuma bulan/
+    // tahun yang diisi). Tetap terima format lengkap "15/9/26" kalau
+    // mau spesifik tanggalnya juga. Return null kalau format tidak
+    // dikenali sama sekali.
+    function parseTglEDCepat(value) {
+        const v = String(value || '').trim();
+        if (!v) return '';
+        // Kalau sudah format ISO (dari input type=date lama / paste), pakai langsung
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+
+        const parts = v.split(/[\/\-.]/).map(p => p.trim()).filter(Boolean);
+        let day = 1, month, year;
+        if (parts.length === 2) {
+            month = parseInt(parts[0], 10);
+            year = parseInt(parts[1], 10);
+        } else if (parts.length === 3) {
+            day = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        } else {
+            return null;
+        }
+        if (isNaN(month) || month < 1 || month > 12) return null;
+        if (isNaN(year)) return null;
+        if (year < 100) year += 2000; // 2 digit tahun -> asumsi 20xx
+        if (isNaN(day) || day < 1 || day > 31) day = 1;
+
+        const mm = String(month).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        return `${year}-${mm}-${dd}`;
+    }
+
+    // Tampilkan hasil parsing dalam format DD-MM-YYYY yang gampang dibaca
+    function formatTglEDTampilan(isoDate) {
+        if (!isoDate) return '';
+        const parts = isoDate.split('-');
+        if (parts.length !== 3) return isoDate;
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
     window.updateTglExpOpname = function(index, value) {
         if (index < 0 || index >= opnameItems.length) return;
-        opnameItems[index].tanggal_exp = value || null;
+        const parsed = parseTglEDCepat(value);
+        if (parsed === null) {
+            showToast('⚠️ Format tanggal ED tidak dikenali. Coba: 9/26 (bulan/tahun) atau 15/9/26 (tgl/bulan/tahun)', true);
+            // Kembalikan tampilan ke nilai sebelumnya (bukan yang gagal diparsing)
+            const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
+            if (row) {
+                const input = row.querySelector('.tgl-exp-input');
+                if (input) input.value = opnameItems[index].tanggal_exp ? formatTglEDTampilan(opnameItems[index].tanggal_exp) : '';
+            }
+            return;
+        }
+        opnameItems[index].tanggal_exp = parsed || null;
+        // Tampilkan hasil yang sudah diparsing dengan format jelas, supaya
+        // user bisa langsung lihat konfirmasi tanggal yang benar terisi.
+        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
+        if (row) {
+            const input = row.querySelector('.tgl-exp-input');
+            if (input) input.value = parsed ? formatTglEDTampilan(parsed) : '';
+        }
         simpanProgress();
     };
 
