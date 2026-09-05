@@ -207,7 +207,7 @@
                 <input type="hidden" id="editId" value="">
                 <div class="form-grid">
                     <div class="form-group"><label>Nama *</label><input type="text" id="namaApoteker" placeholder="Apt. Ahmad Justawan" required></div>
-                    <div class="form-group"><label>No. SIK</label><input type="text" id="noSIK" placeholder="SIK-2024-001"></div>
+                    <div class="form-group"><label>No. SIPA</label><input type="text" id="noSIPA" placeholder="SIPA-2024-001"></div>
                     <div class="form-group"><label>No. STRA</label><input type="text" id="noSTRA" placeholder="STRA-2024-001"></div>
                     <div class="form-group"><label>Alamat</label><input type="text" id="alamatApoteker" placeholder="Jl. Lambuya, Konawe"></div>
                     <div class="form-group"><label>Jabatan</label><select id="jabatanApoteker"><option value="APOTEKER">APOTEKER</option><option value="PENGELOLA APOTEK">PENGELOLA APOTEK</option><option value="ASISTEN APOTEKER">ASISTEN APOTEKER</option></select></div>
@@ -236,7 +236,7 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th>No</th><th>Nama</th><th>No. SIK</th><th>No. STRA</th><th>Jabatan</th><th>Tanggal Mulai</th><th>NIK</th><th>ID Satu Sehat</th><th>Status</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>No</th><th>Nama</th><th>No. SIPA</th><th>No. STRA</th><th>Jabatan</th><th>Tanggal Mulai</th><th>NIK</th><th>ID Satu Sehat</th><th>Status</th><th>Aksi</th></tr></thead>
                     <tbody id="apotekerTableBody"><tr><td colspan="10" style="text-align:center;color:#7a8a9e;padding:40px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
                 </table>
             </div>
@@ -307,7 +307,7 @@
             <tr>
                 <td>${i+1}</td>
                 <td><strong>${a.nama||'-'}</strong></td>
-                <td>${a.no_sik||'-'}</td>
+                <td>${a.no_sipa||'-'}</td>
                 <td>${a.no_stra||'-'}</td>
                 <td>${a.jabatan||'-'}</td>
                 <td>${a.tanggal_mulai||'-'}</td>
@@ -335,7 +335,7 @@
         const editId = document.getElementById('editId').value;
         const data = {
             nama: document.getElementById('namaApoteker').value.trim(),
-            no_sik: document.getElementById('noSIK').value.trim(),
+            no_sipa: document.getElementById('noSIPA').value.trim(),
             no_stra: document.getElementById('noSTRA').value.trim(),
             alamat: document.getElementById('alamatApoteker').value.trim(),
             jabatan: document.getElementById('jabatanApoteker').value,
@@ -377,7 +377,7 @@
         if (!a) return;
         document.getElementById('editId').value = id;
         document.getElementById('namaApoteker').value = a.nama||'';
-        document.getElementById('noSIK').value = a.no_sik||'';
+        document.getElementById('noSIPA').value = a.no_sipa||'';
         document.getElementById('noSTRA').value = a.no_stra||'';
         document.getElementById('alamatApoteker').value = a.alamat||'';
         document.getElementById('jabatanApoteker').value = a.jabatan||'APOTEKER';

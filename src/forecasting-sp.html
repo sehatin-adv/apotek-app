@@ -90,6 +90,11 @@
         .sp-sign { display:flex; justify-content:flex-end; margin-top:60px; font-size:12px; }
         .sp-sign .box { width:230px; text-align:center; }
         .sp-sign .space { height:64px; }
+        .sp-kop-logo { max-width:100%; max-height:90px; margin-bottom:6px; }
+        .sp-ttd-block { font-size:12px; margin-bottom:16px; }
+        .sp-ttd-block p { margin-bottom:2px; }
+        .sp-kebutuhan { font-size:12px; margin:16px 0; }
+        .sp-kebutuhan p { margin-bottom:2px; }
 
         @media (max-width:768px) {
             .hamburger-btn { display:flex; } .sidebar { position:fixed; left:-270px; top:0; width:260px; height:100vh; z-index:2000; transition:left 0.25s ease; } .sidebar.mobile-open { left:0; }
@@ -229,7 +234,7 @@
 
 <script type="module">
     import { supabase, getCurrentUser, signOut } from './supabase.js';
-    import { getSupplierWithKatalog, getSupplierSelections, saveSuratPesanan } from './database.js';
+    import { getSupplierWithKatalog, getSupplierSelections, saveSuratPesanan, getObat, getApoteker } from './database.js';
     import { getPengaturanApotek } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Surat Pesanan');
@@ -260,6 +265,61 @@
     let spGroups = [];
     let pbfs = [];
     let profile = {};
+    let apotekerPJ = null;
+
+    // Kategori Surat Pesanan berdasarkan Golongan Obat - Narkotika,
+    // Prekursor, dan Obat-Obat Tertentu (OOT) WAJIB pakai Surat Pesanan
+    // terpisah dari obat biasa (Bebas/Bebas Terbatas/Keras digabung jadi
+    // 1 kategori "Biasa") - ini persyaratan regulasi BPOM/Kemenkes.
+    const KATEGORI_SP_INFO = {
+        'Narkotika': { label: 'Narkotika', warna: '#dc3545', bg: '#fbe4e6' },
+        'Psikotropika': { label: 'Psikotropika', warna: '#c2185b', bg: '#fce4ec' },
+        'Prekursor': { label: 'Prekursor', warna: '#b8860b', bg: '#fff3cd' },
+        'OOT': { label: 'Obat-Obat Tertentu (OOT)', warna: '#8b5cf6', bg: '#f0e9ff' },
+        'Biasa': { label: 'Obat Biasa (Bebas/Keras)', warna: '#2d6a9f', bg: '#eaf2fb' }
+    };
+    function getKategoriSp(golongan) {
+        const g = (golongan || '').toLowerCase();
+        if (g.includes('narkotika')) return 'Narkotika';
+        if (g.includes('psikotropika')) return 'Psikotropika';
+        if (g.includes('prekursor')) return 'Prekursor';
+        if (g.includes('tertentu') || g === 'oot') return 'OOT';
+        return 'Biasa';
+    }
+
+    // Konfigurasi teks & kolom tabel per kategori (Narkotika/Psikotropika/
+    // Prekursor/OOT) - semuanya sama strukturnya, cuma beda istilah &
+    // awalan nomor surat, sesuai format resmi yang dikirim.
+    const KATEGORI_SP_TEMPLATE = {
+        'Prekursor': {
+            judul: 'SURAT PESANAN OBAT MENGANDUNG PREKURSOR FARMASI',
+            nomorPrefix: 'SPOP',
+            zatLabel: 'Zat Aktif Prekursor Farmasi',
+            namaObatLabel: 'Nama Obat Mengandung Prekursor Farmasi',
+            frasa: 'Prekursor Farmasi'
+        },
+        'Psikotropika': {
+            judul: 'SURAT PESANAN OBAT MENGANDUNG PSIKOTROPIKA FARMASI',
+            nomorPrefix: 'SPP',
+            zatLabel: 'Zat Aktif Psikotropika',
+            namaObatLabel: 'Nama Obat Mengandung Psikotropika Farmasi',
+            frasa: 'Psikotropika Farmasi'
+        },
+        'Narkotika': {
+            judul: 'SURAT PESANAN OBAT MENGANDUNG NARKOTIKA FARMASI',
+            nomorPrefix: 'SPN',
+            zatLabel: 'Zat Aktif Narkotika',
+            namaObatLabel: 'Nama Obat Mengandung Narkotika Farmasi',
+            frasa: 'Narkotika Farmasi'
+        },
+        'OOT': {
+            judul: 'SURAT PESANAN OBAT-OBAT TERTENTU',
+            nomorPrefix: 'SPOOT',
+            zatLabel: 'Zat Aktif Obat-Obat Tertentu',
+            namaObatLabel: 'Nama Obat Mengandung Obat-Obat Tertentu',
+            frasa: 'Obat-obat Tertentu'
+        }
+    };
 
     async function loadUser() {
         const user = await getCurrentUser();
@@ -276,15 +336,31 @@
         const wrap = document.getElementById('contentWrap');
         wrap.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div>';
 
-        const [pbfRes, selRes, profRes] = await Promise.all([getSupplierWithKatalog(), getSupplierSelections(), getPengaturanApotek()]);
+        const [pbfRes, selRes, profRes, obatRes, apotekerRes] = await Promise.all([getSupplierWithKatalog(), getSupplierSelections(), getPengaturanApotek(), getObat(), getApoteker()]);
         pbfs = pbfRes.data || [];
         const selArr = selRes.data || [];
         profile = profRes.data || {};
+        const obatList = obatRes.data || [];
+        const apotekerList = apotekerRes.data || [];
+        // Apoteker Penanggung Jawab utk TTD di Surat Pesanan - diambil
+        // dari Data Apoteker (bukan diketik manual) - prioritaskan yang
+        // jabatannya "PENGELOLA APOTEK" (= APJ), fallback ke apoteker
+        // pertama kalau belum ada yang ditandai PJ.
+        apotekerPJ = apotekerList.find(a => a.jabatan === 'PENGELOLA APOTEK' && a.status !== 'Tidak Aktif')
+            || apotekerList.find(a => a.jabatan === 'APOTEKER' && a.status !== 'Tidak Aktif')
+            || apotekerList[0] || null;
+        const golonganMap = {};
+        obatList.forEach(o => { golonganMap[o.id] = o.golongan; });
 
+        // Dikelompokkan per Supplier SEKALIGUS per kategori golongan -
+        // supaya Narkotika/Prekursor/OOT yang dipesan ke supplier yang
+        // sama tetap terpisah surat pesanannya dari obat biasa.
         const groups = {};
         selArr.forEach(sel => {
-            if (!groups[sel.supplier_id]) groups[sel.supplier_id] = { pbfId: sel.supplier_id, pbfNama: sel.supplier_nama, items: [] };
-            groups[sel.supplier_id].items.push(sel);
+            const kategoriSp = getKategoriSp(golonganMap[sel.obat_id]);
+            const key = sel.supplier_id + '|' + kategoriSp;
+            if (!groups[key]) groups[key] = { pbfId: sel.supplier_id, pbfNama: sel.supplier_nama, kategoriSp, items: [] };
+            groups[key].items.push(sel);
         });
         spGroups = Object.values(groups);
 
@@ -299,13 +375,18 @@
         }
         wrap.innerHTML = spGroups.map((group, gi) => {
             const total = group.items.reduce((s, it) => s + (Number(it.harga) || 0) * (Number(it.qty) || 0), 0);
+            const kInfo = KATEGORI_SP_INFO[group.kategoriSp] || KATEGORI_SP_INFO['Biasa'];
             return `
                 <div class="group-card">
                     <div class="group-head">
-                        <div><span class="nama"><i class="fas fa-file-lines"></i> ${group.pbfNama}</span><span class="count">${group.items.length} item</span></div>
+                        <div>
+                            <span class="nama"><i class="fas fa-file-lines"></i> ${group.pbfNama}</span>
+                            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${kInfo.bg};color:${kInfo.warna};margin-left:6px;">${kInfo.label}</span>
+                            <span class="count">${group.items.length} item</span>
+                        </div>
                         <div style="display:flex;gap:8px;">
-                            <button class="btn" style="background:#28a745;color:white;" onclick="pesanSuratPesanan('${group.pbfId}')"><i class="fas fa-paper-plane"></i> Pesan</button>
-                            <button class="btn btn-primary" onclick="printSp('${group.pbfId}')"><i class="fas fa-print"></i> Cetak Surat Pesanan</button>
+                            <button class="btn" style="background:#28a745;color:white;" onclick="pesanSuratPesanan(${gi})"><i class="fas fa-paper-plane"></i> Pesan</button>
+                            <button class="btn btn-primary" onclick="printSp(${gi})"><i class="fas fa-print"></i> Cetak Surat Pesanan</button>
                         </div>
                     </div>
                     <table>
@@ -355,10 +436,10 @@
         toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
     }
 
-    window.pesanSuratPesanan = async function(pbfId) {
-        const group = spGroups.find(g => g.pbfId === pbfId);
+    window.pesanSuratPesanan = async function(groupIndex) {
+        const group = spGroups[groupIndex];
         if (!group) return;
-        if (!confirm(`Catat pemesanan ke "${group.pbfNama}" sebanyak ${group.items.length} item? Ini akan tersimpan di Riwayat Pemesanan.`)) return;
+        if (!confirm(`Catat pemesanan ke "${group.pbfNama}" (${KATEGORI_SP_INFO[group.kategoriSp]?.label || group.kategoriSp}) sebanyak ${group.items.length} item? Ini akan tersimpan di Riwayat Pemesanan.`)) return;
 
         const now = new Date();
         const noSp = 'SP-' + now.toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now()).slice(-4);
@@ -388,60 +469,131 @@
     };
     let currentUserDisplayNameSp = 'admin';
 
-    window.printSp = function(pbfId) {
-        const group = spGroups.find(g => g.pbfId === pbfId);
+    window.printSp = function(groupIndex) {
+        const group = spGroups[groupIndex];
         if (!group) return;
+        const pbfId = group.pbfId;
         const pbfFull = pbfs.find(p => p.id === pbfId);
         const today = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-        const nomorSp = `SPO/REG-${today.replace(/\s/g, '').slice(0, 6)}${pbfId.replace(/[^0-9]/g, '').slice(0, 4) || '0001'}/${new Date().getFullYear()}`;
 
-        const html = `
-            <div class="sp-doc">
-                <div class="sp-kop">
-                    <h1>${profile.nama_apotek || '(Nama Apotek belum diatur)'}</h1>
-                    ${profile.alamat ? `<p>${profile.alamat}</p>` : ''}
-                    ${(profile.telepon || profile.email) ? `<p>${profile.telepon ? 'Telp. ' + profile.telepon : ''}${profile.telepon && profile.email ? '  •  ' : ''}${profile.email ? 'Email: ' + profile.email : ''}</p>` : ''}
+        // Kop surat - pakai logo yang sudah diupload di Identitas Apotek
+        // kalau ada, kalau belum ada baru pakai versi teks (nama+alamat).
+        const kopHtml = profile.logo_url
+            ? `<div class="sp-kop"><img src="${profile.logo_url}" class="sp-kop-logo" alt="Kop Surat"></div>`
+            : `<div class="sp-kop">
+                <h1>${profile.nama_apotek || '(Nama Apotek belum diatur)'}</h1>
+                ${profile.alamat ? `<p>${profile.alamat}</p>` : ''}
+                ${(profile.telepon || profile.email) ? `<p>${profile.telepon ? 'Telp. ' + profile.telepon : ''}${profile.telepon && profile.email ? '  •  ' : ''}${profile.email ? 'Email: ' + profile.email : ''}</p>` : ''}
+               </div>`;
+
+        const ttdHtml = `
+            <div class="sp-sign">
+                <div class="box">
+                    <p>Hormat Kami</p>
+                    <p>Apoteker Penanggung Jawab</p>
+                    <div class="space"></div>
+                    <p style="font-weight:700;text-decoration:underline;">(${apotekerPJ?.nama || 'apt. ______________, S.Farm'})</p>
+                    <p>SIA: ${profile.sia || '-'}</p>
+                    <p>SIPA: ${apotekerPJ?.no_sipa || '-'}</p>
                 </div>
-                <div class="sp-title">
-                    <h2>Surat Pesanan</h2>
-                    <p>Nomor: ${nomorSp}</p>
-                </div>
-                <div class="sp-info">
-                    <div>
+            </div>`;
+
+        let html;
+
+        if (group.kategoriSp === 'Biasa') {
+            // Format sederhana - obat bebas/bebas terbatas/keras, sesuai
+            // template asli (tanpa blok "Kepada Yth", langsung ke tabel).
+            const pbfIdDigits = pbfId.replace(/[^0-9]/g, '').slice(0, 4) || '0001';
+            const nomorSp = `SPO/REG-${today.replace(/\s/g, '').slice(0, 6)}${pbfIdDigits}/${new Date().getFullYear()}`;
+            html = `
+                <div class="sp-doc">
+                    ${kopHtml}
+                    <div class="sp-title">
+                        <h2>Surat Pesanan</h2>
+                        <p>Nomor: ${nomorSp}</p>
+                    </div>
+                    <div class="sp-ttd-block">
                         <p><strong>Apotek</strong> : ${profile.nama_apotek || '-'}</p>
                         <p><strong>Alamat</strong> : ${profile.alamat || '-'}</p>
                     </div>
-                    <div>
-                        <p style="font-weight:700;margin-bottom:2px;">Kepada Yth.,</p>
-                        <p><strong>PBF</strong> : ${group.pbfNama}</p>
-                        <p><strong>Di</strong> : ${pbfFull ? [pbfFull.alamat, pbfFull.kota].filter(Boolean).join(', ') || '-' : '-'}</p>
-                    </div>
+                    <table class="sp-table">
+                        <thead><tr><th style="width:36px;">NO</th><th>NAMA OBAT YANG DIPESAN</th><th style="width:60px;">JUMLAH</th><th style="width:70px;">SATUAN</th></tr></thead>
+                        <tbody>
+                            ${group.items.map((it, i) => `
+                                <tr>
+                                    <td class="center">${i + 1}</td>
+                                    <td>${it.produk_nama}</td>
+                                    <td class="center">${it.qty}</td>
+                                    <td class="center">${it.satuan || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ${ttdHtml}
                 </div>
-                <table class="sp-table">
-                    <thead><tr><th style="width:36px;">NO</th><th>NAMA OBAT YANG DIPESAN</th><th style="width:60px;">JUMLAH</th><th style="width:70px;">SATUAN</th></tr></thead>
-                    <tbody>
-                        ${group.items.map((it, i) => `
+            `;
+        } else {
+            // Format lengkap - Narkotika/Psikotropika/Prekursor/OOT, sesuai
+            // template resmi yang dikirim (identik strukturnya, cuma beda
+            // istilah per kategori lewat KATEGORI_SP_TEMPLATE).
+            const tpl = KATEGORI_SP_TEMPLATE[group.kategoriSp];
+            const nomorSp = `${tpl.nomorPrefix}/ /${new Date().getFullYear()}`;
+            html = `
+                <div class="sp-doc">
+                    ${kopHtml}
+                    <div class="sp-title">
+                        <h2>${tpl.judul}</h2>
+                        <p>Nomor: ${nomorSp}</p>
+                    </div>
+                    <div class="sp-ttd-block">
+                        <p>Yang bertanda tangan di bawah ini:</p>
+                        <p><strong>Nama</strong> : ${apotekerPJ?.nama || 'apt. ______________, S.Farm'}</p>
+                        <p><strong>Jabatan</strong> : Apoteker Pengelola Apotek ${profile.nama_apotek || '-'}</p>
+                        <p><strong>Nomor SIPA</strong> : ${apotekerPJ?.no_sipa || '-'}</p>
+                    </div>
+                    <div class="sp-ttd-block">
+                        <p>Mengajukan pesanan obat mengandung ${tpl.frasa} kepada:</p>
+                        <p><strong>Nama Industri Farmasi / PBF</strong> : ${group.pbfNama || '-'}</p>
+                        <p><strong>Alamat</strong> : ${pbfFull ? [pbfFull.alamat, pbfFull.kota].filter(Boolean).join(', ') || '-' : '-'}</p>
+                        <p><strong>Telp</strong> : ${pbfFull?.telepon || '-'}</p>
+                    </div>
+                    <table class="sp-table">
+                        <thead>
                             <tr>
-                                <td class="center">${i + 1}</td>
-                                <td>${it.produk_nama}</td>
-                                <td class="center">${it.qty}</td>
-                                <td class="center">${it.satuan || '-'}</td>
+                                <th style="width:30px;">No</th>
+                                <th>${tpl.namaObatLabel}</th>
+                                <th style="width:90px;">${tpl.zatLabel}</th>
+                                <th style="width:90px;">Bentuk dan Kekuatan Sediaan</th>
+                                <th style="width:55px;">Satuan</th>
+                                <th style="width:55px;">Jumlah</th>
+                                <th style="width:60px;">Ket</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-                <div class="sp-sign">
-                    <div class="box">
-                        <p>Hormat Kami</p>
-                        <p>Apoteker Penanggung Jawab</p>
-                        <div class="space"></div>
-                        <p style="font-weight:700;">(${profile.apoteker_pj || 'apt. ______________, S.Farm'})</p>
-                        ${profile.sia ? `<p>SIA: ${profile.sia}</p>` : ''}
-                        ${profile.sipa ? `<p>SIPA: ${profile.sipa}</p>` : ''}
+                        </thead>
+                        <tbody>
+                            ${group.items.map((it, i) => `
+                                <tr>
+                                    <td class="center">${i + 1}</td>
+                                    <td>${it.produk_nama}</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="center">${it.satuan || '-'}</td>
+                                    <td class="center">${it.qty}</td>
+                                    <td></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div class="sp-kebutuhan">
+                        <p>Obat mengandung ${tpl.frasa} tersebut akan digunakan untuk memenuhi kebutuhan:</p>
+                        <p><strong>Nama Apotek</strong> : ${profile.nama_apotek || '-'}</p>
+                        <p><strong>Alamat Lengkap</strong> : ${profile.alamat || '-'}</p>
+                        <p><strong>HP</strong> : ${profile.telepon || '-'}</p>
                     </div>
+                    ${ttdHtml}
                 </div>
-            </div>
-        `;
+            `;
+        }
+
         document.getElementById('printArea').innerHTML = html;
         setTimeout(() => window.print(), 150);
     };

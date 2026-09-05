@@ -1123,3 +1123,55 @@ ALTER TABLE tenant_registrations ADD COLUMN IF NOT EXISTS waktu_demo TEXT;
 -- ============================================================
 -- SELESAI (Jadwal Demo)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 27) SIK -> SIPA (istilah yang benar utk izin praktik apoteker)
+-- ------------------------------------------------------------
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apoteker' AND column_name = 'no_sik')
+       AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'apoteker' AND column_name = 'no_sipa') THEN
+        ALTER TABLE apoteker RENAME COLUMN no_sik TO no_sipa;
+    END IF;
+END $$;
+
+-- ============================================================
+-- SELESAI (SIK -> SIPA)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 28) Tambah Golongan "Obat-Obat Tertentu (OOT)" - dibutuhkan utk
+--     pemisahan Surat Pesanan per golongan.
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+    t RECORD;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        INSERT INTO kategori_obat (tipe, nama, tenant_id) VALUES
+            ('golongan', 'Obat-Obat Tertentu (OOT)', t.id)
+        ON CONFLICT (tenant_id, tipe, nama) DO NOTHING;
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (Golongan OOT)
+-- ============================================================
+
+-- ------------------------------------------------------------
+-- 29) Tambah Golongan "Psikotropika" - kategori ke-5 Surat Pesanan
+-- ------------------------------------------------------------
+DO $$
+DECLARE
+    t RECORD;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        INSERT INTO kategori_obat (tipe, nama, tenant_id) VALUES
+            ('golongan', 'Psikotropika', t.id)
+        ON CONFLICT (tenant_id, tipe, nama) DO NOTHING;
+    END LOOP;
+END $$;
+
+-- ============================================================
+-- SELESAI (Golongan Psikotropika)
+-- ============================================================
