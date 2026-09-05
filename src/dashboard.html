@@ -374,7 +374,7 @@
         try {
             const { data: obatData } = await getObat();
             document.getElementById('totalObat').textContent = obatData ? obatData.length : 0;
-            if (obatData) { const menipis = obatData.filter(o => (o.stok || 0) < 10).length; document.getElementById('stokMenipis').textContent = menipis; }
+            if (obatData) { const menipis = obatData.filter(o => (o.stok || 0) > 0 && (o.stok || 0) <= (Number(o.stok_minimal) || 0)).length; document.getElementById('stokMenipis').textContent = menipis; }
             const { data: supplierData } = await getSupplier();
             document.getElementById('totalSupplier').textContent = supplierData ? supplierData.length : 0;
             const today = getToday();

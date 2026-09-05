@@ -321,9 +321,10 @@
         }
         container.innerHTML = data.map(o => {
             const stok = Number(o.stok) || 0;
+            const stokMinimal = Number(o.stok_minimal) || 0;
             let stokClass = '';
             if (stok <= 0) stokClass = 'rendah';
-            else if (stok <= 10) stokClass = 'sedang';
+            else if (stok <= stokMinimal) stokClass = 'sedang';
             return `<div class="obat-item" onclick="pilihObat('${o.id}')" data-id="${o.id}"><div><span class="kode">${o.kode_obat || '-'}</span> <span class="nama">${o.nama_obat || '-'}</span></div><span class="stok ${stokClass}">Stok: ${stok}</span></div>`;
         }).join('');
     }
@@ -365,8 +366,9 @@
                 // Normalisasi di sini supaya render/total/status di bawah konsisten.
                 kartuData = data.map((d, idx) => {
                     const sisa = Number(d.sisa_stok) || 0;
+                    const stokMinimal = Number(selectedObat.stok_minimal) || 0;
                     let status = 'Aman';
-                    if (sisa === 0) status = 'Habis'; else if (sisa < 10) status = 'Menipis';
+                    if (sisa === 0) status = 'Habis'; else if (sisa <= stokMinimal) status = 'Menipis';
                     return { ...d, no: idx + 1, sisa: sisa, status: status };
                 });
             } else {
@@ -436,7 +438,8 @@
         let result = []; let stokBerjalan = stokAwal;
         mutasi.forEach((m, idx) => {
             stokBerjalan = stokBerjalan + m.masuk - m.keluar; if (stokBerjalan < 0) stokBerjalan = 0;
-            let status = 'Aman'; if (stokBerjalan === 0) status = 'Habis'; else if (stokBerjalan < 10) status = 'Menipis';
+            const stokMinimalObat = Number(obat.stok_minimal) || 0;
+            let status = 'Aman'; if (stokBerjalan === 0) status = 'Habis'; else if (stokBerjalan <= stokMinimalObat) status = 'Menipis';
             result.push({ ...m, no: idx + 1, sisa: stokBerjalan, status: status });
         });
         return result;
@@ -454,8 +457,9 @@
         let stokAwal = (Number(first.sisa) || 0) - (Number(first.masuk) || 0) + (Number(first.keluar) || 0);
         if (stokAwal < 0) stokAwal = 0;
         let statusAwalClass = 'badge-success', statusAwalText = 'Aman';
+        const stokMinimalObat = Number(selectedObat?.stok_minimal) || 0;
         if (stokAwal === 0) { statusAwalClass = 'badge-danger'; statusAwalText = 'Habis'; }
-        else if (stokAwal < 10) { statusAwalClass = 'badge-warning'; statusAwalText = 'Menipis'; }
+        else if (stokAwal <= stokMinimalObat) { statusAwalClass = 'badge-warning'; statusAwalText = 'Menipis'; }
         
         let rowsHtml = `<tr style="background:#f7f9fc;">
             <td>-</td>
@@ -475,7 +479,7 @@
         rowsHtml += data.map((d, i) => {
             totalMasuk += d.masuk || 0; totalKeluar += d.keluar || 0; sisaAkhir = d.sisa || 0;
             let statusClass = 'badge-success', statusText = d.status || 'Aman';
-            if (d.sisa === 0) { statusClass = 'badge-danger'; statusText = 'Habis'; } else if (d.sisa < 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
+            if (d.sisa === 0) { statusClass = 'badge-danger'; statusText = 'Habis'; } else if (d.sisa <= stokMinimalObat) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
             return `<tr><td>${d.no || i + 1}</td><td>${formatTanggal(d.tanggal)}</td><td>${d.jam || '00:00'}</td><td><strong>${d.no_bukti || '-'}</strong></td><td>${d.keterangan || '-'}</td><td style="text-align:right;color:#28a745;">${d.masuk > 0 ? d.masuk : '-'}</td><td style="text-align:right;color:#dc3545;">${d.keluar > 0 ? d.keluar : '-'}</td><td style="text-align:right;font-weight:700;">${d.sisa}</td><td><span class="badge ${statusClass}">${statusText}</span></td><td>${formatTanggalED(d.tanggal_exp)}</td><td>${d.no_batch || '-'}</td></tr>`;
         }).join('');
         

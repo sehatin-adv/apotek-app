@@ -219,9 +219,9 @@
                 <input type="text" id="searchStokTerkini" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterStokTerkini()">
                 <select id="filterStokTerkini" onchange="filterStokTerkini()">
                     <option value="">Semua</option>
-                    <option value="menipis">Stok Menipis (≤10)</option>
+                    <option value="menipis">Stok Menipis (≤ Stok Minimal)</option>
                     <option value="habis">Stok Habis (0)</option>
-                    <option value="aman">Stok Aman (>10)</option>
+                    <option value="aman">Stok Aman (> Stok Minimal)</option>
                 </select>
             </div>
             <div class="table-wrap">
@@ -301,9 +301,10 @@
         }
         tbody.innerHTML = data.map((o, i) => {
             const stok = Number(o.stok) || 0;
+            const stokMinimal = Number(o.stok_minimal) || 0;
             let statusClass, statusText;
             if (stok <= 0) { statusClass = 'badge-danger'; statusText = 'Habis'; }
-            else if (stok <= 10) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
+            else if (stok <= stokMinimal) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
             else { statusClass = 'badge-success'; statusText = 'Aman'; }
             return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${stok}</strong></td><td>${formatRupiahStok(o.harga_beli)}</td><td>${formatRupiahStok(o.harga_jual)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
         }).join('');
@@ -313,9 +314,10 @@
         let totalObat = data.length, totalStok = 0, stokMenipis = 0, stokHabis = 0;
         data.forEach(o => {
             const stok = Number(o.stok) || 0;
+            const stokMinimal = Number(o.stok_minimal) || 0;
             totalStok += stok;
             if (stok <= 0) stokHabis++;
-            else if (stok <= 10) stokMenipis++;
+            else if (stok <= stokMinimal) stokMenipis++;
         });
         document.getElementById('totalObat').textContent = totalObat;
         document.getElementById('totalStok').textContent = totalStok;
@@ -330,9 +332,9 @@
         if (keyword) {
             filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
         }
-        if (filter === 'menipis') filtered = filtered.filter(o => Number(o.stok) > 0 && Number(o.stok) <= 10);
+        if (filter === 'menipis') filtered = filtered.filter(o => Number(o.stok) > 0 && Number(o.stok) <= (Number(o.stok_minimal) || 0));
         else if (filter === 'habis') filtered = filtered.filter(o => Number(o.stok) <= 0);
-        else if (filter === 'aman') filtered = filtered.filter(o => Number(o.stok) > 10);
+        else if (filter === 'aman') filtered = filtered.filter(o => Number(o.stok) > (Number(o.stok_minimal) || 0));
         renderStokTerkini(filtered);
     };
 
@@ -346,7 +348,8 @@
         let csv = 'No,Kode Obat,Nama Obat,Satuan,Stok,Harga Beli,Harga Jual,Status\n';
         currentDisplayedData.forEach((o, i) => {
             const stok = Number(o.stok) || 0;
-            const status = stok <= 0 ? 'Habis' : (stok <= 10 ? 'Menipis' : 'Aman');
+            const stokMinimal = Number(o.stok_minimal) || 0;
+            const status = stok <= 0 ? 'Habis' : (stok <= stokMinimal ? 'Menipis' : 'Aman');
             const nama = String(o.nama_obat || '-').replace(/"/g, '""');
             csv += `${i + 1},${o.kode_obat || '-'},"${nama}",${o.satuan || '-'},${stok},${o.harga_beli || 0},${o.harga_jual || 0},${status}\n`;
         });
