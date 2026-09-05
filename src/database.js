@@ -2298,6 +2298,32 @@ export async function getObatMendekatiExpired() {
     }
 }
 
+// Versi lebih fleksibel utk halaman "Stok Obat Dekat ED" - defaultnya 6
+// bulan (bukan 3 bulan seperti notifikasi Dashboard), dan kembalikan
+// semua kolom obat (bukan cuma yang minimal) supaya bisa ditampilkan
+// lengkap di tabel laporan.
+export async function getObatDekatED(bulanAmbang = 6) {
+    try {
+        const today = new Date();
+        const batasAtas = new Date(today);
+        batasAtas.setMonth(batasAtas.getMonth() + bulanAmbang);
+
+        const { data, error } = await supabase
+            .from('obat')
+            .select('*')
+            .not('tanggal_exp', 'is', null)
+            .gte('tanggal_exp', today.toISOString().split('T')[0])
+            .lte('tanggal_exp', batasAtas.toISOString().split('T')[0])
+            .gt('stok', 0)
+            .order('tanggal_exp', { ascending: true });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getObatDekatED:', e);
+        return { data: [], error: e };
+    }
+}
+
 // ============================================================
 // CEK NO. FAKTUR DUPLIKAT (Pembelian & Penjualan)
 // RLS otomatis membatasi pencarian ini cuma ke tenant sendiri.

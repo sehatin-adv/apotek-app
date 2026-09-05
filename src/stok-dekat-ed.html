@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="/logo-icon.png">
-    <title>Stok Terkini - Sehatin+</title>
+    <title>Stok Obat Dekat ED - Sehatin+</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script type="importmap">
@@ -127,9 +127,9 @@
             </div>
             <div class="sub-menu open">
                 <div class="menu-item" data-module="stok_opname" onclick="navigate('stok-opname.html')"><i class="fas fa-clipboard-list"></i> Stok Opname</div>
-                <div class="menu-item active" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
+                <div class="menu-item" data-module="stok_terkini" onclick="navigate('stok-terkini.html')"><i class="fas fa-eye"></i> Lihat Stok Terkini</div>
                 <div class="menu-item" data-module="kartu_stok" onclick="navigate('kartu-stok.html')"><i class="fas fa-credit-card"></i> Kartu Stok</div>
-                <div class="menu-item" data-module="stok_dekat_ed" onclick="navigate('stok-dekat-ed.html')"><i class="fas fa-hourglass-half"></i> Stok Dekat ED</div>
+                <div class="menu-item active" data-module="stok_dekat_ed" onclick="navigate('stok-dekat-ed.html')"><i class="fas fa-hourglass-half"></i> Stok Dekat ED</div>
             </div>
         </div>
         <div class="menu-group">
@@ -200,24 +200,24 @@
 
     <div class="main-content">
         <div class="header">
-            <h2><i class="fas fa-eye"></i> Stok Terkini</h2>
+            <h2><i class="fas fa-hourglass-half"></i> Stok Obat Dekat ED</h2>
             <div class="user-badge"><i class="fas fa-user-circle"></i> admin</div>
         </div>
 
         <div class="grid-4">
-            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Obat</div><div class="value" id="totalObat">0</div><div class="sub">Item terdaftar</div></div>
-            <div class="stat-card" style="border-left-color:#28a745;"><div class="label">Total Stok</div><div class="value" id="totalStok">0</div><div class="sub">Unit</div></div>
-            <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Stok Menipis</div><div class="value" id="stokMenipis">0</div><div class="sub">≤ 10 unit</div></div>
-            <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Stok Habis</div><div class="value" id="stokHabis">0</div><div class="sub">0 unit</div></div>
+            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Item</div><div class="value" id="totalObat">0</div><div class="sub">Mendekati ED (6 bulan)</div></div>
+            <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Segera (&le; 1 Bulan)</div><div class="value" id="stokUrgent">0</div><div class="sub">Perlu tindakan cepat</div></div>
+            <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Waspada (1-3 Bulan)</div><div class="value" id="stokWaspada">0</div><div class="sub">Pantau terus</div></div>
+            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Estimasi Nilai Stok</div><div class="value" id="totalNilai" style="font-size:16px;">Rp 0</div><div class="sub">Harga beli x stok</div></div>
         </div>
 
         <div class="card">
             <div class="flex-between">
-                <div class="card-title"><i class="fas fa-list"></i> Daftar Stok Obat</div>
+                <div class="card-title"><i class="fas fa-list"></i> Daftar Obat Mendekati Kadaluarsa</div>
                 <div>
-                    <button class="btn btn-outline btn-sm" onclick="loadStokTerkini()"><i class="fas fa-sync"></i> Refresh</button>
-                    <button class="btn btn-outline btn-sm" onclick="downloadStokTerkini()"><i class="fas fa-download"></i> Download CSV</button>
-                    <button class="btn btn-outline btn-sm" onclick="downloadStokTerkiniPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
+                    <button class="btn btn-outline btn-sm" onclick="loadStokDekatED()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn btn-outline btn-sm" onclick="downloadStokDekatED()"><i class="fas fa-download"></i> Download CSV</button>
+                    <button class="btn btn-outline btn-sm" onclick="downloadStokDekatEDPDF()"><i class="fas fa-file-pdf"></i> Download PDF</button>
                     <span id="totalData" style="font-size:12px;color:#7a8a9e;margin-left:8px;"></span>
                 </div>
             </div>
@@ -225,15 +225,17 @@
                 <input type="text" id="searchStokTerkini" placeholder="🔍 Cari kode atau nama obat..." onkeyup="filterStokTerkini()">
                 <select id="filterStokTerkini" onchange="filterStokTerkini()">
                     <option value="">Semua</option>
-                    <option value="menipis">Stok Menipis (≤ Stok Minimal)</option>
-                    <option value="habis">Stok Habis (0)</option>
-                    <option value="aman">Stok Aman (> Stok Minimal)</option>
+                    <option value="urgent">Segera (&le; 1 bulan)</option>
+                    <option value="waspada">Waspada (1-3 bulan)</option>
+                    <option value="aman">Masih Longgar (3-6 bulan)</option>
                 </select>
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode Obat</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:60px;">Stok</th><th style="width:80px;">Harga Beli</th><th style="width:80px;">Harga Jual</th><th style="width:70px;">Status Stok</th></tr></thead>
-                    <tbody id="stokTerkiniTableBody"><tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode Obat</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:60px;">Stok</th><th style="width:90px;">Tgl ED</th><th style="width:80px;">Sisa Hari</th><th style="width:80px;">Harga Beli</th><th style="width:70px;">Status</th></tr></thead>
+                    <tbody id="stokTerkiniTableBody">
+                        <tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -243,14 +245,11 @@
 <div class="toast" id="toastStokTerkini"></div>
 
 <script type="module">
-    import { getObat } from './database.js';
+    import { getObatDekatED } from './database.js';
     import { applyBranding } from './branding.js';
-    applyBranding('Stok Terkini');
+    applyBranding('Stok Obat Dekat ED');
     import { enforcePermissions } from './permissions.js';
-    enforcePermissions('stok_terkini');
-    
-    let stokTerkiniData = [];
-    let currentDisplayedData = [];
+    enforcePermissions('stok_dekat_ed');
 
     window.navigate = function(page) { window.location.href = page; };
     window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
@@ -259,159 +258,152 @@
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
         const chevron = el.querySelector('.chevron');
-        if (subMenu) {
-            subMenu.classList.toggle('open');
-            if (chevron) chevron.classList.toggle('open');
-        }
+        if (subMenu) { subMenu.classList.toggle('open'); if (chevron) chevron.classList.toggle('open'); }
     };
     window.toggleSidebar = function() {
         document.querySelector('.sidebar').classList.toggle('mobile-open');
         document.getElementById('sidebarOverlay').classList.toggle('active');
     };
 
-    async function loadStokTerkini() {
-        const tbody = document.getElementById('stokTerkiniTableBody');
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr>';
-
-        try {
-            const { data, error } = await getObat();
-            if (data && data.length > 0) {
-                stokTerkiniData = data;
-            } else {
-                const local = localStorage.getItem('obat');
-                if (local) stokTerkiniData = JSON.parse(local);
-            }
-            stokTerkiniData.sort((a, b) => (a.nama_obat || '').localeCompare(b.nama_obat || ''));
-            renderStokTerkini(stokTerkiniData);
-            updateStats(stokTerkiniData);
-            document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
-        } catch(e) {
-            const local = localStorage.getItem('obat');
-            if (local) {
-                stokTerkiniData = JSON.parse(local);
-                renderStokTerkini(stokTerkiniData);
-                updateStats(stokTerkiniData);
-                document.getElementById('totalData').textContent = `Total: ${stokTerkiniData.length} obat`;
-            } else {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
-            }
-        }
-    }
-
-    function renderStokTerkini(data) {
-        currentDisplayedData = data || [];
-        const tbody = document.getElementById('stokTerkiniTableBody');
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#7a8a9e;padding:30px;">📭 Belum ada data obat</td></tr>';
-            return;
-        }
-        tbody.innerHTML = data.map((o, i) => {
-            const stok = Number(o.stok) || 0;
-            const stokMinimal = Number(o.stok_minimal) || 0;
-            let statusClass, statusText;
-            if (stok <= 0) { statusClass = 'badge-danger'; statusText = 'Habis'; }
-            else if (stok <= stokMinimal) { statusClass = 'badge-warning'; statusText = 'Menipis'; }
-            else { statusClass = 'badge-success'; statusText = 'Aman'; }
-            return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${stok}</strong></td><td>${formatRupiahStok(o.harga_beli)}</td><td>${formatRupiahStok(o.harga_jual)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
-        }).join('');
-    }
-
-    function updateStats(data) {
-        let totalObat = data.length, totalStok = 0, stokMenipis = 0, stokHabis = 0;
-        data.forEach(o => {
-            const stok = Number(o.stok) || 0;
-            const stokMinimal = Number(o.stok_minimal) || 0;
-            totalStok += stok;
-            if (stok <= 0) stokHabis++;
-            else if (stok <= stokMinimal) stokMenipis++;
-        });
-        document.getElementById('totalObat').textContent = totalObat;
-        document.getElementById('totalStok').textContent = totalStok;
-        document.getElementById('stokMenipis').textContent = stokMenipis;
-        document.getElementById('stokHabis').textContent = stokHabis;
-    }
-
-    window.filterStokTerkini = function() {
-        const keyword = document.getElementById('searchStokTerkini').value.toLowerCase();
-        const filter = document.getElementById('filterStokTerkini').value;
-        let filtered = stokTerkiniData;
-        if (keyword) {
-            filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
-        }
-        if (filter === 'menipis') filtered = filtered.filter(o => Number(o.stok) > 0 && Number(o.stok) <= (Number(o.stok_minimal) || 0));
-        else if (filter === 'habis') filtered = filtered.filter(o => Number(o.stok) <= 0);
-        else if (filter === 'aman') filtered = filtered.filter(o => Number(o.stok) > (Number(o.stok_minimal) || 0));
-        renderStokTerkini(filtered);
-    };
+    let stokDekatEDData = [];
+    let currentDisplayedData = [];
 
     function formatRupiahStok(value) { return 'Rp ' + Number(value || 0).toLocaleString('id-ID'); }
-
-    window.downloadStokTerkini = function() {
-        if (!currentDisplayedData || currentDisplayedData.length === 0) {
-            showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true);
-            return;
-        }
-        let csv = 'No,Kode Obat,Nama Obat,Satuan,Stok,Harga Beli,Harga Jual,Status\n';
-        currentDisplayedData.forEach((o, i) => {
-            const stok = Number(o.stok) || 0;
-            const stokMinimal = Number(o.stok_minimal) || 0;
-            const status = stok <= 0 ? 'Habis' : (stok <= stokMinimal ? 'Menipis' : 'Aman');
-            const nama = String(o.nama_obat || '-').replace(/"/g, '""');
-            csv += `${i + 1},${o.kode_obat || '-'},"${nama}",${o.satuan || '-'},${stok},${o.harga_beli || 0},${o.harga_jual || 0},${status}\n`;
-        });
-        const tanggal = new Date().toISOString().split('T')[0];
-        // BOM \uFEFF supaya Excel baca karakter Indonesia (é, dsb) dengan benar
-        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Stok_Terkini_${tanggal}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToastStokTerkini('📥 Download berhasil');
-    };
-
-    window.downloadStokTerkiniPDF = function() {
-        if (!currentDisplayedData || currentDisplayedData.length === 0) {
-            showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true);
-            return;
-        }
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'landscape' });
-        doc.setFontSize(14);
-        doc.text(`Laporan Stok Terkini - ${window.__apotekName || 'Apotek'}`, 14, 15);
-        doc.setFontSize(9);
-        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 21);
-
-        const rows = currentDisplayedData.map((o, i) => {
-            const stok = Number(o.stok) || 0;
-            const stokMinimal = Number(o.stok_minimal) || 0;
-            const status = stok <= 0 ? 'Habis' : (stok <= stokMinimal ? 'Menipis' : 'Aman');
-            return [i + 1, o.kode_obat || '-', o.nama_obat || '-', o.satuan || '-', stok, formatRupiahStok(o.harga_beli), formatRupiahStok(o.harga_jual), status];
-        });
-
-        doc.autoTable({
-            startY: 26,
-            head: [['No', 'Kode', 'Nama Obat', 'Satuan', 'Stok', 'Harga Beli', 'Harga Jual', 'Status']],
-            body: rows,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [45, 106, 159] }
-        });
-
-        doc.save(`Stok_Terkini_${new Date().toISOString().split('T')[0]}.pdf`);
-        showToastStokTerkini('📥 PDF berhasil diunduh');
-    };
-
+    function formatTanggal(tgl) {
+        if (!tgl) return '-';
+        const parts = String(tgl).split('-');
+        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : tgl;
+    }
+    function sisaHari(tglExp) {
+        if (!tglExp) return null;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const exp = new Date(tglExp); exp.setHours(0,0,0,0);
+        return Math.round((exp - today) / (1000 * 60 * 60 * 24));
+    }
+    function kategoriUrgensi(hari) {
+        if (hari <= 30) return 'urgent';
+        if (hari <= 90) return 'waspada';
+        return 'aman';
+    }
     function showToastStokTerkini(message, isError = false) {
         const toast = document.getElementById('toastStokTerkini');
         toast.textContent = message;
         toast.className = 'toast' + (isError ? ' error' : '');
         toast.style.display = 'block';
         clearTimeout(toast._timer);
-        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        toast._timer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
     }
 
-    document.addEventListener('DOMContentLoaded', loadStokTerkini);
+    window.loadStokDekatED = async function() {
+        const tbody = document.getElementById('stokTerkiniTableBody');
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr>';
+        try {
+            const { data, error } = await getObatDekatED(6);
+            if (error) throw error;
+            stokDekatEDData = data || [];
+            filterStokTerkini();
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc3545;">Gagal memuat data: ' + e.message + '</td></tr>';
+        }
+    };
+
+    function renderStokDekatED(data) {
+        currentDisplayedData = data || [];
+        const tbody = document.getElementById('stokTerkiniTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">✅ Tidak ada obat yang mendekati kadaluarsa dalam 6 bulan ke depan</td></tr>';
+        } else {
+            tbody.innerHTML = data.map((o, i) => {
+                const hari = sisaHari(o.tanggal_exp);
+                const kategori = kategoriUrgensi(hari);
+                let statusClass, statusText;
+                if (kategori === 'urgent') { statusClass = 'badge-danger'; statusText = 'Segera'; }
+                else if (kategori === 'waspada') { statusClass = 'badge-warning'; statusText = 'Waspada'; }
+                else { statusClass = 'badge-success'; statusText = 'Longgar'; }
+                return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${o.stok}</strong></td><td>${formatTanggal(o.tanggal_exp)}</td><td style="text-align:right;">${hari} hari</td><td>${formatRupiahStok(o.harga_beli)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
+            }).join('');
+        }
+        updateStatsDekatED(data);
+        document.getElementById('totalData').textContent = data.length + ' item';
+    }
+
+    function updateStatsDekatED(data) {
+        let totalNilai = 0, urgent = 0, waspada = 0;
+        data.forEach(o => {
+            const hari = sisaHari(o.tanggal_exp);
+            const kategori = kategoriUrgensi(hari);
+            if (kategori === 'urgent') urgent++;
+            else if (kategori === 'waspada') waspada++;
+            totalNilai += (Number(o.harga_beli) || 0) * (Number(o.stok) || 0);
+        });
+        document.getElementById('totalObat').textContent = data.length;
+        document.getElementById('stokUrgent').textContent = urgent;
+        document.getElementById('stokWaspada').textContent = waspada;
+        document.getElementById('totalNilai').textContent = formatRupiahStok(totalNilai);
+    }
+
+    window.filterStokTerkini = function() {
+        const keyword = (document.getElementById('searchStokTerkini').value || '').toLowerCase();
+        const filter = document.getElementById('filterStokTerkini').value;
+        let filtered = stokDekatEDData;
+        if (keyword) {
+            filtered = filtered.filter(o => (o.kode_obat||'').toLowerCase().includes(keyword) || (o.nama_obat||'').toLowerCase().includes(keyword));
+        }
+        if (filter) {
+            filtered = filtered.filter(o => kategoriUrgensi(sisaHari(o.tanggal_exp)) === filter);
+        }
+        renderStokDekatED(filtered);
+    };
+
+    window.downloadStokDekatED = function() {
+        if (!currentDisplayedData || currentDisplayedData.length === 0) { showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true); return; }
+        let csv = 'No,Kode Obat,Nama Obat,Satuan,Stok,Tanggal ED,Sisa Hari,Harga Beli,Status\n';
+        currentDisplayedData.forEach((o, i) => {
+            const hari = sisaHari(o.tanggal_exp);
+            const kategori = kategoriUrgensi(hari);
+            const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
+            const nama = String(o.nama_obat || '-').replace(/"/g, '""');
+            csv += `${i+1},${o.kode_obat||'-'},"${nama}",${o.satuan||'-'},${o.stok},${o.tanggal_exp},${hari},${o.harga_beli||0},${status}\n`;
+        });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Stok_Dekat_ED_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToastStokTerkini('📥 Download berhasil');
+    };
+
+    window.downloadStokDekatEDPDF = function() {
+        if (!currentDisplayedData || currentDisplayedData.length === 0) { showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true); return; }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.setFontSize(14);
+        doc.text(`Stok Obat Dekat ED - ${window.__apotekName || 'Apotek'}`, 14, 15);
+        doc.setFontSize(9);
+        doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')} | Ambang: 6 bulan sebelum ED`, 14, 21);
+
+        const rows = currentDisplayedData.map((o, i) => {
+            const hari = sisaHari(o.tanggal_exp);
+            const kategori = kategoriUrgensi(hari);
+            const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
+            return [i+1, o.kode_obat||'-', o.nama_obat||'-', o.satuan||'-', o.stok, formatTanggal(o.tanggal_exp), hari, formatRupiahStok(o.harga_beli), status];
+        });
+
+        doc.autoTable({
+            startY: 26,
+            head: [['No', 'Kode', 'Nama Obat', 'Satuan', 'Stok', 'Tgl ED', 'Sisa Hari', 'Harga Beli', 'Status']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [45, 106, 159] }
+        });
+
+        doc.save(`Stok_Dekat_ED_${new Date().toISOString().split('T')[0]}.pdf`);
+        showToastStokTerkini('📥 PDF berhasil diunduh');
+    };
+
+    document.addEventListener('DOMContentLoaded', loadStokDekatED);
 </script>
 </body>
 </html>
