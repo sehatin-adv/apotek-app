@@ -319,6 +319,9 @@ export async function savePenjualan(header, details, options = {}) {
                             .from('obat')
                             .update({ stok: stokBaru })
                             .eq('id', obatData.id);
+                        // Kurangi dari batch ber-ED paling dekat duluan
+                        // (Pelacakan Batch ED / FEFO perkiraan).
+                        await kurangiBatchFEFO(obatData.id, item.jumlah || 0);
                     }
                     // Kalau item ini bagian dari Resep, keterangan Kartu
                     // Stok tampilkan No. Resep & Nama Pasien-nya - supaya
@@ -928,7 +931,12 @@ export async function saveStokOpname(opnameData) {
                         .update(updatePayload)
                         .eq('id', obatData.id);
 
-                    // Catatan pergerakan biasa (selisih hasil hitung fisik vs sistem)
+                    // Kurangi dari batch juga - selisih kurang (hasil hitung
+                    // fisik ternyata lebih sedikit dari sistem) dan/atau
+                    // kadaluarsa, keduanya sama2 mengurangi stok riil.
+                    const selisihKurang = item.selisih < 0 ? Math.abs(item.selisih) : 0;
+                    if (selisihKurang > 0) await kurangiBatchFEFO(obatData.id, selisihKurang);
+                    if (stokKadaluarsa > 0) await kurangiBatchFEFO(obatData.id, stokKadaluarsa);
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -1087,10 +1095,26 @@ export async function savePembelian(header, details) {
                     .single();
                 if (!obatError && obatData) {
                     const stokBaru = (obatData.stok || 0) + (item.jumlah || 0);
-                    // Update stok + tanggal_exp (referensi ED terbaru yang
-                    // diketahui utk obat ini) sekaligus dalam 1 update.
+                    // Catat sebagai batch tersendiri dulu (Pelacakan Batch ED),
+                    // baru hitung ulang ED "terdekat" dari SEMUA batch aktif
+                    // obat ini - supaya field tanggal_exp di Master Obat selalu
+                    // mencerminkan batch yang paling mendesak, bukan sekadar
+                    // pembelian yang paling baru dicatat.
+                    if (item.tanggal_exp) {
+                        await tambahBatch(obatData.id, item.no_batch, item.tanggal_exp, item.jumlah, header.tanggal_faktur);
+                    }
+                    const { data: batchAktif } = await supabase
+                        .from('obat_batch')
+                        .select('tanggal_exp')
+                        .eq('obat_id', obatData.id)
+                        .gt('stok_batch', 0)
+                        .order('tanggal_exp', { ascending: true })
+                        .limit(1)
+                        .maybeSingle();
+
                     const updatePayload = { stok: stokBaru };
-                    if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
+                    if (batchAktif?.tanggal_exp) updatePayload.tanggal_exp = batchAktif.tanggal_exp;
+                    else if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
                     await supabase
                         .from('obat')
                         .update(updatePayload)
@@ -2167,6 +2191,7 @@ export async function savePendingTransaksi(header, details) {
                 if (obatData) {
                     const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
                     await supabase.from('obat').update({ stok: stokBaru }).eq('id', obatData.id);
+                    await kurangiBatchFEFO(obatData.id, item.jumlah || 0);
                 }
             }
         }
@@ -2320,6 +2345,112 @@ export async function getObatDekatED(bulanAmbang = 6) {
         return { data: data || [], error: null };
     } catch(e) {
         console.error('Error getObatDekatED:', e);
+        return { data: [], error: e };
+    }
+}
+
+// ============================================================
+// PELACAKAN BATCH ED (Tingkat 2) - perkiraan FEFO
+// ============================================================
+
+// Dipanggil saat ada pembelian baru (Input Faktur) - tambahkan
+// sebagai baris batch baru. Kalau no_batch + tanggal_exp PERSIS sama
+// dengan batch yang sudah ada (restock persis batch yang sama),
+// digabung jumlahnya - bukan dianggap batch baru terpisah.
+export async function tambahBatch(obatId, noBatch, tanggalExp, jumlah, tanggalMasuk) {
+    try {
+        if (!tanggalExp || !jumlah || jumlah <= 0) return { error: null }; // tanpa ED, tidak perlu dicatat sbg batch
+        const { data: existing, error: findError } = await supabase
+            .from('obat_batch')
+            .select('id, stok_batch')
+            .eq('obat_id', obatId)
+            .eq('tanggal_exp', tanggalExp)
+            .eq('no_batch', noBatch || null)
+            .maybeSingle();
+        if (findError) throw findError;
+
+        if (existing) {
+            const { error } = await supabase
+                .from('obat_batch')
+                .update({ stok_batch: (Number(existing.stok_batch) || 0) + Number(jumlah) })
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from('obat_batch')
+                .insert({
+                    obat_id: obatId,
+                    no_batch: noBatch || null,
+                    tanggal_exp: tanggalExp,
+                    stok_batch: Number(jumlah),
+                    tanggal_masuk: tanggalMasuk || new Date().toISOString().split('T')[0]
+                });
+            if (error) throw error;
+        }
+        return { error: null };
+    } catch(e) {
+        console.error('Error tambahBatch:', e);
+        return { error: e };
+    }
+}
+
+// Dipanggil saat stok berkurang (penjualan, retur pembelian, opname
+// kurang/kadaluarsa) - kurangi dari batch dengan ED PALING DEKAT
+// duluan (asumsi FEFO), rembes ke batch berikutnya kalau batch
+// pertama tidak cukup. Ini perkiraan (kasir tidak benar2 memilih
+// batch mana yang dijual), tapi cukup akurat utk keperluan
+// peringatan ED asal dijalankan konsisten tiap ada pengurangan stok.
+export async function kurangiBatchFEFO(obatId, jumlahKurang) {
+    try {
+        if (!jumlahKurang || jumlahKurang <= 0) return { error: null };
+        const { data: batches, error: findError } = await supabase
+            .from('obat_batch')
+            .select('id, stok_batch, tanggal_exp')
+            .eq('obat_id', obatId)
+            .gt('stok_batch', 0)
+            .order('tanggal_exp', { ascending: true, nullsFirst: false });
+        if (findError) throw findError;
+
+        let sisaKurang = Number(jumlahKurang);
+        for (const b of (batches || [])) {
+            if (sisaKurang <= 0) break;
+            const stokBatch = Number(b.stok_batch) || 0;
+            const potong = Math.min(stokBatch, sisaKurang);
+            await supabase.from('obat_batch').update({ stok_batch: stokBatch - potong }).eq('id', b.id);
+            sisaKurang -= potong;
+        }
+        // Kalau sisaKurang masih > 0 (pengurangan lebih besar dari total
+        // batch yang tercatat - misal obat lama sblm fitur ini ada),
+        // tidak masalah - itu cuma berarti sebagian stok tidak
+        // punya catatan batch, dilewati saja (tidak dianggap error).
+        return { error: null };
+    } catch(e) {
+        console.error('Error kurangiBatchFEFO:', e);
+        return { error: e };
+    }
+}
+
+// Batch aktif (stok_batch > 0) yang ED-nya dalam N bulan ke depan -
+// dipakai halaman Stok Dekat ED supaya bisa tampilkan PER BATCH,
+// bukan cuma 1 nilai ED per obat.
+export async function getBatchDekatED(bulanAmbang = 6) {
+    try {
+        const today = new Date();
+        const batasAtas = new Date(today);
+        batasAtas.setMonth(batasAtas.getMonth() + bulanAmbang);
+
+        const { data, error } = await supabase
+            .from('obat_batch')
+            .select('*, obat(kode_obat, nama_obat, satuan, harga_beli)')
+            .gt('stok_batch', 0)
+            .not('tanggal_exp', 'is', null)
+            .gte('tanggal_exp', today.toISOString().split('T')[0])
+            .lte('tanggal_exp', batasAtas.toISOString().split('T')[0])
+            .order('tanggal_exp', { ascending: true });
+        if (error) throw error;
+        return { data: data || [], error: null };
+    } catch(e) {
+        console.error('Error getBatchDekatED:', e);
         return { data: [], error: e };
     }
 }

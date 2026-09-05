@@ -1140,6 +1140,65 @@ END $$;
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- 32) PELACAKAN BATCH ED (Tingkat 2 - perkiraan FEFO, bukan
+--     pelacakan penuh) - satu obat bisa punya banyak baris batch,
+--     masing2 dengan ED & jumlah sisa sendiri. Kasir/Penjualan
+--     TIDAK perlu pilih batch - sistem otomatis mengurangi dari
+--     batch dengan ED paling dekat duluan (asumsi FEFO), supaya
+--     "Stok Dekat ED" bisa mendeteksi batch mana yang mau
+--     kadaluarsa, bukan cuma 1 nilai ED "terakhir" seperti sebelumnya.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS obat_batch (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    obat_id UUID REFERENCES obat(id) ON DELETE CASCADE,
+    no_batch TEXT,
+    tanggal_exp DATE,
+    stok_batch NUMERIC NOT NULL DEFAULT 0,
+    tanggal_masuk DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE obat_batch ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id);
+DO $$
+DECLARE
+    v_tenant_id UUID;
+BEGIN
+    SELECT id INTO v_tenant_id FROM tenants ORDER BY created_at LIMIT 1;
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE obat_batch SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+    END IF;
+END $$;
+ALTER TABLE obat_batch ALTER COLUMN tenant_id SET NOT NULL;
+
+DROP TRIGGER IF EXISTS trg_tenant_obat_batch ON obat_batch;
+CREATE TRIGGER trg_tenant_obat_batch BEFORE INSERT ON obat_batch FOR EACH ROW EXECUTE FUNCTION set_tenant_id();
+
+DO $$
+DECLARE
+    pol RECORD;
+BEGIN
+    ALTER TABLE obat_batch ENABLE ROW LEVEL SECURITY;
+    FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'obat_batch' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON obat_batch', pol.policyname);
+    END LOOP;
+    CREATE POLICY "Tenant isolation" ON obat_batch FOR ALL USING (tenant_id = get_my_tenant_id()) WITH CHECK (tenant_id = get_my_tenant_id());
+END $$;
+
+-- Migrasi data lama: obat yang sudah punya tanggal_exp tapi belum
+-- punya baris batch sama sekali, dibuatkan 1 baris batch awal supaya
+-- tidak hilang dari pelacakan (pakai stok saat ini sbg estimasi awal).
+INSERT INTO obat_batch (obat_id, no_batch, tanggal_exp, stok_batch, tanggal_masuk, tenant_id)
+SELECT o.id, NULL, o.tanggal_exp, o.stok, CURRENT_DATE, o.tenant_id
+FROM obat o
+WHERE o.tanggal_exp IS NOT NULL
+  AND o.stok > 0
+  AND NOT EXISTS (SELECT 1 FROM obat_batch b WHERE b.obat_id = o.id);
+
+-- ============================================================
+-- SELESAI (Pelacakan Batch ED)
+-- ============================================================
+
+-- ------------------------------------------------------------
 -- 28) Tambah Golongan "Obat-Obat Tertentu (OOT)" - dibutuhkan utk
 --     pemisahan Surat Pesanan per golongan.
 -- ------------------------------------------------------------

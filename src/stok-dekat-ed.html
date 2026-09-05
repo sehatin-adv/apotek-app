@@ -205,7 +205,7 @@
         </div>
 
         <div class="grid-4">
-            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Item</div><div class="value" id="totalObat">0</div><div class="sub">Mendekati ED (6 bulan)</div></div>
+            <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Total Batch</div><div class="value" id="totalObat">0</div><div class="sub">Mendekati ED (6 bulan)</div></div>
             <div class="stat-card" style="border-left-color:#dc3545;"><div class="label">Segera (&le; 1 Bulan)</div><div class="value" id="stokUrgent">0</div><div class="sub">Perlu tindakan cepat</div></div>
             <div class="stat-card" style="border-left-color:#ffc107;"><div class="label">Waspada (1-3 Bulan)</div><div class="value" id="stokWaspada">0</div><div class="sub">Pantau terus</div></div>
             <div class="stat-card" style="border-left-color:#2d6a9f;"><div class="label">Estimasi Nilai Stok</div><div class="value" id="totalNilai" style="font-size:16px;">Rp 0</div><div class="sub">Harga beli x stok</div></div>
@@ -245,7 +245,7 @@
 <div class="toast" id="toastStokTerkini"></div>
 
 <script type="module">
-    import { getObatDekatED } from './database.js';
+    import { getBatchDekatED } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Stok Obat Dekat ED');
     import { enforcePermissions } from './permissions.js';
@@ -298,9 +298,21 @@
         const tbody = document.getElementById('stokTerkiniTableBody');
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr>';
         try {
-            const { data, error } = await getObatDekatED(6);
+            const { data, error } = await getBatchDekatED(6);
             if (error) throw error;
-            stokDekatEDData = data || [];
+            // Ratakan data batch (join ke obat) jadi bentuk datar yang gampang
+            // dipakai render/filter - satu baris per BATCH, bukan per obat,
+            // supaya 1 obat dengan beberapa batch aktif tampil terpisah.
+            stokDekatEDData = (data || []).map(b => ({
+                obat_id: b.obat_id,
+                kode_obat: b.obat?.kode_obat || '-',
+                nama_obat: b.obat?.nama_obat || '-',
+                satuan: b.obat?.satuan || '-',
+                harga_beli: b.obat?.harga_beli || 0,
+                stok: b.stok_batch,
+                tanggal_exp: b.tanggal_exp,
+                no_batch: b.no_batch
+            }));
             filterStokTerkini();
         } catch(e) {
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:#dc3545;">Gagal memuat data: ' + e.message + '</td></tr>';
@@ -311,7 +323,7 @@
         currentDisplayedData = data || [];
         const tbody = document.getElementById('stokTerkiniTableBody');
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">✅ Tidak ada obat yang mendekati kadaluarsa dalam 6 bulan ke depan</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#7a8a9e;padding:30px;">✅ Tidak ada batch obat yang mendekati kadaluarsa dalam 6 bulan ke depan</td></tr>';
         } else {
             tbody.innerHTML = data.map((o, i) => {
                 const hari = sisaHari(o.tanggal_exp);
@@ -320,11 +332,11 @@
                 if (kategori === 'urgent') { statusClass = 'badge-danger'; statusText = 'Segera'; }
                 else if (kategori === 'waspada') { statusClass = 'badge-warning'; statusText = 'Waspada'; }
                 else { statusClass = 'badge-success'; statusText = 'Longgar'; }
-                return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong></td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${o.stok}</strong></td><td>${formatTanggal(o.tanggal_exp)}</td><td style="text-align:right;">${hari} hari</td><td>${formatRupiahStok(o.harga_beli)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
+                return `<tr><td>${i+1}</td><td><strong>${o.kode_obat||'-'}</strong>${o.no_batch ? `<div style="font-size:10px;color:#7a8a9e;">Batch: ${o.no_batch}</div>` : ''}</td><td>${o.nama_obat||'-'}</td><td>${o.satuan||'-'}</td><td><strong>${o.stok}</strong></td><td>${formatTanggal(o.tanggal_exp)}</td><td style="text-align:right;">${hari} hari</td><td>${formatRupiahStok(o.harga_beli)}</td><td><span class="badge ${statusClass}">${statusText}</span></td></tr>`;
             }).join('');
         }
         updateStatsDekatED(data);
-        document.getElementById('totalData').textContent = data.length + ' item';
+        document.getElementById('totalData').textContent = data.length + ' batch';
     }
 
     function updateStatsDekatED(data) {
@@ -357,13 +369,13 @@
 
     window.downloadStokDekatED = function() {
         if (!currentDisplayedData || currentDisplayedData.length === 0) { showToastStokTerkini('⚠️ Tidak ada data untuk di-download', true); return; }
-        let csv = 'No,Kode Obat,Nama Obat,Satuan,Stok,Tanggal ED,Sisa Hari,Harga Beli,Status\n';
+        let csv = 'No,Kode Obat,Nama Obat,No. Batch,Satuan,Stok,Tanggal ED,Sisa Hari,Harga Beli,Status\n';
         currentDisplayedData.forEach((o, i) => {
             const hari = sisaHari(o.tanggal_exp);
             const kategori = kategoriUrgensi(hari);
             const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
             const nama = String(o.nama_obat || '-').replace(/"/g, '""');
-            csv += `${i+1},${o.kode_obat||'-'},"${nama}",${o.satuan||'-'},${o.stok},${o.tanggal_exp},${hari},${o.harga_beli||0},${status}\n`;
+            csv += `${i+1},${o.kode_obat||'-'},"${nama}",${o.no_batch||'-'},${o.satuan||'-'},${o.stok},${o.tanggal_exp},${hari},${o.harga_beli||0},${status}\n`;
         });
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -388,14 +400,14 @@
             const hari = sisaHari(o.tanggal_exp);
             const kategori = kategoriUrgensi(hari);
             const status = kategori === 'urgent' ? 'Segera' : (kategori === 'waspada' ? 'Waspada' : 'Longgar');
-            return [i+1, o.kode_obat||'-', o.nama_obat||'-', o.satuan||'-', o.stok, formatTanggal(o.tanggal_exp), hari, formatRupiahStok(o.harga_beli), status];
+            return [i+1, o.kode_obat||'-', o.nama_obat||'-', o.no_batch||'-', o.satuan||'-', o.stok, formatTanggal(o.tanggal_exp), hari, formatRupiahStok(o.harga_beli), status];
         });
 
         doc.autoTable({
             startY: 26,
-            head: [['No', 'Kode', 'Nama Obat', 'Satuan', 'Stok', 'Tgl ED', 'Sisa Hari', 'Harga Beli', 'Status']],
+            head: [['No', 'Kode', 'Nama Obat', 'No. Batch', 'Satuan', 'Stok', 'Tgl ED', 'Sisa Hari', 'Harga Beli', 'Status']],
             body: rows,
-            styles: { fontSize: 8 },
+            styles: { fontSize: 7 },
             headStyles: { fillColor: [45, 106, 159] }
         });
 
