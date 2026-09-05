@@ -660,18 +660,17 @@
     // STOK MINIMAL OTOMATIS BERDASARKAN SATUAN
     // ============================================================
     const DEFAULT_STOK_MINIMAL = {
-        'Tablet': 20,
-        'Kapsul': 20,
-        'Sirup': 1,
-        'Botol': 1,
-        'Salep': 1,
-        'Strip': 1,
-        'Ampul': 1
+        'Tablet': 30,
+        'Kapsul': 30
     };
+    // Selain Tablet/Kapsul (termasuk satuan custom apapun yang dibuat
+    // sendiri lewat "Kelola Satuan") - defaultnya 2.
+    function getDefaultStokMinimal(satuan) {
+        return DEFAULT_STOK_MINIMAL[satuan] !== undefined ? DEFAULT_STOK_MINIMAL[satuan] : 2;
+    }
     window.applyDefaultStokMinimal = function() {
         const satuan = document.getElementById('satuanObat').value;
-        const nilai = DEFAULT_STOK_MINIMAL[satuan] !== undefined ? DEFAULT_STOK_MINIMAL[satuan] : 1;
-        document.getElementById('stokMinimalObat').value = nilai;
+        document.getElementById('stokMinimalObat').value = getDefaultStokMinimal(satuan);
     };
 
     // ============================================================
@@ -1022,7 +1021,7 @@
                         harga_beli: parseRupiah(cols[4]),
                         harga_jual: parseRupiah(cols[5]),
                         stok: parseAngka(cols[6]),
-                        stok_minimal: cols[7] !== undefined && cols[7] !== '' ? parseAngka(cols[7]) : 10,
+                        stok_minimal: cols[7] !== undefined && cols[7] !== '' ? parseAngka(cols[7]) : getDefaultStokMinimal(satuanImport),
                         stok_maksimal: cols[8] !== undefined && cols[8] !== '' ? parseAngka(cols[8]) : null,
                         jenis: jenisImport,
                         golongan: golonganImport,

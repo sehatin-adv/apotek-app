@@ -1175,3 +1175,22 @@ END $$;
 -- ============================================================
 -- SELESAI (Golongan Psikotropika)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 30) Perbarui Stok Minimal default utk obat yang SUDAH ADA -
+--     Tablet/Kapsul = 30, selain itu = 2. Cuma menimpa baris yang
+--     kelihatan masih nilai default lama (kosong/20/10/1) - supaya
+--     tidak menimpa stok minimal yang sudah sengaja Anda kustomisasi
+--     sendiri secara manual.
+-- ------------------------------------------------------------
+UPDATE obat SET stok_minimal = 30
+    WHERE satuan IN ('Tablet', 'Kapsul')
+    AND (stok_minimal IS NULL OR stok_minimal IN (20, 10, 1));
+
+UPDATE obat SET stok_minimal = 2
+    WHERE satuan NOT IN ('Tablet', 'Kapsul')
+    AND (stok_minimal IS NULL OR stok_minimal IN (20, 10, 1));
+
+-- ============================================================
+-- SELESAI (Perbarui Stok Minimal Retroaktif)
+-- ============================================================
