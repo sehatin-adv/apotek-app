@@ -649,7 +649,7 @@
     window.removeKategoriItem = async function(id) {
         if (!id || id === 'null') return;
         if (!confirm('Hapus item ini dari daftar? (obat yang sudah pakai nilai ini tidak ikut berubah)')) return;
-        const { error } = await deleteKategoriObat(id);
+        const { error } = await deleteKategoriObat(id, activeKategoriTipe);
         if (error) { showToast('❌ Gagal menghapus: ' + error.message, true); return; }
         kategoriJenis = kategoriJenis.filter(k => k.id !== id);
         kategoriGolongan = kategoriGolongan.filter(k => k.id !== id);

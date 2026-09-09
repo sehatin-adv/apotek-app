@@ -27,11 +27,40 @@ async function fetchAllRows(table, selectStr = '*', orderCol = null, ascending =
 }
 
 // ============================================================
+// CACHE SEMENTARA (sessionStorage, 60 detik) - CUMA utk data
+// referensi yang jarang berubah dalam 1 sesi kerja (Master Obat,
+// Supplier, Kategori). Data transaksi (stok saat kasir, keuangan)
+// SENGAJA TIDAK dicache - selalu ambil langsung dari server, supaya
+// tidak ada risiko jual barang yang sebenarnya sudah habis atau
+// pakai harga yang sudah kadaluarsa. Cache otomatis "dibersihkan"
+// tiap kali ada simpan/hapus/edit di data terkait (lihat clearCache
+// di saveObat/deleteObat/dst).
+const CACHE_TTL_MS = 60000; // 60 detik
+function getFromCache(key) {
+    try {
+        const raw = sessionStorage.getItem('cache_' + key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.ts > CACHE_TTL_MS) return null;
+        return parsed.data;
+    } catch(e) { return null; }
+}
+function setCache(key, data) {
+    try { sessionStorage.setItem('cache_' + key, JSON.stringify({ data, ts: Date.now() })); } catch(e) { /* penuh/nonaktif, lewati saja - tidak fatal */ }
+}
+function clearCache(key) {
+    try { sessionStorage.removeItem('cache_' + key); } catch(e) {}
+}
+
+// ============================================================
 // OBAT
 // ============================================================
 export async function getObat() {
+    const cached = getFromCache('obat');
+    if (cached) return { data: cached, error: null };
     try {
         const data = await fetchAllRows('obat', '*', 'created_at', false);
+        setCache('obat', data);
         return { data, error: null };
     } catch(e) {
         console.error('Error getObat:', e);
@@ -65,6 +94,7 @@ export async function saveObat(obatData) {
             .upsert(obatData, { onConflict: 'id' })
             .select();
         if (error) throw error;
+        clearCache('obat'); // data berubah - cache lama sudah tidak valid
         return { data, error: null };
     } catch(e) {
         console.error('Error saveObat:', e);
@@ -79,6 +109,7 @@ export async function deleteObat(id) {
             .delete()
             .eq('id', id);
         if (error) throw error;
+        clearCache('obat');
         return { error: null };
     } catch(e) {
         console.error('Error deleteObat:', e);
@@ -90,12 +121,15 @@ export async function deleteObat(id) {
 // SUPPLIER
 // ============================================================
 export async function getSupplier() {
+    const cached = getFromCache('supplier');
+    if (cached) return { data: cached, error: null };
     try {
         const { data, error } = await supabase
             .from('supplier')
             .select('*')
             .order('created_at', { ascending: false });
         if (error) throw error;
+        setCache('supplier', data);
         return { data, error: null };
     } catch(e) {
         console.error('Error getSupplier:', e);
@@ -114,6 +148,7 @@ export async function saveSupplier(supplierData) {
             .upsert(supplierData, { onConflict: 'id' })
             .select();
         if (error) throw error;
+        clearCache('supplier');
         return { data, error: null };
     } catch(e) {
         console.error('Error saveSupplier:', e);
@@ -128,6 +163,7 @@ export async function deleteSupplier(id) {
             .delete()
             .eq('id', id);
         if (error) throw error;
+        clearCache('supplier');
         return { error: null };
     } catch(e) {
         console.error('Error deleteSupplier:', e);
@@ -364,6 +400,7 @@ export async function savePenjualan(header, details, options = {}) {
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
+        clearCache('obat');
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
@@ -531,6 +568,7 @@ export async function saveRetur(returData, detailRetur) {
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
+        clearCache('obat');
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveRetur:', e);
@@ -931,12 +969,44 @@ export async function saveStokOpname(opnameData) {
                         .update(updatePayload)
                         .eq('id', obatData.id);
 
-                    // Kurangi dari batch juga - selisih kurang (hasil hitung
-                    // fisik ternyata lebih sedikit dari sistem) dan/atau
-                    // kadaluarsa, keduanya sama2 mengurangi stok riil.
-                    const selisihKurang = item.selisih < 0 ? Math.abs(item.selisih) : 0;
-                    if (selisihKurang > 0) await kurangiBatchFEFO(obatData.id, selisihKurang);
-                    if (stokKadaluarsa > 0) await kurangiBatchFEFO(obatData.id, stokKadaluarsa);
+                    // Rekonsiliasi Pelacakan Batch ED berdasarkan hasil hitung
+                    // fisik Stok Opname - kalau ada rincian per-ED ("batches",
+                    // dari fitur "+ ED lain"), pakai itu sbg SUMBER KEBENARAN:
+                    // hapus semua batch lama obat ini, ganti persis dengan versi
+                    // hasil hitung fisik yang baru. Ini paling akurat karena
+                    // hasil hitung fisik memang seharusnya jadi acuan utama.
+                    if (item.batches && item.batches.length > 0) {
+                        await supabase.from('obat_batch').delete().eq('obat_id', obatData.id);
+                        let batchRows = item.batches
+                            .filter(b => Number(b.qty) > 0 && b.tanggal_exp)
+                            .map(b => ({ tanggal_exp: b.tanggal_exp, stok_batch: Number(b.qty) }))
+                            .sort((a, b) => a.tanggal_exp.localeCompare(b.tanggal_exp)); // ED paling dekat duluan
+
+                        // Kadaluarsa yang di-write-off dikurangi dari batch dengan
+                        // ED PALING DEKAT dulu (asumsi paling masuk akal - yang
+                        // ditulis-off memang biasanya yang paling mendesak),
+                        // supaya total sisa batch tetap konsisten dgn stok akhir.
+                        let sisaKadaluarsa = stokKadaluarsa;
+                        for (const b of batchRows) {
+                            if (sisaKadaluarsa <= 0) break;
+                            const potong = Math.min(b.stok_batch, sisaKadaluarsa);
+                            b.stok_batch -= potong;
+                            sisaKadaluarsa -= potong;
+                        }
+
+                        const insertRows = batchRows
+                            .filter(b => b.stok_batch > 0)
+                            .map(b => ({ obat_id: obatData.id, no_batch: null, tanggal_exp: b.tanggal_exp, stok_batch: b.stok_batch, tanggal_masuk: tanggal }));
+                        if (insertRows.length > 0) {
+                            await supabase.from('obat_batch').insert(insertRows);
+                        }
+                    } else {
+                        // Fallback lama (belum ada rincian per-ED sama sekali) -
+                        // kurangi dari batch dengan ED paling dekat duluan.
+                        const selisihKurang = item.selisih < 0 ? Math.abs(item.selisih) : 0;
+                        if (selisihKurang > 0) await kurangiBatchFEFO(obatData.id, selisihKurang);
+                        if (stokKadaluarsa > 0) await kurangiBatchFEFO(obatData.id, stokKadaluarsa);
+                    }
                     await supabase
                         .from('kartu_stok')
                         .insert({
@@ -1014,6 +1084,7 @@ export async function saveStokOpname(opnameData) {
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
+        clearCache('obat');
         return { data, error: null };
     } catch(e) {
         console.error('Error saveStokOpname:', e);
@@ -1160,6 +1231,7 @@ export async function savePembelian(header, details) {
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
+        clearCache('obat');
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePembelian:', e);
@@ -1924,6 +1996,9 @@ export async function resetForecastingData() {
 // KATEGORI OBAT (Jenis & Golongan yang bisa ditambah/dihapus)
 // ============================================================
 export async function getKategoriObat(tipe) {
+    const cacheKey = 'kategori_' + tipe;
+    const cached = getFromCache(cacheKey);
+    if (cached) return { data: cached, error: null };
     try {
         const { data, error } = await supabase
             .from('kategori_obat')
@@ -1931,6 +2006,7 @@ export async function getKategoriObat(tipe) {
             .eq('tipe', tipe)
             .order('nama');
         if (error) throw error;
+        setCache(cacheKey, data || []);
         return { data: data || [], error: null };
     } catch(e) {
         console.error('Error getKategoriObat:', e);
@@ -1946,6 +2022,7 @@ export async function addKategoriObat(tipe, nama) {
             .select()
             .single();
         if (error) throw error;
+        clearCache('kategori_' + tipe);
         return { data, error: null };
     } catch(e) {
         console.error('Error addKategoriObat:', e);
@@ -1953,10 +2030,11 @@ export async function addKategoriObat(tipe, nama) {
     }
 }
 
-export async function deleteKategoriObat(id) {
+export async function deleteKategoriObat(id, tipe) {
     try {
         const { error } = await supabase.from('kategori_obat').delete().eq('id', id);
         if (error) throw error;
+        if (tipe) clearCache('kategori_' + tipe);
         return { error: null };
     } catch(e) {
         console.error('Error deleteKategoriObat:', e);
@@ -2060,6 +2138,7 @@ export async function saveReturPembelian(header, details) {
             }
         }
 
+        clearCache('obat');
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveReturPembelian:', e);
@@ -2211,6 +2290,7 @@ export async function savePendingTransaksi(header, details) {
             }
         }
 
+        clearCache('obat');
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePendingTransaksi:', e);
@@ -2257,6 +2337,7 @@ export async function batalkanPendingTransaksi(pendingId, details) {
             .update({ status: 'Batal' })
             .eq('id', pendingId);
         if (error) throw error;
+        clearCache('obat');
         return { error: null };
     } catch(e) {
         console.error('Error batalkanPendingTransaksi:', e);
@@ -2613,36 +2694,24 @@ export async function updateSuratPesanan(suratPesananId, header, details) {
 // pemiliknya berstatus admin di tenant yang sama dengan user yang
 // sedang login sekarang - dipakai sebagai gerbang sebelum hapus
 // faktur (aksi yang tidak bisa dibatalkan).
+//
+// PENTING: verifikasi ini dilakukan LEWAT SERVER (endpoint
+// /api/verify-admin-password), BUKAN dengan signInWithPassword() di
+// browser - supaya sesi login Anda yang sedang aktif TIDAK PERNAH
+// tersentuh/berpindah sama sekali selama proses ini.
 export async function verifikasiPasswordAdmin(email, password) {
     try {
-        const { data: currentSession } = await supabase.auth.getSession();
-        const currentAccessToken = currentSession?.session?.access_token;
-        const currentRefreshToken = currentSession?.session?.refresh_token;
-
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-        if (authError || !authData?.user) {
-            // Pulihkan sesi awal (jaga2 kalau signInWithPassword sempat
-            // mengganti sesi aktif browser ke akun yang salah/gagal).
-            if (currentAccessToken) await supabase.auth.setSession({ access_token: currentAccessToken, refresh_token: currentRefreshToken });
-            return { valid: false, error: 'Email atau password admin salah.' };
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/verify-admin-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+            body: JSON.stringify({ email, password })
+        });
+        const result = await res.json();
+        if (!res.ok) {
+            return { valid: false, error: result.error || 'Gagal memverifikasi password.' };
         }
-
-        const { data: appUserRows } = await supabase
-            .from('app_users')
-            .select('role, tenant_id, status')
-            .eq('auth_user_id', authData.user.id)
-            .limit(1);
-        const appUser = appUserRows?.[0];
-
-        // Kembalikan sesi ke user yang TADI sedang login (bukan user yang
-        // baru saja dicoba login utk verifikasi) - supaya tidak diam2
-        // pindah akun cuma karena mengetik password admin di modal ini.
-        if (currentAccessToken) await supabase.auth.setSession({ access_token: currentAccessToken, refresh_token: currentRefreshToken });
-
-        if (!appUser || appUser.role !== 'admin' || appUser.status === 'Tidak Aktif') {
-            return { valid: false, error: 'Akun ini bukan Admin aktif di apotek ini.' };
-        }
-        return { valid: true, error: null };
+        return { valid: !!result.valid, error: result.error || null };
     } catch(e) {
         console.error('Error verifikasiPasswordAdmin:', e);
         return { valid: false, error: e.message };
@@ -2709,6 +2778,7 @@ export async function hapusFakturPembelian(pembelianId) {
         await supabase.from('pembelian_detail').delete().eq('pembelian_id', pembelianId);
         await supabase.from('pembelian_header').delete().eq('id', pembelianId);
 
+        clearCache('obat');
         return { data: { header, items }, error: null };
     } catch(e) {
         console.error('Error hapusFakturPembelian:', e);

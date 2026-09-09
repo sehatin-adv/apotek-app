@@ -311,10 +311,10 @@
             </div>
             <div class="table-wrap">
                 <table>
-                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:80px;">Stok Fisik</th><th style="width:70px;">Selisih</th><th style="width:90px;">Stok Kadaluarsa</th><th style="width:100px;">Nilai Kerugian</th><th style="width:70px;">Status</th><th style="width:120px;">Tgl ED</th></tr></thead>
-                    <tbody id="opnameTableBody"><tr><td colspan="12" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
+                    <thead><tr><th style="width:30px;">No</th><th style="min-width:80px;">Kode</th><th style="min-width:120px;">Nama Obat</th><th style="width:60px;">Satuan</th><th style="width:70px;">Snapshot</th><th style="width:70px;">Stok Sistem</th><th style="width:230px;">Stok Fisik (per ED)</th><th style="width:70px;">Selisih</th><th style="width:90px;">Stok Kadaluarsa</th><th style="width:100px;">Nilai Kerugian</th><th style="width:70px;">Status</th></tr></thead>
+                    <tbody id="opnameTableBody"><tr><td colspan="11" style="text-align:center;color:#7a8a9e;padding:30px;"><div class="loading"><i class="fas fa-spinner"></i> Memuat data...</div></td></tr></tbody>
                     <tfoot id="opnameTableFoot" style="display:none;">
-                        <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td><td id="totalKerugianOpname" style="text-align:right;font-weight:700;color:#dc3545;">Rp 0</td><td></td><td></td></tr>
+                        <tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL</td><td id="totalFisik" style="text-align:right;font-weight:700;">0</td><td id="totalSelisih" style="text-align:right;font-weight:700;color:#dc3545;">0</td><td></td><td id="totalKerugianOpname" style="text-align:right;font-weight:700;color:#dc3545;">Rp 0</td><td></td></tr>
                     </tfoot>
                 </table>
             </div>
@@ -461,7 +461,7 @@
             snapshot: snapshot
         };
         localStorage.setItem('opname_session_active', JSON.stringify(sessionData));
-        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, stok_kadaluarsa: 0, nilai_kerugian: 0, status: 'Belum diinput' }));
+        opnameItems = snapshot.map(s => ({ ...s, stok_fisik: 0, stok_sistem: s.snapshot_stok, selisih: 0, stok_kadaluarsa: 0, nilai_kerugian: 0, status: 'Belum diinput', batches: [{ qty: 0, tanggal_exp: '' }] }));
         renderUI();
         showToast('✅ Stok opname dimulai! Snapshot telah diambil.');
     };
@@ -500,7 +500,8 @@
                     selisih: 0,
                     stok_kadaluarsa: 0,
                     nilai_kerugian: 0,
-                    status: 'Belum diinput'
+                    status: 'Belum diinput',
+                    batches: [{ qty: 0, tanggal_exp: '' }]
                 }));
             }
             
@@ -510,7 +511,13 @@
                 savedData.forEach(savedItem => {
                     const idx = opnameItems.findIndex(item => item.id === savedItem.id);
                     if (idx !== -1) {
-                        opnameItems[idx].stok_fisik = savedItem.stok_fisik || 0;
+                        // Kompatibel dengan progress lama (sebelum fitur multi-ED) -
+                        // kalau tidak ada "batches" tersimpan, buatkan 1 baris dari
+                        // stok_fisik/tanggal_exp lama.
+                        opnameItems[idx].batches = (savedItem.batches && savedItem.batches.length > 0)
+                            ? savedItem.batches
+                            : [{ qty: savedItem.stok_fisik || 0, tanggal_exp: savedItem.tanggal_exp || '' }];
+                        opnameItems[idx].stok_fisik = opnameItems[idx].batches.reduce((s, b) => s + (Number(b.qty) || 0), 0);
                         opnameItems[idx].stok_kadaluarsa = savedItem.stok_kadaluarsa || 0;
                         opnameItems[idx].selisih = opnameItems[idx].stok_fisik - opnameItems[idx].stok_sistem;
                         opnameItems[idx].nilai_kerugian = hitungNilaiKerugian(opnameItems[idx]);
@@ -553,6 +560,30 @@
         return (kurang + kadaluarsa) * hargaBeli;
     }
 
+    // Widget "Stok Fisik (per ED)" - defaultnya 1 baris sederhana (sama
+    // seperti sebelum ada fitur ini). Klik "+ ED lain" utk tambah baris
+    // baru kalau obat yang sama fisiknya ternyata kepecah di beberapa
+    // tanggal kadaluarsa berbeda. Jumlah "Stok Fisik" dihitung OTOMATIS
+    // dari total semua baris - tidak perlu hitung mundur manual.
+    function renderBatchWidget(item, index) {
+        const rows = item.batches.map((b, bi) => `
+            <div style="display:flex;gap:4px;margin-bottom:3px;align-items:center;">
+                <input type="number" class="batch-qty-input" value="${b.qty || ''}" min="0" step="any" placeholder="Qty"
+                       style="width:56px;padding:4px 5px;font-size:12px;border:1px solid #e8edf3;border-radius:5px;"
+                       oninput="updateBatchQty(${index},${bi},this.value)" onblur="updateBatchQty(${index},${bi},this.value)">
+                <input type="text" class="batch-ed-input" value="${b.tanggal_exp ? formatTglEDTampilan(b.tanggal_exp) : ''}" placeholder="ED: 9/26"
+                       style="width:78px;padding:4px 5px;font-size:11px;border:1px solid #e8edf3;border-radius:5px;"
+                       onchange="updateBatchTglExp(${index},${bi},this.value)">
+                ${item.batches.length > 1 ? `<button type="button" onclick="hapusBatchOpname(${index},${bi})" style="background:none;border:none;color:#dc3545;cursor:pointer;padding:2px;font-size:12px;" title="Hapus baris ini"><i class="fas fa-times"></i></button>` : ''}
+            </div>
+        `).join('');
+        return `<div class="batch-widget">
+            ${rows}
+            <button type="button" onclick="tambahBatchOpname(${index})" style="font-size:10px;color:#2d6a9f;background:none;border:1px dashed #2d6a9f;border-radius:5px;padding:2px 7px;cursor:pointer;white-space:nowrap;" title="Tambah kalau ada tanggal kadaluarsa lain utk obat ini"><i class="fas fa-plus"></i> ED lain</button>
+            ${item.batches.length > 1 ? `<div class="batch-total-label" style="font-size:11px;color:#5b6b7c;margin-top:3px;font-weight:700;">Total: ${item.stok_fisik || 0}</div>` : ''}
+        </div>`;
+    }
+
     function renderOpnameTable(data) {
         const tbody = document.getElementById('opnameTableBody');
         const tfoot = document.getElementById('opnameTableFoot');
@@ -588,12 +619,7 @@
                 <td>${item.satuan || '-'}</td>
                 <td style="text-align:right;">${item.snapshot_stok}</td>
                 <td style="text-align:right;font-weight:600;">${item.stok_sistem}</td>
-                <td>
-                    <input type="number" class="stok-fisik-input" data-index="${index}" 
-                           value="${item.stok_fisik || 0}" min="0" step="any"
-                           oninput="updateStokFisik(${index}, this.value)" 
-                           onblur="updateStokFisik(${index}, this.value)">
-                </td>
+                <td>${renderBatchWidget(item, index)}</td>
                 <td style="text-align:right;font-weight:700;color:${selisih === 0 ? '#28a745' : '#dc3545'};">${selisih !== 0 ? selisih : '-'}</td>
                 <td>
                     <input type="number" class="stok-kadaluarsa-input" data-index="${index}"
@@ -604,7 +630,6 @@
                 </td>
                 <td style="text-align:right;color:${item.nilai_kerugian > 0 ? '#dc3545' : '#7a8a9e'};font-weight:${item.nilai_kerugian > 0 ? '700' : '400'};">${item.nilai_kerugian > 0 ? formatRupiahOpname(item.nilai_kerugian) : '-'}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
-                <td><input type="text" class="tgl-exp-input" data-index="${index}" value="${item.tanggal_exp ? formatTglEDTampilan(item.tanggal_exp) : ''}" placeholder="9/26 = 09-2026" onchange="updateTglExpOpname(${index}, this.value)" style="width:100%;padding:5px 6px;font-size:12px;border:1px solid #e8edf3;border-radius:6px;"></td>
             </tr>`;
         }).join('');
         
@@ -668,38 +693,16 @@
         return `${parts[2]}-${parts[1]}-${parts[0]}`;
     }
 
-    window.updateTglExpOpname = function(index, value) {
-        if (index < 0 || index >= opnameItems.length) return;
-        const parsed = parseTglEDCepat(value);
-        if (parsed === null) {
-            showToast('⚠️ Format tanggal ED tidak dikenali. Coba: 9/26 (bulan/tahun) atau 15/9/26 (tgl/bulan/tahun)', true);
-            // Kembalikan tampilan ke nilai sebelumnya (bukan yang gagal diparsing)
-            const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
-            if (row) {
-                const input = row.querySelector('.tgl-exp-input');
-                if (input) input.value = opnameItems[index].tanggal_exp ? formatTglEDTampilan(opnameItems[index].tanggal_exp) : '';
-            }
-            return;
-        }
-        opnameItems[index].tanggal_exp = parsed || null;
-        // Tampilkan hasil yang sudah diparsing dengan format jelas, supaya
-        // user bisa langsung lihat konfirmasi tanggal yang benar terisi.
-        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
-        if (row) {
-            const input = row.querySelector('.tgl-exp-input');
-            if (input) input.value = parsed ? formatTglEDTampilan(parsed) : '';
-        }
-        simpanProgress();
-    };
-
-    window.updateStokFisik = function(index, value) {
-        if (index < 0 || index >= opnameItems.length) return;
-        const stokFisik = Number(value) || 0;
+    // Hitung ulang stok_fisik (jumlah semua baris ED) + selisih utk 1
+    // item, tanpa render ulang seluruh tabel - dipakai tiap kali qty di
+    // salah satu baris ED berubah (biar tidak kehilangan fokus ketik).
+    function hitungUlangStokFisikItem(index) {
         const item = opnameItems[index];
-        item.stok_fisik = stokFisik;
-        item.selisih = stokFisik - item.stok_sistem;
+        item.stok_fisik = item.batches.reduce((s, b) => s + (Number(b.qty) || 0), 0);
+        item.selisih = item.stok_fisik - item.stok_sistem;
         item.nilai_kerugian = hitungNilaiKerugian(item);
         item.status = item.selisih === 0 ? 'Aman' : (item.selisih > 0 ? 'Lebih' : 'Kurang');
+
         const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
         if (row) {
             const cells = row.querySelectorAll('td');
@@ -716,12 +719,59 @@
                     else { statusClass = 'badge-danger'; statusText = 'Kurang ' + item.selisih; }
                 }
                 cells[10].innerHTML = `<span class="badge ${statusClass}">${statusText}</span>`;
+                const totalLabel = cells[6].querySelector('.batch-total-label');
+                if (totalLabel) totalLabel.textContent = 'Total: ' + item.stok_fisik;
             }
         }
         updateTotalOpname();
         const filled = opnameItems.filter(i => i.stok_fisik > 0 || (i.stok_fisik === 0 && i.status !== 'Belum diinput')).length;
         const sessionProgress = document.getElementById('sessionProgress');
         if (sessionProgress) sessionProgress.textContent = filled + '/' + opnameItems.length;
+        simpanProgress();
+    }
+
+    window.updateBatchQty = function(index, batchIndex, value) {
+        if (index < 0 || index >= opnameItems.length) return;
+        const item = opnameItems[index];
+        if (!item.batches[batchIndex]) return;
+        item.batches[batchIndex].qty = Math.max(0, Number(value) || 0);
+        hitungUlangStokFisikItem(index);
+    };
+
+    window.updateBatchTglExp = function(index, batchIndex, value) {
+        if (index < 0 || index >= opnameItems.length) return;
+        const item = opnameItems[index];
+        if (!item.batches[batchIndex]) return;
+        const parsed = parseTglEDCepat(value);
+        const row = document.querySelector(`#opnameTableBody tr:nth-child(${index+1})`);
+        const input = row ? row.querySelectorAll('.batch-ed-input')[batchIndex] : null;
+        if (parsed === null) {
+            showToast('⚠️ Format tanggal ED tidak dikenali. Coba: 9/26 (bulan/tahun) atau 15/9/26 (tgl/bulan/tahun)', true);
+            if (input) input.value = item.batches[batchIndex].tanggal_exp ? formatTglEDTampilan(item.batches[batchIndex].tanggal_exp) : '';
+            return;
+        }
+        item.batches[batchIndex].tanggal_exp = parsed || null;
+        if (input) input.value = parsed ? formatTglEDTampilan(parsed) : '';
+        simpanProgress();
+    };
+
+    // Klik "+ ED lain" - tambah baris kosong baru utk obat yang sama.
+    // Contoh pemakaian: total fisik 20, baris pertama diisi qty 16 (ED
+    // 9/28), klik "+ ED lain", baris baru diisi qty 4 (ED 9/27) - total
+    // otomatis kehitung 20 tanpa perlu hitung mundur manual.
+    window.tambahBatchOpname = function(index) {
+        if (index < 0 || index >= opnameItems.length) return;
+        opnameItems[index].batches.push({ qty: 0, tanggal_exp: '' });
+        renderOpnameTable(opnameItems);
+        simpanProgress();
+    };
+
+    window.hapusBatchOpname = function(index, batchIndex) {
+        if (index < 0 || index >= opnameItems.length) return;
+        const item = opnameItems[index];
+        if (item.batches.length <= 1) return; // minimal 1 baris harus tetap ada
+        item.batches.splice(batchIndex, 1);
+        renderOpnameTable(opnameItems);
         simpanProgress();
     };
 
@@ -824,7 +874,11 @@
                 stok_kadaluarsa: item.stok_kadaluarsa || 0,
                 harga_beli: item.harga_beli || 0,
                 nilai_kerugian: item.nilai_kerugian || 0,
-                tanggal_exp: item.tanggal_exp || null
+                // tanggal_exp (tunggal) dipertahankan utk kompatibilitas riwayat
+                // lama - diisi dari baris ED pertama yang terisi. Rincian
+                // lengkap per-ED (kalau lebih dari 1) dikirim lewat "batches".
+                tanggal_exp: (item.batches.find(b => b.tanggal_exp && b.qty > 0) || item.batches[0])?.tanggal_exp || null,
+                batches: item.batches.filter(b => b.qty > 0 && b.tanggal_exp)
             })),
             total_selisih: totalSelisih,
             jumlah_item: opnameItems.length,
