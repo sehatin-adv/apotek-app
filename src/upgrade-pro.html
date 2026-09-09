@@ -323,18 +323,25 @@
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch('/api/xendit-upgrade-payment', {
+            const res = await fetch('/api/ipaymu-upgrade-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` }
             });
             const result = await res.json();
             if (!res.ok || result.error) {
-                const detailStr = result.xenditResponse ? ('\n\nDetail: ' + JSON.stringify(result.xenditResponse)) : '';
+                const detailStr = result.ipaymuResponse ? ('\n\nDetail: ' + JSON.stringify(result.ipaymuResponse)) : '';
                 throw new Error((result.error || 'Gagal membuat pembayaran upgrade.') + detailStr);
             }
 
-            const qrString = result?.data?.qrString;
-            if (!qrString) throw new Error('QRIS tidak berhasil dibuat, coba lagi.');
+            // iPaymu taruh data QR-nya di dalam objek "Data" hasil respons -
+            // nama field persisnya dicoba beberapa variasi umum jaga-jaga,
+            // supaya kalau salah satu tidak cocok masih ada fallback lain.
+            const ipaymuData = result?.data?.ipaymu;
+            const qrString = ipaymuData?.Data?.QrString || ipaymuData?.Data?.qrString || ipaymuData?.Data?.qr_string || ipaymuData?.Data?.Qr;
+            if (!qrString) {
+                console.error('Struktur respons iPaymu tidak dikenali:', ipaymuData);
+                throw new Error('QRIS tidak berhasil dibuat (format respons iPaymu tidak dikenali - cek console browser (F12) untuk detail, lalu laporkan ke pengembang).');
+            }
 
             document.getElementById('qrisImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
             document.getElementById('qrisAmountText').textContent = formatRupiah(result.data.amount);

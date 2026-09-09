@@ -2589,3 +2589,114 @@ export async function updateSuratPesanan(suratPesananId, header, details) {
         return { error: e };
     }
 }
+
+// ============================================================
+// HAPUS / EDIT FAKTUR PEMBELIAN YANG SALAH INPUT
+// ============================================================
+
+// Verifikasi bahwa email+password yang dimasukkan itu benar DAN
+// pemiliknya berstatus admin di tenant yang sama dengan user yang
+// sedang login sekarang - dipakai sebagai gerbang sebelum hapus
+// faktur (aksi yang tidak bisa dibatalkan).
+export async function verifikasiPasswordAdmin(email, password) {
+    try {
+        const { data: currentSession } = await supabase.auth.getSession();
+        const currentAccessToken = currentSession?.session?.access_token;
+        const currentRefreshToken = currentSession?.session?.refresh_token;
+
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        if (authError || !authData?.user) {
+            // Pulihkan sesi awal (jaga2 kalau signInWithPassword sempat
+            // mengganti sesi aktif browser ke akun yang salah/gagal).
+            if (currentAccessToken) await supabase.auth.setSession({ access_token: currentAccessToken, refresh_token: currentRefreshToken });
+            return { valid: false, error: 'Email atau password admin salah.' };
+        }
+
+        const { data: appUserRows } = await supabase
+            .from('app_users')
+            .select('role, tenant_id, status')
+            .eq('auth_user_id', authData.user.id)
+            .limit(1);
+        const appUser = appUserRows?.[0];
+
+        // Kembalikan sesi ke user yang TADI sedang login (bukan user yang
+        // baru saja dicoba login utk verifikasi) - supaya tidak diam2
+        // pindah akun cuma karena mengetik password admin di modal ini.
+        if (currentAccessToken) await supabase.auth.setSession({ access_token: currentAccessToken, refresh_token: currentRefreshToken });
+
+        if (!appUser || appUser.role !== 'admin' || appUser.status === 'Tidak Aktif') {
+            return { valid: false, error: 'Akun ini bukan Admin aktif di apotek ini.' };
+        }
+        return { valid: true, error: null };
+    } catch(e) {
+        console.error('Error verifikasiPasswordAdmin:', e);
+        return { valid: false, error: e.message };
+    }
+}
+
+// Membalikkan efek satu faktur pembelian sepenuhnya - stok obat
+// dikurangi lagi, batch ED terkait dikurangi/dihapus, catatan Kartu
+// Stok terkait dihapus, baru detail & header fakturnya sendiri
+// dihapus. Dipakai baik utk Hapus permanen, MAUPUN sbg langkah
+// pertama utk Edit (hapus yg lama, simpan ulang yg sudah diedit).
+export async function hapusFakturPembelian(pembelianId) {
+    try {
+        const { data: header, error: headerError } = await supabase
+            .from('pembelian_header')
+            .select('*')
+            .eq('id', pembelianId)
+            .single();
+        if (headerError || !header) throw new Error('Faktur tidak ditemukan.');
+
+        const { data: items, error: itemsError } = await supabase
+            .from('pembelian_detail')
+            .select('*')
+            .eq('pembelian_id', pembelianId);
+        if (itemsError) throw itemsError;
+
+        for (const item of (items || [])) {
+            if (!item.kode_obat) continue;
+            const { data: obatData } = await supabase
+                .from('obat')
+                .select('id, stok')
+                .eq('kode_obat', item.kode_obat)
+                .maybeSingle();
+            if (!obatData) continue;
+
+            // Kurangi lagi stok yg dulu ditambahkan faktur ini (jangan sampai minus)
+            const stokBaru = Math.max(0, (obatData.stok || 0) - (item.jumlah || 0));
+            await supabase.from('obat').update({ stok: stokBaru }).eq('id', obatData.id);
+
+            // Kurangi/hapus batch ED yg dulu dibuat dari faktur ini (kalau
+            // sudah kepakai sebagian oleh penjualan sesudahnya, otomatis
+            // di-floor ke 0 - tidak dipaksa sampai minus).
+            if (item.tanggal_exp) {
+                const { data: batchRow } = await supabase
+                    .from('obat_batch')
+                    .select('id, stok_batch')
+                    .eq('obat_id', obatData.id)
+                    .eq('tanggal_exp', item.tanggal_exp)
+                    .eq('no_batch', item.no_batch || null)
+                    .maybeSingle();
+                if (batchRow) {
+                    const sisaBatch = Math.max(0, (batchRow.stok_batch || 0) - (item.jumlah || 0));
+                    await supabase.from('obat_batch').update({ stok_batch: sisaBatch }).eq('id', batchRow.id);
+                }
+            }
+        }
+
+        // Hapus catatan Kartu Stok yg tercatat dari faktur ini (dicocokkan
+        // lewat no_bukti = no_faktur, sesuai cara savePembelian menyimpannya)
+        if (header.no_faktur) {
+            await supabase.from('kartu_stok').delete().eq('no_bukti', header.no_faktur);
+        }
+
+        await supabase.from('pembelian_detail').delete().eq('pembelian_id', pembelianId);
+        await supabase.from('pembelian_header').delete().eq('id', pembelianId);
+
+        return { data: { header, items }, error: null };
+    } catch(e) {
+        console.error('Error hapusFakturPembelian:', e);
+        return { data: null, error: e };
+    }
+}
