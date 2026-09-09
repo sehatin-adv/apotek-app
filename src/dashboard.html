@@ -216,7 +216,10 @@
     <div class="main-content">
         <div class="header">
             <h2><i class="fas fa-th-large"></i> Dashboard Apotek</h2>
-            <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button onclick="refreshDashboard()" style="background:#eaf2fb;color:#2d6a9f;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;" title="Ambil data terbaru dari server"><i class="fas fa-rotate"></i> Refresh</button>
+                <div class="user-badge"><i class="fas fa-user-circle"></i> <span id="userBadge">admin</span></div>
+            </div>
         </div>
         <div id="jatuhTempoBanner" style="display:none;background:#fff3cd;border:1px solid #ffe69c;border-radius:14px;padding:16px 18px;margin-bottom:18px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
@@ -259,7 +262,13 @@
             <div class="card"><div class="card-title"><i class="fas fa-cart-shopping" style="color:#2d6a9f;"></i> Grafik Penjualan per Bulan</div><div class="chart-container"><canvas id="chartPenjualanBulanan"></canvas></div></div>
             <div class="card"><div class="card-title"><i class="fas fa-truck-fast" style="color:#f0b429;"></i> Grafik Pembelian Obat per Bulan</div><div class="chart-container"><canvas id="chartPembelianBulanan"></canvas></div></div>
             <div class="card"><div class="card-title"><i class="fas fa-money-bill-wave" style="color:#dc3545;"></i> Grafik Biaya Operasional per Bulan</div><div class="chart-container"><canvas id="chartBiayaOperasional"></canvas></div></div>
-            <div class="card"><div class="card-title"><i class="fas fa-user-tie" style="color:#8b5cf6;"></i> Penjualan Terbanyak per Kasir</div><div class="chart-container"><canvas id="chartKasir"></canvas></div></div>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:2px;">
+                    <div class="card-title" style="margin:0;"><i class="fas fa-user-tie" style="color:#8b5cf6;"></i> Penjualan Terbanyak per Kasir</div>
+                    <input type="month" id="filterBulanKasir" onchange="loadGrafikKasir()" style="padding:5px 10px;border:2px solid #e8edf3;border-radius:8px;font-size:12px;font-weight:600;">
+                </div>
+                <div class="chart-container"><canvas id="chartKasir"></canvas></div>
+            </div>
         </div>
 
         <div class="card"><div class="card-title"><i class="fas fa-star" style="color:#ffc107;"></i> Menu Favorit</div>
@@ -281,7 +290,7 @@
 
 <script type="module">
     import { getCurrentUser, signOut } from './supabase.js';
-    import { getObat, getSupplier, getPenjualan, getPembelianJatuhTempo, getObatMendekatiExpired, getPembelian, getPengeluaran } from './database.js';
+    import { getObat, getSupplier, getPenjualan, getPembelianJatuhTempo, getObatMendekatiExpired, getPembelian, getPengeluaran, getDashboardCache, setDashboardCache, clearDashboardCache } from './database.js';
     import { applyBranding } from './branding.js';
     applyBranding('Dashboard');
     import { enforcePermissions } from './permissions.js';
@@ -397,30 +406,56 @@
         const loading = document.getElementById('loadingOverlay');
         loading.classList.add('active');
         try {
-            const { data: obatData } = await getObat();
-            document.getElementById('totalObat').textContent = obatData ? obatData.length : 0;
-            if (obatData) { const menipis = obatData.filter(o => (o.stok || 0) > 0 && (o.stok || 0) <= (Number(o.stok_minimal) || 0)).length; document.getElementById('stokMenipis').textContent = menipis; }
-            const { data: supplierData } = await getSupplier();
-            document.getElementById('totalSupplier').textContent = supplierData ? supplierData.length : 0;
             const today = getToday();
-            const { data: penjualanData } = await getPenjualan(today, today);
-            let totalOmset = 0;
-            if (penjualanData) { penjualanData.forEach(p => { totalOmset += p.total || 0; }); }
-            document.getElementById('omsetHarian').textContent = formatRupiah(totalOmset);
-            document.getElementById('omsetSub').textContent = (penjualanData ? penjualanData.length : 0) + ' transaksi hari ini';
-            const labels = []; const values = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(); date.setDate(date.getDate() - i);
-                const dateStr = date.toISOString().split('T')[0];
-                const { data: dailyData } = await getPenjualan(dateStr, dateStr);
-                let total = 0; if (dailyData) { dailyData.forEach(p => { total += p.total || 0; }); }
-                labels.push(dateStr.slice(5)); values.push(total);
+            const cacheKey = 'stats_' + today; // cache utk hari ini - otomatis "kadaluarsa" sendiri kalau gantiu hari
+            const cached = getDashboardCache(cacheKey);
+
+            if (cached) {
+                document.getElementById('totalObat').textContent = cached.totalObat;
+                document.getElementById('stokMenipis').textContent = cached.stokMenipis;
+                document.getElementById('totalSupplier').textContent = cached.totalSupplier;
+                document.getElementById('omsetHarian').textContent = cached.omsetHarian;
+                document.getElementById('omsetSub').textContent = cached.omsetSub;
+                buatAtauPerbaruiChart('chartPenjualan', {
+                    type: 'bar',
+                    data: { labels: cached.labels7hari, datasets: [{ label: 'Penjualan (Rp)', data: cached.values7hari, backgroundColor: '#2d6a9f', borderRadius: 8 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            } else {
+                const { data: obatData } = await getObat();
+                const totalObat = obatData ? obatData.length : 0;
+                const stokMenipis = obatData ? obatData.filter(o => (o.stok || 0) > 0 && (o.stok || 0) <= (Number(o.stok_minimal) || 0)).length : 0;
+                document.getElementById('totalObat').textContent = totalObat;
+                document.getElementById('stokMenipis').textContent = stokMenipis;
+
+                const { data: supplierData } = await getSupplier();
+                const totalSupplier = supplierData ? supplierData.length : 0;
+                document.getElementById('totalSupplier').textContent = totalSupplier;
+
+                const { data: penjualanData } = await getPenjualan(today, today);
+                let totalOmset = 0;
+                if (penjualanData) { penjualanData.forEach(p => { totalOmset += p.total || 0; }); }
+                const omsetHarian = formatRupiah(totalOmset);
+                const omsetSub = (penjualanData ? penjualanData.length : 0) + ' transaksi hari ini';
+                document.getElementById('omsetHarian').textContent = omsetHarian;
+                document.getElementById('omsetSub').textContent = omsetSub;
+
+                const labels7hari = []; const values7hari = [];
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date(); date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    const { data: dailyData } = await getPenjualan(dateStr, dateStr);
+                    let total = 0; if (dailyData) { dailyData.forEach(p => { total += p.total || 0; }); }
+                    labels7hari.push(dateStr.slice(5)); values7hari.push(total);
+                }
+                buatAtauPerbaruiChart('chartPenjualan', {
+                    type: 'bar',
+                    data: { labels: labels7hari, datasets: [{ label: 'Penjualan (Rp)', data: values7hari, backgroundColor: '#2d6a9f', borderRadius: 8 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+
+                setDashboardCache(cacheKey, { totalObat, stokMenipis, totalSupplier, omsetHarian, omsetSub, labels7hari, values7hari });
             }
-            new Chart(document.getElementById('chartPenjualan'), {
-                type: 'bar',
-                data: { labels, datasets: [{ label: 'Penjualan (Rp)', data: values, backgroundColor: '#2d6a9f', borderRadius: 8 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
 
             await loadGrafikBulanan();
         } catch(e) { console.error('Error loading dashboard:', e); } finally { loading.classList.remove('active'); }
@@ -462,71 +497,123 @@
     window.loadGrafikBulanan = async function() {
         const tahun = Number(document.getElementById('filterTahunGrafik').value) || new Date().getFullYear();
         const bulanList = daftar12BulanTahun(tahun);
-        const tglMulai = tahun + '-01-01';
-        const tglAkhir = tahun + '-12-31';
+        const cacheKey = 'dashboard_grafik_tahun_' + tahun;
 
-        // --- Penjualan per Bulan + per Kasir (sekaligus, dari data yang sama) ---
-        const { data: penjualanAll } = await getPenjualan(tglMulai, tglAkhir);
-        const penjualanPerBulan = {}; const penjualanPerKasir = {};
-        (penjualanAll || []).forEach(p => {
-            const key = (p.tanggal || '').slice(0, 7);
-            penjualanPerBulan[key] = (penjualanPerBulan[key] || 0) + (Number(p.total) || 0);
-            const kasirNama = p.kasir || 'Tidak diketahui';
-            penjualanPerKasir[kasirNama] = (penjualanPerKasir[kasirNama] || 0) + (Number(p.total) || 0);
-        });
+        let penjualanPerBulan, pembelianPerBulan, pengeluaranPerBulan;
+        const cached = getDashboardCache(cacheKey);
+        if (cached) {
+            ({ penjualanPerBulan, pembelianPerBulan, pengeluaranPerBulan } = cached);
+        } else {
+            const tglMulai = tahun + '-01-01';
+            const tglAkhir = tahun + '-12-31';
+
+            const { data: penjualanAll } = await getPenjualan(tglMulai, tglAkhir);
+            penjualanPerBulan = {};
+            (penjualanAll || []).forEach(p => {
+                const key = (p.tanggal || '').slice(0, 7);
+                penjualanPerBulan[key] = (penjualanPerBulan[key] || 0) + (Number(p.total) || 0);
+            });
+
+            const { data: pembelianAll } = await getPembelian();
+            pembelianPerBulan = {};
+            (pembelianAll || []).filter(p => (p.tanggal_faktur || '') >= tglMulai && (p.tanggal_faktur || '') <= tglAkhir).forEach(p => {
+                const key = (p.tanggal_faktur || '').slice(0, 7);
+                pembelianPerBulan[key] = (pembelianPerBulan[key] || 0) + (Number(p.total) || 0);
+            });
+
+            const { data: pengeluaranAll } = await getPengeluaran(tglMulai, tglAkhir);
+            pengeluaranPerBulan = {};
+            (pengeluaranAll || []).forEach(p => {
+                const key = (p.tanggal || '').slice(0, 7);
+                pengeluaranPerBulan[key] = (pengeluaranPerBulan[key] || 0) + (Number(p.nominal) || 0);
+            });
+
+            setDashboardCache(cacheKey, { penjualanPerBulan, pembelianPerBulan, pengeluaranPerBulan });
+        }
+
         buatAtauPerbaruiChart('chartPenjualanBulanan', {
             type: 'bar',
-            data: {
-                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
-                datasets: [{ label: 'Penjualan (Rp)', data: bulanList.map(b => penjualanPerBulan[b.key] || 0), backgroundColor: '#2d6a9f', borderRadius: 8 }]
-            },
+            data: { labels: bulanList.map(b => namaBulanSingkat(b.bulan)), datasets: [{ label: 'Penjualan (Rp)', data: bulanList.map(b => penjualanPerBulan[b.key] || 0), backgroundColor: '#2d6a9f', borderRadius: 8 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
+        buatAtauPerbaruiChart('chartPembelianBulanan', {
+            type: 'bar',
+            data: { labels: bulanList.map(b => namaBulanSingkat(b.bulan)), datasets: [{ label: 'Pembelian (Rp)', data: bulanList.map(b => pembelianPerBulan[b.key] || 0), backgroundColor: '#f0b429', borderRadius: 8 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+        buatAtauPerbaruiChart('chartBiayaOperasional', {
+            type: 'bar',
+            data: { labels: bulanList.map(b => namaBulanSingkat(b.bulan)), datasets: [{ label: 'Biaya Operasional (Rp)', data: bulanList.map(b => pengeluaranPerBulan[b.key] || 0), backgroundColor: '#dc3545', borderRadius: 8 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    };
+
+    // Grafik Kasir SENGAJA dipisah dari 3 grafik di atas - filternya per
+    // BULAN tertentu (bukan setahun penuh), supaya bisa lihat "siapa
+    // kasir terlaris bulan ini" secara spesifik, independen dari filter
+    // tahun yang dipakai 3 grafik lainnya.
+    function isiDefaultFilterBulanKasir() {
+        const now = new Date();
+        const nilai = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        document.getElementById('filterBulanKasir').value = nilai;
+    }
+
+    window.loadGrafikKasir = async function() {
+        const bulanInput = document.getElementById('filterBulanKasir').value || (() => { isiDefaultFilterBulanKasir(); return document.getElementById('filterBulanKasir').value; })();
+        const [tahun, bulan] = bulanInput.split('-').map(Number);
+        const tglMulai = bulanInput + '-01';
+        const akhirBulan = new Date(tahun, bulan, 0).getDate();
+        const tglAkhir = bulanInput + '-' + String(akhirBulan).padStart(2, '0');
+        const cacheKey = 'dashboard_kasir_' + bulanInput;
+
+        let penjualanPerKasir;
+        const cached = getDashboardCache(cacheKey);
+        if (cached) {
+            penjualanPerKasir = cached.penjualanPerKasir;
+        } else {
+            const { data: penjualanAll } = await getPenjualan(tglMulai, tglAkhir);
+            penjualanPerKasir = {};
+            (penjualanAll || []).forEach(p => {
+                const kasirNama = p.kasir || 'Tidak diketahui';
+                penjualanPerKasir[kasirNama] = (penjualanPerKasir[kasirNama] || 0) + (Number(p.total) || 0);
+            });
+            setDashboardCache(cacheKey, { penjualanPerKasir });
+        }
 
         const topKasir = Object.entries(penjualanPerKasir).sort((a, b) => b[1] - a[1]).slice(0, 8);
         buatAtauPerbaruiChart('chartKasir', {
             type: 'bar',
-            data: {
-                labels: topKasir.map(k => k[0]),
-                datasets: [{ label: 'Total Penjualan (Rp)', data: topKasir.map(k => k[1]), backgroundColor: '#8b5cf6', borderRadius: 8 }]
-            },
+            data: { labels: topKasir.map(k => k[0]), datasets: [{ label: 'Total Penjualan (Rp)', data: topKasir.map(k => k[1]), backgroundColor: '#8b5cf6', borderRadius: 8 }] },
             options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }
         });
-
-        // --- Pembelian Obat per Bulan ---
-        const { data: pembelianAll } = await getPembelian();
-        const pembelianPerBulan = {};
-        (pembelianAll || []).filter(p => (p.tanggal_faktur || '') >= tglMulai && (p.tanggal_faktur || '') <= tglAkhir).forEach(p => {
-            const key = (p.tanggal_faktur || '').slice(0, 7);
-            pembelianPerBulan[key] = (pembelianPerBulan[key] || 0) + (Number(p.total) || 0);
-        });
-        buatAtauPerbaruiChart('chartPembelianBulanan', {
-            type: 'bar',
-            data: {
-                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
-                datasets: [{ label: 'Pembelian (Rp)', data: bulanList.map(b => pembelianPerBulan[b.key] || 0), backgroundColor: '#f0b429', borderRadius: 8 }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-
-        // --- Biaya Operasional per Bulan ---
-        const { data: pengeluaranAll } = await getPengeluaran(tglMulai, tglAkhir);
-        const pengeluaranPerBulan = {};
-        (pengeluaranAll || []).forEach(p => {
-            const key = (p.tanggal || '').slice(0, 7);
-            pengeluaranPerBulan[key] = (pengeluaranPerBulan[key] || 0) + (Number(p.nominal) || 0);
-        });
-        buatAtauPerbaruiChart('chartBiayaOperasional', {
-            type: 'bar',
-            data: {
-                labels: bulanList.map(b => namaBulanSingkat(b.bulan)),
-                datasets: [{ label: 'Biaya Operasional (Rp)', data: bulanList.map(b => pengeluaranPerBulan[b.key] || 0), backgroundColor: '#dc3545', borderRadius: 8 }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
     };
+
+    // Tombol "Refresh" manual - bersihkan SEMUA cache Dashboard (statistik,
+    // grafik tahunan, grafik kasir), lalu ambil ulang semuanya dari server.
+    window.refreshDashboard = async function() {
+        clearDashboardCache(); // bersihkan seluruh kunci cache_dashboard_* sekaligus
+        await loadDashboard();
+        await loadGrafikKasir();
+        showToastDashboard('🔄 Data ter-update dari server');
+    };
+    function showToastDashboard(msg) {
+        let toast = document.getElementById('toastDashboard');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toastDashboard';
+            toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#28a745;color:white;padding:12px 20px;border-radius:10px;font-weight:600;font-size:13px;z-index:3000;box-shadow:0 8px 24px rgba(0,0,0,0.2);';
+            document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
+    isiDefaultFilterBulanKasir();
     await checkAuth();
     await loadDashboard();
+    await loadGrafikKasir();
     loadJatuhTempoBanner();
     loadEdBanner();
 </script>

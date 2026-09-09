@@ -52,6 +52,41 @@ function clearCache(key) {
     try { sessionStorage.removeItem('cache_' + key); } catch(e) {}
 }
 
+// Dashboard punya cache TTL lebih panjang (5 menit), dan bisa punya
+// BANYAK kunci berbeda sekaligus (per tahun utk grafik tahunan, per
+// bulan utk grafik kasir) - diekspos di sini biar bisa dipanggil dari
+// dashboard.html, dan supaya invalidasinya konsisten dgn cache lain
+// (lihat clearDashboardCache() di savePenjualan/savePembelian/dst -
+// dipanggil TANPA argumen di situ, artinya "bersihkan SEMUA kunci
+// dashboard sekaligus", karena dari titik mutasi manapun kita tidak
+// tahu grafik tahun/bulan mana saja yang perlu di-refresh).
+const DASHBOARD_CACHE_TTL_MS = 300000; // 5 menit
+export function getDashboardCache(key = 'default') {
+    try {
+        const raw = sessionStorage.getItem('cache_dashboard_' + key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.ts > DASHBOARD_CACHE_TTL_MS) return null;
+        return parsed.data;
+    } catch(e) { return null; }
+}
+export function setDashboardCache(key, data) {
+    // Dukung juga pemanggilan lama setDashboardCache(data) - 1 argumen
+    // saja dianggap key='default'.
+    if (data === undefined) { data = key; key = 'default'; }
+    try { sessionStorage.setItem('cache_dashboard_' + key, JSON.stringify({ data, ts: Date.now() })); } catch(e) {}
+}
+export function clearDashboardCache() {
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('cache_dashboard_')) keysToRemove.push(k);
+        }
+        keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch(e) {}
+}
+
 // ============================================================
 // OBAT
 // ============================================================
@@ -94,7 +129,7 @@ export async function saveObat(obatData) {
             .upsert(obatData, { onConflict: 'id' })
             .select();
         if (error) throw error;
-        clearCache('obat'); // data berubah - cache lama sudah tidak valid
+        clearCache('obat'); clearDashboardCache(); // data berubah - cache lama sudah tidak valid
         return { data, error: null };
     } catch(e) {
         console.error('Error saveObat:', e);
@@ -110,6 +145,7 @@ export async function deleteObat(id) {
             .eq('id', id);
         if (error) throw error;
         clearCache('obat');
+        clearDashboardCache();
         return { error: null };
     } catch(e) {
         console.error('Error deleteObat:', e);
@@ -401,6 +437,7 @@ export async function savePenjualan(header, details, options = {}) {
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePenjualan:', e);
@@ -569,6 +606,7 @@ export async function saveRetur(returData, detailRetur) {
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveRetur:', e);
@@ -1085,6 +1123,7 @@ export async function saveStokOpname(opnameData) {
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
         clearCache('obat');
+        clearDashboardCache();
         return { data, error: null };
     } catch(e) {
         console.error('Error saveStokOpname:', e);
@@ -1232,6 +1271,7 @@ export async function savePembelian(header, details) {
         localStorage.setItem('obat', JSON.stringify(obatLocal));
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePembelian:', e);
@@ -1489,6 +1529,7 @@ export async function savePengeluaran(pengeluaranData) {
             .upsert(pengeluaranData, { onConflict: 'id' })
             .select();
         if (error) throw error;
+        clearDashboardCache();
         return { data, error: null };
     } catch(e) {
         console.error('Error savePengeluaran:', e);
@@ -1503,6 +1544,7 @@ export async function deletePengeluaran(id) {
             .delete()
             .eq('id', id);
         if (error) throw error;
+        clearDashboardCache();
         return { error: null };
     } catch(e) {
         console.error('Error deletePengeluaran:', e);
@@ -2139,6 +2181,7 @@ export async function saveReturPembelian(header, details) {
         }
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: returHeader[0], error: null };
     } catch(e) {
         console.error('Error saveReturPembelian:', e);
@@ -2291,6 +2334,7 @@ export async function savePendingTransaksi(header, details) {
         }
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: headerData[0], error: null };
     } catch(e) {
         console.error('Error savePendingTransaksi:', e);
@@ -2338,6 +2382,7 @@ export async function batalkanPendingTransaksi(pendingId, details) {
             .eq('id', pendingId);
         if (error) throw error;
         clearCache('obat');
+        clearDashboardCache();
         return { error: null };
     } catch(e) {
         console.error('Error batalkanPendingTransaksi:', e);
@@ -2779,6 +2824,7 @@ export async function hapusFakturPembelian(pembelianId) {
         await supabase.from('pembelian_header').delete().eq('id', pembelianId);
 
         clearCache('obat');
+        clearDashboardCache();
         return { data: { header, items }, error: null };
     } catch(e) {
         console.error('Error hapusFakturPembelian:', e);
