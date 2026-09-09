@@ -585,6 +585,24 @@
                     <input type="text" id="scanNoFakturPajak">
                 </div>
             </div>
+            <div class="form-grid-3" style="margin-bottom:10px;">
+                <div class="form-group">
+                    <label>Jenis Pembayaran</label>
+                    <select id="scanJenisPembayaran" onchange="toggleScanTopField()">
+                        <option value="">- Tidak terbaca, pilih manual -</option>
+                        <option value="TUNAI">Cash/Tunai</option>
+                        <option value="KREDIT">Kredit</option>
+                    </select>
+                </div>
+                <div class="form-group" id="scanTopWrap" style="display:none;">
+                    <label>TOP (Hari)</label>
+                    <input type="number" id="scanTopHari" placeholder="Contoh: 30" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Ketentuan Retur</label>
+                    <input type="text" id="scanKetentuanRetur" placeholder="Kosong kalau tidak tercantum di faktur">
+                </div>
+            </div>
             <div style="font-size:12px;color:#7a8a9e;margin-bottom:8px;">PBF terbaca: <strong id="scanNamaPbf">-</strong> (pilih manual di Supplier kalau tidak otomatis cocok)</div>
             <div id="scanItemsList" style="max-height:280px;overflow-y:auto;border:1px solid #eef2f7;border-radius:10px;"></div>
             <div style="display:flex;gap:10px;margin-top:16px;">
@@ -643,7 +661,7 @@
 
 <script type="module">
     import { supabase } from './supabase.js';
-    import { getObat, getSupplier, savePembelian, saveObat, getMyTenantInfo, cekNoFakturPembelian } from './database.js';
+    import { getObat, getSupplier, savePembelian, saveObat, getMyTenantInfo, cekNoFakturPembelian, getPembelianById, hapusFakturPembelian } from './database.js';
     import { matchScore } from './matching.js';
     import { applyBranding } from './branding.js';
     applyBranding('Pembelian');
@@ -1387,6 +1405,10 @@
         document.getElementById('scanTanggal').value = data.tanggal_faktur || '';
         document.getElementById('scanNoFakturPajak').value = data.no_faktur_pajak || '';
         document.getElementById('scanNamaPbf').textContent = data.nama_pbf || '(tidak terbaca)';
+        document.getElementById('scanJenisPembayaran').value = data.jenis_pembayaran === 'KREDIT' || data.jenis_pembayaran === 'TUNAI' ? data.jenis_pembayaran : '';
+        document.getElementById('scanTopHari').value = data.top_hari || '';
+        document.getElementById('scanKetentuanRetur').value = data.ketentuan_retur || '';
+        toggleScanTopField();
 
         const listEl = document.getElementById('scanItemsList');
         const scanItems = data.items || [];
@@ -1419,6 +1441,11 @@
         ` + listEl.innerHTML;
     }
 
+    window.toggleScanTopField = function() {
+        const isKredit = document.getElementById('scanJenisPembayaran').value === 'KREDIT';
+        document.getElementById('scanTopWrap').style.display = isKredit ? 'block' : 'none';
+    };
+
     window.applyScanResults = async function() {
         if (!scanExtractedData) return;
         try {
@@ -1431,6 +1458,20 @@
             if (document.getElementById('scanNoFakturPajak').value) {
                 document.getElementById('noFakturPajak').value = document.getElementById('scanNoFakturPajak').value;
             }
+            // Jenis Pembayaran & TOP - AI cuma MEMBANTU menebak dari isi
+            // faktur, tetap dianggap SARAN yang perlu dicek user sendiri,
+            // bukan otomatis dipercaya penuh (makanya tetap muncul juga
+            // di checklist pengingat sebelum Simpan).
+            const jenisPembayaranScan = document.getElementById('scanJenisPembayaran').value;
+            if (jenisPembayaranScan) {
+                document.getElementById('jenisPembelian').value = jenisPembayaranScan;
+                toggleTopField();
+                if (jenisPembayaranScan === 'KREDIT' && document.getElementById('scanTopHari').value) {
+                    document.getElementById('topHari').value = document.getElementById('scanTopHari').value;
+                    updateJatuhTempoPreview();
+                }
+            }
+            const ketentuanReturScan = document.getElementById('scanKetentuanRetur').value.trim();
             const namaPbfScan = document.getElementById('scanNamaPbf').textContent;
             if (namaPbfScan && namaPbfScan !== '(tidak terbaca)') {
                 const supplierSelect = document.getElementById('pilihSupplier');
@@ -1504,7 +1545,7 @@
                     _fromScan: true,
                     tanggal_exp: tanggalEd,
                     no_batch: noBatch,
-                    ketentuan_retur: ''
+                    ketentuan_retur: ketentuanReturScan || ''
                 });
                 jumlahDitambahkan++;
             }
@@ -1756,16 +1797,26 @@
         
         lastSavedData = data;
         
-        showGlobalLoading('Menyimpan pembelian, mohon tunggu...');
+        showGlobalLoading(editModeId ? 'Memperbarui pembelian, mohon tunggu...' : 'Menyimpan pembelian, mohon tunggu...');
         try {
+            // Mode EDIT: hapus dulu efek faktur lama (stok/batch/kartu stok
+            // dikembalikan), baru simpan versi yang sudah diedit sbg data
+            // baru - lebih aman & sederhana drpd coba hitung selisihnya
+            // manual antara versi lama vs baru.
+            if (editModeId) {
+                const { error: hapusError } = await hapusFakturPembelian(editModeId);
+                if (hapusError) throw new Error('Gagal menghapus versi lama faktur: ' + hapusError.message);
+            }
+
             const { data: result, error } = await savePembelian(data, data.items);
             if (error) throw error;
             
             hideGlobalLoading();
-            showSuccess('✅ Pembelian Berhasil!', 
+            showSuccess(editModeId ? '✅ Faktur Berhasil Diperbarui!' : '✅ Pembelian Berhasil!', 
                 'Data pembelian No. ' + noFaktur + ' telah disimpan.',
                 'Total: ' + formatRupiah(totalPembelian) + ' | ' + items.length + ' item'
             );
+            editModeId = null;
             
             await loadMasterData();
             renderItems();
@@ -1979,6 +2030,68 @@
     }
     
     let noFakturSudahDipakai = false;
+    let editModeId = null; // diisi kalau halaman ini dibuka utk EDIT faktur yang sudah ada (bukan input baru)
+
+    async function loadFakturUntukEdit(id) {
+        showGlobalLoading('Memuat data faktur untuk diedit...');
+        try {
+            const { data, error } = await getPembelianById(id);
+            if (error || !data) {
+                hideGlobalLoading();
+                showToast('❌ Faktur tidak ditemukan, mungkin sudah dihapus.', true);
+                return;
+            }
+            editModeId = id;
+
+            document.getElementById('noFaktur').value = data.no_faktur || '';
+            document.getElementById('tanggalFaktur').value = data.tanggal_faktur || '';
+            document.getElementById('pilihSupplier').value = data.supplier_id || '';
+            document.getElementById('pilihGudang').value = data.gudang || 'GUDANG UTAMA';
+            document.getElementById('jenisPembelian').value = data.jenis || 'TUNAI';
+            document.getElementById('pilihKas').value = data.kas || 'Kas Umum';
+            document.getElementById('noFakturPajak').value = data.no_faktur_pajak || '';
+            document.getElementById('ppnPercent').value = data.ppn_persen || 11;
+            toggleTopField();
+            if (data.jenis === 'KREDIT') {
+                document.getElementById('topHari').value = data.top_hari || '';
+                updateJatuhTempoPreview();
+            }
+
+            items = (data.pembelian_detail || []).map(d => ({
+                id: ++itemCounter,
+                obat_id: d.obat_id,
+                kode_obat: d.kode_obat,
+                nama_obat: d.nama_obat,
+                satuan: d.satuan,
+                jumlah: d.jumlah,
+                harga_beli: d.harga_beli,
+                subtotal: d.subtotal,
+                diskon_persen: d.diskon_persen || 0,
+                diskon_nominal: d.diskon_nominal || 0,
+                hpp: d.hpp || 0,
+                margin_persen: d.margin_persen || 25,
+                harga_jual: d.harga_jual || 0,
+                diskon_jual_persen: d.diskon_jual_persen || 0,
+                tanggal_exp: d.tanggal_exp || '',
+                no_batch: d.no_batch || '',
+                ketentuan_retur: d.ketentuan_retur || ''
+            }));
+            renderItems();
+            hitungTotal();
+
+            // Tandai jelas di tampilan bahwa ini sedang mode EDIT, bukan
+            // input faktur baru - supaya tidak membingungkan.
+            const judulEl = document.querySelector('.header h2');
+            if (judulEl) judulEl.innerHTML = '<i class="fas fa-pen"></i> Edit Faktur: ' + (data.no_faktur || '');
+            const btnSimpanEl = document.querySelector('button[onclick="bukaKonfirmasiSimpan()"]');
+            if (btnSimpanEl) btnSimpanEl.innerHTML = '<i class="fas fa-save"></i> Update Faktur';
+
+            showToast('✏️ Mode edit - ubah data yang perlu, lalu klik "Update Faktur"');
+        } finally {
+            hideGlobalLoading();
+        }
+    }
+
     window.cekDuplikatNoFaktur = async function() {
         const input = document.getElementById('noFaktur');
         const warning = document.getElementById('noFakturWarning');
@@ -1988,7 +2101,9 @@
         if (!noFaktur) return;
 
         const { data } = await cekNoFakturPembelian(noFaktur);
-        if (data) {
+        // Kalau yang ketemu itu Faktur ITU SENDIRI (lagi mode edit), bukan
+        // duplikat sungguhan - jangan tampilkan peringatan.
+        if (data && data.id !== editModeId) {
             noFakturSudahDipakai = true;
             warning.style.display = 'block';
         }
@@ -2028,8 +2143,13 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         terapkanBatasanPaket();
+        const editId = new URLSearchParams(window.location.search).get('edit');
         loadMasterData().then(() => {
-            restoreDraft();
+            if (editId) {
+                loadFakturUntukEdit(editId);
+            } else {
+                restoreDraft();
+            }
         });
 
         // Simpan draft juga kalau field header (No Faktur, Supplier, dst)

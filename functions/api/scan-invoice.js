@@ -28,6 +28,9 @@ Baca gambar ini dan keluarkan HANYA JSON (tanpa markdown, tanpa penjelasan tamba
   "no_faktur": "nomor faktur, kosongkan string jika tidak terbaca",
   "no_faktur_pajak": "nomor faktur pajak jika ada, kosongkan string jika tidak ada/tidak terbaca",
   "tanggal_faktur": "tanggal dalam format YYYY-MM-DD, kosongkan string jika tidak terbaca",
+  "jenis_pembayaran": "\"KREDIT\" kalau faktur mencantumkan jangka waktu pembayaran/jatuh tempo/TOP (Term of Payment) dalam bentuk apapun (contoh: \\\"TOP 30 Hari\\\", \\\"Jatuh Tempo\\\", \\\"Kredit\\\", \\\"Tempo\\\"), atau \"TUNAI\" kalau faktur menyebut lunas/cash/tunai/dibayar langsung, string kosong \"\" kalau sama sekali tidak ada petunjuk salah satu",
+  "top_hari": "kalau jenis_pembayaran KREDIT dan ada angka jangka waktu (contoh \\\"TOP 30\\\" -> 30, \\\"Jatuh Tempo 45 hari\\\" -> 45), isi angkanya (number). 0 kalau tidak ada angka jelas atau jenis_pembayaran bukan KREDIT",
+  "ketentuan_retur": "salin apa adanya kalimat/ketentuan retur/pengembalian barang kalau tercantum di faktur (biasanya di bagian catatan/syarat, sering menyebut batas waktu retur atau kondisi barang), string kosong jika tidak ada",
   "items": [
     {
       "nama_obat": "nama obat/produk persis seperti tertulis di faktur",
@@ -46,6 +49,8 @@ ATURAN PENTING:
 - Untuk "items", baca SEMUA baris item di faktur, jangan lewatkan satupun.
 - harga_satuan dan jumlah HARUS berupa angka murni (number JSON), bukan string berformat seperti "15.000".
 - no_batch dan tanggal_exp sering ada di kolom terpisah di faktur (kadang disingkat "No. Batch", "Batch/Lot", "ED", "Exp", "Kadaluwarsa") - baca dengan teliti kalau ada.
+- jenis_pembayaran dan top_hari: banyak PBF mencantumkan ini di bagian bawah/header faktur (contoh: "TOP: 30 Hari", "Jatuh Tempo: 15-01-2027", "Syarat Pembayaran: Kredit 30 Hari"). Kalau cuma ada TANGGAL jatuh tempo (bukan jumlah hari), boleh kosongkan top_hari (0) tapi jenis_pembayaran tetap "KREDIT".
+- ketentuan_retur: biasanya kalimat seperti "Barang yang sudah dibeli tidak dapat dikembalikan" atau "Retur diterima maksimal 7 hari dengan kondisi kemasan utuh" - salin persis, jangan diringkas/diparafrase.
 - Kalau gambar bukan faktur/nota sama sekali, atau benar-benar tidak bisa dibaca, kembalikan items sebagai array kosong [].`;
 
 export async function onRequestPost(context) {

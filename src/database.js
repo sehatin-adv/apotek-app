@@ -1982,6 +1982,21 @@ export async function getPembelianByNoFaktur(noFaktur) {
     }
 }
 
+export async function getPembelianById(id) {
+    try {
+        const { data, error } = await supabase
+            .from('pembelian_header')
+            .select('*, pembelian_detail(*)')
+            .eq('id', id)
+            .single();
+        if (error) throw error;
+        return { data, error: null };
+    } catch(e) {
+        console.error('Error getPembelianById:', e);
+        return { data: null, error: e };
+    }
+}
+
 export async function getAllReturPembelian() {
     try {
         const data = await fetchAllRows('retur_pembelian', '*, retur_pembelian_detail(*)', 'tanggal_retur', false);
