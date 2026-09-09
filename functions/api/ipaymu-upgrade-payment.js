@@ -89,6 +89,16 @@ export async function onRequestPost(context) {
         const tenant = tenantRows?.[0];
         if (!tenant) return new Response(JSON.stringify({ error: 'Tenant tidak ditemukan.', step: 'find-tenant' }), { status: 404, headers: CORS_HEADERS });
 
+        // Ambil no. telepon ASLI apotek (dari Identitas Apotek) - PENTING:
+        // sebelumnya kode ini pakai nomor HP yang SAMA PERSIS utk semua
+        // transaksi ("08000000000"), yang bikin iPaymu mengira semua
+        // tenant itu "pembeli yang sama" mencoba berkali-kali dan
+        // memblokirnya sbg "Suspicious Buyer" (limit iPaymu: 3x/hari
+        // utk nomor HP/email yang sama).
+        const pengaturanRes = await fetch(`${env.SUPABASE_URL}/rest/v1/pengaturan_apotek?tenant_id=eq.${tenant.id}&select=telepon`, { headers: serviceHeaders });
+        const pengaturanRows = await pengaturanRes.json().catch(() => []);
+        const teleponApotek = pengaturanRows?.[0]?.telepon?.trim();
+
         if (tenant.plan === 'Pro') {
             return new Response(JSON.stringify({ error: 'Tenant ini sudah berada di paket Pro.', step: 'already-pro' }), { status: 400, headers: CORS_HEADERS });
         }
@@ -130,7 +140,7 @@ export async function onRequestPost(context) {
         const paymentBody = {
             name: tenant.nama,
             email: appUser.email || 'noreply@sehatin.app',
-            phone: '08000000000',
+            phone: teleponApotek || '081200000000',
             amount,
             paymentMethod: 'qris',
             paymentChannel: 'qris',

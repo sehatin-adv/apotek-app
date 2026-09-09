@@ -111,6 +111,13 @@ export async function onRequestPost(context) {
         const tenant = tenantRows?.[0];
         if (!tenant) return new Response(JSON.stringify({ error: 'Tenant tidak ditemukan.', step: 'find-tenant' }), { status: 404, headers: CORS_HEADERS });
 
+        // Sama seperti ipaymu-upgrade-payment.js - ambil no. telepon ASLI
+        // apotek supaya tiap tenant tidak dianggap "pembeli yang sama"
+        // oleh deteksi anti-fraud iPaymu (lihat catatan di file itu).
+        const pengaturanRes = await fetch(`${env.SUPABASE_URL}/rest/v1/pengaturan_apotek?tenant_id=eq.${tenant.id}&select=telepon`, { headers: serviceHeaders });
+        const pengaturanRows = await pengaturanRes.json().catch(() => []);
+        const teleponApotek = pengaturanRows?.[0]?.telepon?.trim();
+
         // 3. Ambil harga langganan dari platform_settings SESUAI PAKET
         //    tenant ini (Basic/Pro beda harga)
         const priceKey = tenant.plan === 'Pro' ? 'subscription_price_pro' : 'subscription_price_basic';
@@ -142,7 +149,7 @@ export async function onRequestPost(context) {
         const paymentBody = {
             name: tenant.nama,
             email: appUser.email || 'noreply@sehatin.app',
-            phone: '08000000000',
+            phone: teleponApotek || '081200000000',
             amount,
             paymentMethod: 'qris',
             paymentChannel: 'qris',
