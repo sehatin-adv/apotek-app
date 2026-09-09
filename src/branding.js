@@ -175,14 +175,16 @@ async function createDynamicQris() {
     try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return null;
-        const res = await fetch('/api/xendit-create-payment', {
+        const res = await fetch('/api/ipaymu-create-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
         });
         if (!res.ok) return null;
         const result = await res.json();
-        // Format respons xendit-create-payment.js: { data: { qrString, ... } }
-        const qrString = result?.data?.qrString || null;
+        // Format respons ipaymu-create-payment.js: { data: { ipaymu: { Data: { QrString } } } }
+        // - dicoba beberapa variasi nama field jaga-jaga (sama seperti di upgrade-pro.html).
+        const ipaymuData = result?.data?.ipaymu;
+        const qrString = ipaymuData?.Data?.QrString || ipaymuData?.Data?.qrString || ipaymuData?.Data?.qr_string || ipaymuData?.Data?.Qr;
         if (!qrString) return null;
         return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrString)}`;
     } catch (e) {
