@@ -203,7 +203,7 @@
             <div class="search-row">
                 <div class="form-group">
                     <label>No. Faktur / Kasir</label>
-                    <input type="text" autocomplete="off" id="searchKeyword" placeholder="Cari nomor faktur atau nama kasir..." oninput="renderList()">
+                    <input type="text" autocomplete="off" name="fld_vmar50v3" data-lpignore="true" data-form-type="other" id="searchKeyword" placeholder="Cari nomor faktur atau nama kasir..." oninput="renderList()">
                 </div>
                 <div class="form-group">
                     <label>Tanggal Mulai</label>
@@ -452,6 +452,20 @@
     document.addEventListener('DOMContentLoaded', async function() {
         await loadCurrentUser();
         await loadData();
+
+        // Jaring pengaman terakhir - kalau Chrome/browser tetap memaksa
+        // autofill kolom pencarian ini walau sudah autocomplete="off" +
+        // nama field acak (ini perilaku Chrome yang memang dikenal keras
+        // kepala utk sebagian kasus), bersihkan paksa nilainya kalau
+        // terdeteksi mencurigakan (mengandung "@" = kemungkinan besar
+        // email yang ter-autofill, bukan input pencarian sungguhan).
+        setTimeout(() => {
+            const searchEl = document.getElementById('searchKeyword');
+            if (searchEl && searchEl.value.includes('@')) {
+                searchEl.value = '';
+                if (typeof renderList === 'function') renderList();
+            }
+        }, 400);
     });
 </script>
 </body>
