@@ -2035,6 +2035,19 @@
     async function loadFakturUntukEdit(id) {
         showGlobalLoading('Memuat data faktur untuk diedit...');
         try {
+            // Edit Faktur cuma boleh utk role Admin - kalau staf biasa
+            // coba akses lewat URL langsung (bukan lewat tombol yang
+            // memang sudah disembunyikan utk mereka di Riwayat Pembelian),
+            // tetap ditolak di sini.
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: appUserRow } = await supabase.from('app_users').select('role').eq('auth_user_id', user?.id).maybeSingle();
+            if (appUserRow?.role !== 'admin') {
+                hideGlobalLoading();
+                showToast('❌ Hanya Admin yang bisa mengedit faktur pembelian.', true);
+                setTimeout(() => { window.location.href = 'riwayat-pembelian.html'; }, 1500);
+                return;
+            }
+
             const { data, error } = await getPembelianById(id);
             if (error || !data) {
                 hideGlobalLoading();
