@@ -1,0 +1,20 @@
+# Cloudflare Pages - aturan cache eksplisit.
+#
+# Tanpa file ini, Cloudflare (baik di level CDN/edge maupun cache
+# browser) bisa menyimpan versi LAMA file HTML/JS sampai maksimal
+# 1 minggu setelah deploy baru (lihat dokumentasi resmi Cloudflare
+# Pages - "Asset retention"). Ini menyebabkan sebagian pengguna
+# (tergantung device/lokasi/kondisi cache browser masing-masing)
+# melihat versi aplikasi yang BEDA-BEDA setelah kita deploy perbaikan
+# - beberapa masih lihat versi lama yang ada bug-nya, sementara yang
+# lain (atau yang buka lewat Incognito, yang selalu ambil fresh)
+# sudah lihat versi baru yang sudah diperbaiki.
+#
+# Aturan di bawah memaksa SEMUA file (HTML, JS, CSS) untuk SELALU
+# dicek ulang ke server tiap kali diakses - tidak pernah dipakai dari
+# cache browser/CDN tanpa verifikasi dulu. Ini sedikit menambah jumlah
+# request, tapi untuk aplikasi bisnis seperti ini (bukan situs publik
+# beromset besar), akurasi & konsistensi versi jauh lebih penting
+# daripada penghematan bandwidth sekecil itu.
+/*
+  Cache-Control: no-cache, no-store, must-revalidate
