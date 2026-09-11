@@ -2774,8 +2774,17 @@ export async function hapusFakturPembelian(pembelianId) {
             .from('pembelian_header')
             .select('*')
             .eq('id', pembelianId)
-            .single();
-        if (headerError || !header) throw new Error('Faktur tidak ditemukan.');
+            .maybeSingle();
+        if (headerError) throw headerError; // error Supabase sungguhan (RLS/koneksi/dst) - tampilkan apa adanya, jangan disamarkan
+        if (!header) {
+            // Baris memang sudah tidak ada (mungkin sudah kehapus lewat
+            // percobaan sebelumnya/klik ganda) - tandai dgn kode khusus
+            // supaya pemanggil (mode Edit) bisa memilih utk tetap lanjut
+            // simpan, bukan otomatis dianggap kegagalan fatal.
+            const e = new Error('Faktur tidak ditemukan (kemungkinan sudah dihapus sebelumnya).');
+            e.code = 'NOT_FOUND';
+            throw e;
+        }
 
         const { data: items, error: itemsError } = await supabase
             .from('pembelian_detail')

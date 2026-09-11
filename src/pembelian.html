@@ -1140,7 +1140,7 @@
             marginFinal = 25;
             hargaJualFinal = Math.round(hppPerItem + (hppPerItem * 25 / 100));
         }
-        items[index].subtotal = subtotal;
+        items[index].subtotal = Math.round(subtotal);
         items[index].diskon_persen = Math.round(diskonPersen * 100) / 100;
         items[index].diskon_nominal = diskonRp;
         items[index].hpp = Math.round(hppPerItem);
@@ -1317,12 +1317,13 @@
             item.jumlah_asli = item.jumlah;
         }
 
-        // TIDAK dibulatkan sama sekali - nilai desimal hasil konversi
-        // (baik jumlah maupun harga per unit) ditulis apa adanya, sesuai
-        // permintaan. Pembulatan cuma bikin selisih kecil menumpuk kalau
-        // dikonversi bolak-balik atau dipakai hitungan lebih lanjut.
+        // Jumlah tetap dibulatkan (fisik obat berupa satuan utuh, tidak
+        // masuk akal ada pecahan tablet/strip). Harga per satuan SENGAJA
+        // TIDAK dibulatkan - kolomnya sudah mendukung desimal, dan harga
+        // per unit hasil konversi (misal Rp18.967/box ÷ 100 tablet =
+        // Rp189,67/tablet) memang wajar berupa pecahan supaya akurat.
         item.konversi_qty = konversiQty;
-        item.jumlah = item.jumlah_asli * konversiQty;
+        item.jumlah = Math.round(item.jumlah_asli * konversiQty);
         item.harga_beli = item.harga_beli_asli / konversiQty;
         item.satuan = satuanKecil;
         item._showKonversi = false;
@@ -1675,7 +1676,25 @@
         simpanPembelian();
     };
 
+    // Pengaman anti-klik-ganda - kalau proses simpan sedang berjalan,
+    // abaikan klik berikutnya. Ini penting KHUSUSNYA utk mode Edit,
+    // karena prosesnya menghapus dulu versi lama sebelum simpan versi
+    // baru - kalau tombol sempat tertekan 2x, percobaan kedua akan
+    // mencari faktur yang sudah dihapus oleh percobaan pertama dan
+    // gagal dengan pesan membingungkan ("Faktur tidak ditemukan").
+    let sedangMenyimpanPembelian = false;
+
     window.simpanPembelian = async function() {
+        if (sedangMenyimpanPembelian) return;
+        sedangMenyimpanPembelian = true;
+        try {
+            await simpanPembelianInternal();
+        } finally {
+            sedangMenyimpanPembelian = false;
+        }
+    };
+
+    async function simpanPembelianInternal() {
         const noFaktur = document.getElementById('noFaktur').value.trim();
         const tanggal = document.getElementById('tanggalFaktur').value;
         const supplierId = document.getElementById('pilihSupplier').value;
@@ -1791,7 +1810,20 @@
             // (yang seharusnya UUID otomatis), bikin Postgres menolak
             // dengan error "invalid input syntax for type uuid". Field ini
             // WAJIB dibuang juga, sama seperti field UI-only lainnya.
-            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => clean),
+            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => ({
+                ...clean,
+                // Jaring pengaman terakhir sebelum kirim ke server. Harga
+                // Beli SENGAJA DIKECUALIKAN dari pembulatan - kolomnya
+                // sudah mendukung desimal (lihat Konversi Satuan), harga
+                // per satuan memang wajar berupa pecahan. Kolom lain di
+                // bawah ini TETAP bilangan bulat di database, jadi tetap
+                // dibulatkan sebagai pengaman.
+                jumlah: Math.round(Number(clean.jumlah) || 0),
+                subtotal: Math.round(Number(clean.subtotal) || 0),
+                diskon_nominal: Math.round(Number(clean.diskon_nominal) || 0),
+                hpp: Math.round(Number(clean.hpp) || 0),
+                harga_jual: Math.round(Number(clean.harga_jual) || 0)
+            })),
             keterangan: ''
         };
         
@@ -1805,7 +1837,15 @@
             // manual antara versi lama vs baru.
             if (editModeId) {
                 const { error: hapusError } = await hapusFakturPembelian(editModeId);
-                if (hapusError) throw new Error('Gagal menghapus versi lama faktur: ' + hapusError.message);
+                // Kalau errornya spesifik "sudah tidak ada" (kode NOT_FOUND),
+                // tetap lanjut simpan - tujuan akhirnya (data hasil edit
+                // tersimpan) tetap tercapai, tidak perlu diblokir cuma
+                // krn versi lama kebetulan sudah tidak ada (mis. klik
+                // ganda/percobaan sebelumnya). Utk error LAIN (RLS,
+                // koneksi, dst), tetap dihentikan seperti biasa.
+                if (hapusError && hapusError.code !== 'NOT_FOUND') {
+                    throw new Error('Gagal menghapus versi lama faktur: ' + hapusError.message);
+                }
             }
 
             const { data: result, error } = await savePembelian(data, data.items);

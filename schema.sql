@@ -176,7 +176,7 @@ CREATE TABLE pembelian_detail (
     nama_obat TEXT,
     satuan TEXT,
     jumlah INTEGER DEFAULT 0,
-    harga_beli INTEGER DEFAULT 0,
+    harga_beli NUMERIC(15,4) DEFAULT 0,
     subtotal INTEGER DEFAULT 0,
     diskon_persen INTEGER DEFAULT 0,
     diskon_nominal INTEGER DEFAULT 0,

@@ -1278,3 +1278,19 @@ ALTER TABLE stok_opname ADD COLUMN IF NOT EXISTS nilai_kerugian INTEGER DEFAULT 
 -- ============================================================
 -- SELESAI (Stok Kadaluarsa & Nilai Kerugian)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 32) Harga Beli per-item Pembelian - dukung desimal
+-- ------------------------------------------------------------
+-- Sebelumnya INTEGER (bilangan bulat). Setelah Konversi Satuan
+-- (misal 1 box seharga Rp18.967 dikonversi ke 100 tablet), harga per
+-- satuan kecil-nya secara wajar jadi desimal (Rp189,67/tablet) -
+-- dipaksa bulat di sini bikin harga per unit jadi tidak akurat.
+-- subtotal/HPP/harga_jual/jumlah TETAP bilangan bulat seperti biasa
+-- (itu yang jadi acuan nota & laporan), cuma harga per satuan ini
+-- yang boleh presisi desimal.
+ALTER TABLE pembelian_detail ALTER COLUMN harga_beli TYPE NUMERIC(15,4);
+
+-- ============================================================
+-- SELESAI (Harga Beli Desimal)
+-- ============================================================
