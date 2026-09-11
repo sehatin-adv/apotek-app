@@ -1294,3 +1294,18 @@ ALTER TABLE pembelian_detail ALTER COLUMN harga_beli TYPE NUMERIC(15,4);
 -- ============================================================
 -- SELESAI (Harga Beli Desimal)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 33) Margin % dan Diskon % per-item Pembelian - dukung desimal
+-- ------------------------------------------------------------
+-- Sama seperti Harga Beli (langkah 32) - kode memang sengaja
+-- menghitung margin/diskon sampai 2 angka desimal (misal margin
+-- 69,98% hasil hitung otomatis dari harga jual vs HPP), tapi kolomnya
+-- masih bilangan bulat, jadi ditolak server ("invalid input syntax
+-- for type integer: 69.98").
+ALTER TABLE pembelian_detail ALTER COLUMN margin_persen TYPE NUMERIC(6,2);
+ALTER TABLE pembelian_detail ALTER COLUMN diskon_persen TYPE NUMERIC(6,2);
+
+-- ============================================================
+-- SELESAI (Margin % dan Diskon % Desimal)
+-- ============================================================

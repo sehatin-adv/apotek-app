@@ -1194,7 +1194,17 @@ export async function savePembelian(header, details) {
         const { error: detailError } = await supabase
             .from('pembelian_detail')
             .insert(detailsWithId);
-        if (detailError) throw detailError;
+        if (detailError) {
+            // PENTING: kalau detail gagal disimpan, header yang SUDAH
+            // terlanjur masuk WAJIB dibatalkan (dihapus lagi) di sini -
+            // kalau tidak, header itu "nyangkut" sendirian tanpa item
+            // (tidak kelihatan berguna di Riwayat), TAPI No. Fakturnya
+            // sudah dianggap "terpakai" oleh sistem - bikin user tidak
+            // bisa input ulang faktur yang sama walau faktur itu
+            // sebenarnya gagal total tersimpan.
+            await supabase.from('pembelian_header').delete().eq('id', headerData[0].id);
+            throw detailError;
+        }
 
         for (const item of details) {
             if (item.kode_obat) {
