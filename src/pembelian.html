@@ -873,10 +873,23 @@
     
     // TAMBAH ITEM
     function tambahItemDariMaster(obat) {
-        const defaultMargin = 25;
         const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
         const hppPerItem = obat.harga_beli + (obat.harga_beli * ppnPercent / 100);
-        const hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
+
+        // Harga Jual diambil dari Master Obat kalau sudah ada (bukan
+        // dihitung ulang pakai margin tetap 25% - itu bisa menimpa harga
+        // jual yang memang sudah ditetapkan sebelumnya dengan angka yang
+        // beda). Margin % otomatis diturunkan dari harga jual tsb vs HPP
+        // faktur ini, supaya keduanya tetap konsisten. Kalau Master Obat
+        // belum punya harga jual sama sekali, baru pakai default 25%.
+        let hargaJualDefault, marginDefault;
+        if (obat.harga_jual > 0 && hppPerItem > 0) {
+            hargaJualDefault = obat.harga_jual;
+            marginDefault = Math.round(((hargaJualDefault - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+        } else {
+            marginDefault = 25;
+            hargaJualDefault = Math.round(hppPerItem + (hppPerItem * marginDefault / 100));
+        }
         
         const newItem = {
             id: ++itemCounter,
@@ -890,7 +903,7 @@
             diskon_persen: 0,
             diskon_nominal: 0,
             hpp: hppPerItem,
-            margin_persen: defaultMargin,
+            margin_persen: marginDefault,
             harga_jual: hargaJualDefault,
             diskon_jual_persen: 0,
             tanggal_exp: '',
@@ -901,7 +914,7 @@
         items.push(newItem);
         renderItems();
         hitungTotal();
-        showToast('✅ ' + obat.nama_obat + ' ditambahkan!');
+        showToast('✅ ' + obat.nama_obat + ' ditambahkan!' + (obat.harga_jual > 0 ? ' (Harga jual dari Master Obat: ' + formatRupiah(obat.harga_jual) + ')' : ''));
     }
     
     window.tambahItemBaru = function() {
