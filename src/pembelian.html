@@ -1625,6 +1625,10 @@
             totalHPP += (Number(item.hpp) || 0) * jumlah;
             totalJumlah += jumlah;
         });
+        // Dibulatkan - sama seperti di simpanPembelianInternal(), supaya
+        // angka yang TAMPIL di layar konsisten dgn yang benar2 tersimpan
+        // (Harga Beli boleh desimal sejak fitur Konversi Satuan).
+        totalPPN = Math.round(totalPPN);
         
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
         
@@ -1772,6 +1776,12 @@
             totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
             totalHPP += (Number(item.hpp) || 0) * jumlah;
         });
+        // Dibulatkan - kolom ppn/total di database bertipe bilangan bulat.
+        // Sejak Harga Beli boleh desimal (fitur Konversi Satuan), selisih
+        // (hpp - harga_beli) ikut jadi desimal, jadi totalPPN WAJIB
+        // dibulatkan di sini sebelum dipakai lebih lanjut - kalau tidak,
+        // server menolak simpan ("invalid input syntax for type integer").
+        totalPPN = Math.round(totalPPN);
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
         const jatuhTempoInfo = document.getElementById('jenisPembelian').value === 'KREDIT' ? hitungJatuhTempo() : { top_hari: null, tanggal_jatuh_tempo: null };
         if (document.getElementById('jenisPembelian').value === 'KREDIT' && !jatuhTempoInfo.top_hari) {
@@ -1946,6 +1956,8 @@
             totalDiskon += Number(item.diskon_nominal) || 0;
             totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
         });
+        // Dibulatkan - konsisten dgn nilai yang benar2 tersimpan di server.
+        totalPPN = Math.round(totalPPN);
         const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
         
         let html = `
@@ -2007,7 +2019,7 @@
                     <td style="text-align:right;">${formatRupiah(item.harga_beli)}</td>
                     <td style="text-align:right;">${formatRupiah(item.subtotal)}</td>
                     <td style="text-align:right;">${formatRupiah(item.diskon_nominal)}</td>
-                    <td style="text-align:right;">${formatRupiah(item.hpp - item.harga_beli)}</td>
+                    <td style="text-align:right;">${formatRupiah(Math.round(item.hpp - item.harga_beli))}</td>
                     <td style="text-align:right;">${formatRupiah(item.hpp)}</td>
                 </tr>
             `;
