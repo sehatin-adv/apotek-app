@@ -1229,13 +1229,24 @@
         // tabel tidak ikut berubah jadi nama resmi Master Obat. Sekarang
         // nama_obat (dan satuan, biar konsisten) ikut ditimpa pakai data
         // dari Master yang dipilih.
-        items[cocokkanTargetIndex].obat_id = matched.id;
-        items[cocokkanTargetIndex].kode_obat = matched.kode_obat;
-        items[cocokkanTargetIndex].nama_obat = matched.nama_obat;
+        const item = items[cocokkanTargetIndex];
+        item.obat_id = matched.id;
+        item.kode_obat = matched.kode_obat;
+        item.nama_obat = matched.nama_obat;
+        // Harga Jual juga ikut diambil dari Master Obat begitu item ini
+        // resmi tercocokkan ke sana (sama seperti tambah item manual &
+        // pencocokan otomatis skor tinggi) - Margin % diturunkan
+        // menyesuaikan dari situ.
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const hppPerItem = (Number(item.harga_beli) || 0) + ((Number(item.harga_beli) || 0) * ppnPercent / 100);
+        if (matched.harga_jual > 0 && hppPerItem > 0) {
+            item.harga_jual = matched.harga_jual;
+            item.margin_persen = Math.round(((item.harga_jual - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+        }
         renderItems();
         hitungTotal();
         closeCocokkanMaster();
-        showToast('✅ Item dicocokkan ke "' + matched.nama_obat + '"');
+        showToast('✅ Item dicocokkan ke "' + matched.nama_obat + '"' + (matched.harga_jual > 0 ? ' (Harga jual ikut disesuaikan)' : ''));
     };
     // Dipakai kalau user sudah cari di Master Obat tapi memang tidak ada
     // yang cocok - baru di sini secara SADAR/manual dibuatkan obat baru
@@ -1537,7 +1548,19 @@
 
                 const defaultMargin = 25;
                 const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
-                const hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
+                // Kalau item ini berhasil dicocokkan ke Master Obat DAN
+                // Master Obat itu sudah punya Harga Jual, pakai itu (Margin
+                // % diturunkan menyesuaikan) - sama seperti perbaikan di
+                // tambahItemDariMaster(). Kalau tidak/belum ada, baru pakai
+                // default margin 25%.
+                let hargaJualDefault, marginDefault;
+                if (matched && matched.harga_jual > 0 && hppPerItem > 0) {
+                    hargaJualDefault = matched.harga_jual;
+                    marginDefault = Math.round(((hargaJualDefault - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+                } else {
+                    marginDefault = defaultMargin;
+                    hargaJualDefault = Math.round(hppPerItem + (hppPerItem * defaultMargin / 100));
+                }
                 const subtotalAsli = jumlah * hargaBeliAsli;
                 const diskonNominal = diskonPersen > 0 ? Math.round(subtotalAsli * diskonPersen / 100) : 0;
 
@@ -1553,7 +1576,7 @@
                     diskon_persen: diskonPersen,
                     diskon_nominal: diskonNominal,
                     hpp: Math.round(hppPerItem),
-                    margin_persen: defaultMargin,
+                    margin_persen: marginDefault,
                     harga_jual: hargaJualDefault,
                     diskon_jual_persen: 0,
                     _fromScan: true,
