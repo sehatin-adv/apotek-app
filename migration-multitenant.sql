@@ -1309,3 +1309,12 @@ ALTER TABLE pembelian_detail ALTER COLUMN diskon_persen TYPE NUMERIC(6,2);
 -- ============================================================
 -- SELESAI (Margin % dan Diskon % Desimal)
 -- ============================================================
+
+-- ------------------------------------------------------------
+-- 34) Ongkir/Biaya Kirim per Faktur Pembelian
+-- ------------------------------------------------------------
+ALTER TABLE pembelian_header ADD COLUMN IF NOT EXISTS ongkir INTEGER DEFAULT 0;
+
+-- ============================================================
+-- SELESAI (Ongkir)
+-- ============================================================

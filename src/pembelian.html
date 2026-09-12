@@ -385,6 +385,13 @@
                     <input type="number" id="ppnPercent" value="11" min="0" max="100" step="0.1" onchange="recalculateAllItemsForPPN()" oninput="recalculateAllItemsForPPN()">
                 </div>
             </div>
+            <div class="form-grid-2" style="margin-top:12px;">
+                <div class="form-group">
+                    <label>Ongkir / Biaya Kirim</label>
+                    <input type="text" inputmode="decimal" id="ongkirFaktur" placeholder="Rp 0" value="" onfocus="this.value = parseAngkaRupiah(this.value) || ''" onblur="this.value = formatAngkaInput(parseAngkaRupiah(this.value)); recalculateAllItemsForOngkir();">
+                    <div style="font-size:11px;color:#7a8a9e;margin-top:4px;">Otomatis dibagi ke HPP tiap item, sesuai proporsi nilai belinya masing-masing.</div>
+                </div>
+            </div>
             <div class="form-grid-2" style="margin-top:12px;display:none;" id="topFieldWrap">
                 <div class="form-group">
                     <label>TOP / Termin Bayar (hari)</label>
@@ -471,6 +478,10 @@
                 <div class="item">
                     <div class="label">PPN (11%)</div>
                     <div class="value" id="detailPPN">Rp 0</div>
+                </div>
+                <div class="item">
+                    <div class="label">Ongkir</div>
+                    <div class="value" id="detailOngkir">Rp 0</div>
                 </div>
                 <div class="item" style="font-size:16px;color:#0f1e2e;">
                     <div class="label" style="font-weight:700;">Total Pembelian</div>
@@ -725,7 +736,7 @@
     // Rekomendasi Pesanan (Forecasting).
     // ============================================================
     const DRAFT_KEY = 'sehatin_pembelian_draft';
-    const DRAFT_HEADER_FIELDS = ['noFaktur', 'tanggalFaktur', 'pilihSupplier', 'pilihGudang', 'jenisPembelian', 'pilihKas', 'noFakturPajak', 'ppnPercent', 'topHari'];
+    const DRAFT_HEADER_FIELDS = ['noFaktur', 'tanggalFaktur', 'pilihSupplier', 'pilihGudang', 'jenisPembelian', 'pilihKas', 'noFakturPajak', 'ppnPercent', 'topHari', 'ongkirFaktur'];
 
     function saveDraft() {
         try {
@@ -1067,37 +1078,6 @@
             </tr>
         `).join('');
         
-    // Format angka ke tampilan ala Rupiah (titik = pemisah ribuan, koma =
-    // pemisah desimal kalau ada) - dipakai khusus utk field Harga Beli,
-    // Harga Jual, dan Diskon (Rp) supaya lebih mudah dibaca saat mengisi
-    // faktur dengan angka besar.
-    function formatAngkaInput(value) {
-        const num = Number(value) || 0;
-        if (num % 1 !== 0) {
-            return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-        }
-        return num.toLocaleString('id-ID');
-    }
-    // Ubah teks bertitik/berkoma ala Indonesia kembali jadi angka murni
-    // utk disimpan/dihitung (titik dibuang, koma jadi titik desimal).
-    function parseAngkaRupiah(str) {
-        if (!str && str !== 0) return 0;
-        const cleaned = String(str).replace(/\./g, '').replace(',', '.');
-        return Number(cleaned) || 0;
-    }
-    // Saat field ini difokus (mau diedit), tampilkan angka mentah dulu
-    // (tanpa titik pemisah) supaya gampang diketik ulang - baru diformat
-    // lagi begitu pindah fokus (blur).
-    window.fokusRupiahInput = function(input) {
-        const idx = parseInt(input.dataset.index);
-        const field = input.dataset.field;
-        if (idx >= 0 && idx < items.length) {
-            const raw = items[idx][field];
-            input.value = (raw || raw === 0) ? String(raw) : '';
-        }
-        input.select();
-    };
-
     document.querySelectorAll('.editable').forEach(input => {
             input.oninput = function() {
                 const idx = parseInt(this.dataset.index);
@@ -1153,17 +1133,6 @@
         hitungTotal();
     }
     
-    // Dipanggil saat kolom PPN (%) di atas diubah - PPN dipakai di
-    // perhitungan HPP tiap item, jadi begitu PPN berubah, SEMUA item yang
-    // sudah ada di faktur perlu dihitung ulang HPP/Margin/Harga
-    // Jual-nya juga (fungsi ini sebelumnya cuma dipanggil tapi tidak
-    // pernah benar2 dibuat, jadi mengubah PPN tidak berpengaruh apapun).
-    window.recalculateAllItemsForPPN = function() {
-        items.forEach((item, idx) => recalculateItem(idx));
-        renderItems();
-        hitungTotal();
-    };
-
     function recalculateItem(index) {
         if (index < 0 || index >= items.length) return;
         const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
@@ -1653,6 +1622,50 @@
         for (let i = 0; i < items.length; i++) {
             recalculateItem(i);
         }
+        terapkanOngkirSemuaItem();
+        renderItems();
+        hitungTotal();
+    };
+
+    // Ongkir/biaya kirim dibagi rata SECARA PROPORSIONAL ke tiap item,
+    // sesuai kontribusi nilai belinya (subtotal) masing-masing terhadap
+    // total keseluruhan faktur - item yang nilainya lebih besar menanggung
+    // porsi ongkir yang lebih besar juga. Hasilnya ditambahkan ke HPP
+    // (dan Harga Jual/Margin ikut menyesuaikan), TAPI TIDAK ikut menambah
+    // Harga Beli itu sendiri (itu tetap murni harga dari faktur).
+    function terapkanOngkirSemuaItem() {
+        const ongkirInput = document.getElementById('ongkirFaktur');
+        const totalOngkir = ongkirInput ? parseAngkaRupiah(ongkirInput.value) : 0;
+        const totalSubtotalSemua = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+
+        items.forEach(it => {
+            const jumlah = Number(it.jumlah) || 0;
+            if (totalOngkir > 0 && totalSubtotalSemua > 0 && jumlah > 0) {
+                const alokasiTotalItem = totalOngkir * ((Number(it.subtotal) || 0) / totalSubtotalSemua);
+                it.ongkir_per_unit = alokasiTotalItem / jumlah;
+            } else {
+                it.ongkir_per_unit = 0;
+            }
+            // HPP dasar (dari harga_beli + PPN) + porsi ongkir per unit.
+            const hargaBeli = Number(it.harga_beli) || 0;
+            const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+            const hppDasar = hargaBeli + (hargaBeli * ppnPercent / 100);
+            it.hpp = Math.round(hppDasar + it.ongkir_per_unit);
+            // Harga Jual/Margin ikut menyesuaikan dgn HPP baru (yang sudah
+            // termasuk ongkir), sama seperti saat PPN berubah - kalau
+            // margin_persen sedang dipakai sbg acuan, hitung ulang harga
+            // jual dari situ; kalau harga_jual yg jadi acuan, turunkan
+            // margin barunya.
+            if (Number(it.margin_persen) > 0) {
+                it.harga_jual = Math.round(it.hpp + (it.hpp * Number(it.margin_persen) / 100));
+            } else if (Number(it.harga_jual) > 0 && it.hpp > 0) {
+                it.margin_persen = Math.round(((it.harga_jual - it.hpp) / it.hpp) * 100 * 100) / 100;
+            }
+        });
+    }
+
+    window.recalculateAllItemsForOngkir = function() {
+        terapkanOngkirSemuaItem();
         renderItems();
         hitungTotal();
     };
@@ -1687,41 +1700,48 @@
     }
 
     function hitungTotal() {
+        // Pastikan alokasi ongkir & HPP tiap item sudah paling baru dulu,
+        // sebelum menjumlahkan semuanya utk ringkasan total di bawah ini.
+        terapkanOngkirSemuaItem();
+
         let totalSubtotal = 0;
         let totalDiskon = 0;
-        let totalPPN = 0;
+        let totalPPNMurni = 0;
+        let totalOngkirTerpakai = 0;
         let totalHPP = 0;
         let totalJumlah = 0;
+        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
         
         items.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
+            const hargaBeli = Number(item.harga_beli) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            // PENTING: item.hpp itu HARGA PER SATUAN (per tablet/box/dst),
-            // BUKAN total untuk baris itu - jadi wajib dikalikan jumlah
-            // beli dulu sebelum dijumlahkan ke total. Sebelumnya tidak
-            // dikalikan sama sekali, jadi PPN & HPP total jauh lebih kecil
-            // dari yang sebenarnya untuk item dengan jumlah beli > 1 -
-            // inilah penyebab total di aplikasi beda dengan total di
-            // faktur fisik PBF.
-            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
+            // PENTING: PPN & Ongkir dihitung TERPISAH di sini (bukan dari
+            // selisih hpp-harga_beli lagi) - karena hpp sekarang = harga
+            // beli + PPN + porsi ongkir, jadi selisih itu akan tercampur
+            // antara PPN dan ongkir kalau tidak dipisah begini.
+            totalPPNMurni += (hargaBeli * ppnPercent / 100) * jumlah;
+            totalOngkirTerpakai += (Number(item.ongkir_per_unit) || 0) * jumlah;
             totalHPP += (Number(item.hpp) || 0) * jumlah;
             totalJumlah += jumlah;
         });
         // Dibulatkan - sama seperti di simpanPembelianInternal(), supaya
         // angka yang TAMPIL di layar konsisten dgn yang benar2 tersimpan
         // (Harga Beli boleh desimal sejak fitur Konversi Satuan).
-        totalPPN = Math.round(totalPPN);
+        totalPPNMurni = Math.round(totalPPNMurni);
+        totalOngkirTerpakai = Math.round(totalOngkirTerpakai);
         
-        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        const totalPembelian = totalSubtotal + totalPPNMurni + totalOngkirTerpakai - totalDiskon;
         
         document.getElementById('sumSubtotal').textContent = formatRupiah(totalSubtotal);
         document.getElementById('sumHPP').textContent = formatRupiah(totalHPP);
         document.getElementById('sumJumlah').textContent = totalJumlah + ' item';
         document.getElementById('detailSubtotal').textContent = formatRupiah(totalSubtotal);
         document.getElementById('detailDiskon').textContent = formatRupiah(totalDiskon);
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
-        document.getElementById('detailPPN').innerHTML = formatRupiah(totalPPN) + ' <span style="font-size:11px;color:#7a8a9e;">(' + ppnPercent + '%)</span>';
+        document.getElementById('detailPPN').innerHTML = formatRupiah(totalPPNMurni) + ' <span style="font-size:11px;color:#7a8a9e;">(' + ppnPercent + '%)</span>';
+        const detailOngkirEl = document.getElementById('detailOngkir');
+        if (detailOngkirEl) detailOngkirEl.textContent = formatRupiah(totalOngkirTerpakai);
         document.getElementById('detailTotal').textContent = formatRupiah(totalPembelian);
     }
     
@@ -1849,23 +1869,26 @@
         let totalSubtotal = 0;
         let totalDiskon = 0;
         let totalPPN = 0;
+        let totalOngkirTerpakai = 0;
         let totalHPP = 0;
+        const ppnPercentSimpan = Number(document.getElementById('ppnPercent').value) || 11;
         items.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
+            const hargaBeliItem = Number(item.harga_beli) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            // item.hpp per satuan - wajib dikalikan jumlah, sama seperti
-            // perbaikan di hitungTotal() (lihat catatan di sana).
-            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
+            // PPN & Ongkir dihitung terpisah (bukan dari selisih
+            // hpp-harga_beli lagi) - sama seperti perbaikan di
+            // hitungTotal(), supaya tidak tercampur jadi 1 angka yang salah.
+            totalPPN += (hargaBeliItem * ppnPercentSimpan / 100) * jumlah;
+            totalOngkirTerpakai += (Number(item.ongkir_per_unit) || 0) * jumlah;
             totalHPP += (Number(item.hpp) || 0) * jumlah;
         });
-        // Dibulatkan - kolom ppn/total di database bertipe bilangan bulat.
-        // Sejak Harga Beli boleh desimal (fitur Konversi Satuan), selisih
-        // (hpp - harga_beli) ikut jadi desimal, jadi totalPPN WAJIB
-        // dibulatkan di sini sebelum dipakai lebih lanjut - kalau tidak,
-        // server menolak simpan ("invalid input syntax for type integer").
+        // Dibulatkan - kolom ppn/ongkir/total di database bertipe bilangan
+        // bulat.
         totalPPN = Math.round(totalPPN);
-        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        totalOngkirTerpakai = Math.round(totalOngkirTerpakai);
+        const totalPembelian = totalSubtotal + totalPPN + totalOngkirTerpakai - totalDiskon;
         const jatuhTempoInfo = document.getElementById('jenisPembelian').value === 'KREDIT' ? hitungJatuhTempo() : { top_hari: null, tanggal_jatuh_tempo: null };
         if (document.getElementById('jenisPembelian').value === 'KREDIT' && !jatuhTempoInfo.top_hari) {
             showToast('⚠️ Isi dulu TOP/Termin Bayar untuk pembelian kredit!', true);
@@ -1881,6 +1904,7 @@
             jenis: document.getElementById('jenisPembelian').value,
             kas: document.getElementById('pilihKas').value,
             no_faktur_pajak: document.getElementById('noFakturPajak').value.trim(),
+            ongkir: totalOngkirTerpakai,
             top_hari: jatuhTempoInfo.top_hari,
             tanggal_jatuh_tempo: jatuhTempoInfo.tanggal_jatuh_tempo,
             total_dibayar: document.getElementById('jenisPembelian').value === 'TUNAI' ? totalPembelian : 0,
@@ -1998,6 +2022,7 @@
         document.getElementById('jenisPembelian').value = 'TUNAI';
         document.getElementById('pilihKas').value = 'Kas Umum';
         document.getElementById('ppnPercent').value = '11';
+        document.getElementById('ongkirFaktur').value = '';
         document.getElementById('topHari').value = '';
         document.getElementById('jatuhTempoPreview').value = '';
         document.getElementById('topFieldWrap').style.display = 'none';
@@ -2033,15 +2058,20 @@
         let totalSubtotal = 0;
         let totalDiskon = 0;
         let totalPPN = 0;
+        let totalOngkirCetak = 0;
+        const ppnPercentCetak = Number(document.getElementById('ppnPercent').value) || 11;
         dataToPrint.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
+            const hargaBeliItem = Number(item.harga_beli) || 0;
             totalSubtotal += Number(item.subtotal) || 0;
             totalDiskon += Number(item.diskon_nominal) || 0;
-            totalPPN += (Number(item.hpp - item.harga_beli) || 0) * jumlah;
+            totalPPN += (hargaBeliItem * ppnPercentCetak / 100) * jumlah;
+            totalOngkirCetak += (Number(item.ongkir_per_unit) || 0) * jumlah;
         });
         // Dibulatkan - konsisten dgn nilai yang benar2 tersimpan di server.
         totalPPN = Math.round(totalPPN);
-        const totalPembelian = totalSubtotal + totalPPN - totalDiskon;
+        totalOngkirCetak = Math.round(totalOngkirCetak);
+        const totalPembelian = totalSubtotal + totalPPN + totalOngkirCetak - totalDiskon;
         
         let html = `
         <html>
@@ -2160,6 +2190,38 @@
     };
     
     // UTILITY
+    // Format angka ke tampilan ala Rupiah (titik = pemisah ribuan, koma =
+    // pemisah desimal kalau ada) - dipakai field Harga Beli, Harga Jual,
+    // Diskon (Rp), dan Ongkir supaya lebih mudah dibaca. Diletakkan di
+    // scope global (bukan di dalam renderItems() lagi) supaya bisa
+    // dipakai dari field header (Ongkir) juga, bukan cuma tabel item.
+    window.formatAngkaInput = function(value) {
+        const num = Number(value) || 0;
+        if (num % 1 !== 0) {
+            return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+        }
+        return num.toLocaleString('id-ID');
+    };
+    // Ubah teks bertitik/berkoma ala Indonesia kembali jadi angka murni
+    // utk disimpan/dihitung (titik dibuang, koma jadi titik desimal).
+    window.parseAngkaRupiah = function(str) {
+        if (!str && str !== 0) return 0;
+        const cleaned = String(str).replace(/\./g, '').replace(',', '.');
+        return Number(cleaned) || 0;
+    };
+    // Saat field per-item ini difokus (mau diedit), tampilkan angka mentah
+    // dulu (tanpa titik pemisah) supaya gampang diketik ulang - baru
+    // diformat lagi begitu pindah fokus (blur).
+    window.fokusRupiahInput = function(input) {
+        const idx = parseInt(input.dataset.index);
+        const field = input.dataset.field;
+        if (idx >= 0 && idx < items.length) {
+            const raw = items[idx][field];
+            input.value = (raw || raw === 0) ? String(raw) : '';
+        }
+        input.select();
+    };
+
     function formatRupiah(value) {
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
@@ -2199,6 +2261,7 @@
             document.getElementById('pilihKas').value = data.kas || 'Kas Umum';
             document.getElementById('noFakturPajak').value = data.no_faktur_pajak || '';
             document.getElementById('ppnPercent').value = data.ppn_persen || 11;
+            document.getElementById('ongkirFaktur').value = data.ongkir ? formatAngkaInput(data.ongkir) : '';
             toggleTopField();
             if (data.jenis === 'KREDIT') {
                 document.getElementById('topHari').value = data.top_hari || '';

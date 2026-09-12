@@ -159,6 +159,7 @@ CREATE TABLE pembelian_header (
     jenis TEXT DEFAULT 'TUNAI',
     kas TEXT DEFAULT 'Kas Umum',
     no_faktur_pajak TEXT,
+    ongkir INTEGER DEFAULT 0,
     subtotal INTEGER DEFAULT 0,
     diskon INTEGER DEFAULT 0,
     ppn INTEGER DEFAULT 0,
