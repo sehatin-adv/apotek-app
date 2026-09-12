@@ -1927,7 +1927,7 @@
             // (yang seharusnya UUID otomatis), bikin Postgres menolak
             // dengan error "invalid input syntax for type uuid". Field ini
             // WAJIB dibuang juga, sama seperti field UI-only lainnya.
-            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ...clean }) => ({
+            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ongkir_per_unit, ...clean }) => ({
                 ...clean,
                 // Jaring pengaman terakhir sebelum kirim ke server. Harga
                 // Beli SENGAJA DIKECUALIKAN dari pembulatan - kolomnya
