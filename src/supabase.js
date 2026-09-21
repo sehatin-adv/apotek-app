@@ -148,7 +148,7 @@ export async function requireAuth() {
     }
     
     console.log('No session found, redirecting to login');
-    window.location.href = '/';
+    window.location.href = '/login.html';
     return null;
 }
 
@@ -160,7 +160,7 @@ export async function checkAuth() {
             localStorage.setItem('supabaseSession', JSON.stringify(supabaseSession));
             return supabaseSession;
         }
-        window.location.href = '/';
+        window.location.href = '/login.html';
         return null;
     }
     
@@ -169,13 +169,13 @@ export async function checkAuth() {
         const { data, error } = await supabase.auth.getSession();
         if (error || !data?.session) {
             localStorage.removeItem('supabaseSession');
-            window.location.href = '/';
+            window.location.href = '/login.html';
             return null;
         }
         return data.session;
     } catch(e) {
         localStorage.removeItem('supabaseSession');
-        window.location.href = '/';
+        window.location.href = '/login.html';
         return null;
     }
 }

@@ -565,18 +565,18 @@
         </div>
 
         <div id="scanStepUpload">
-            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Foto atau upload gambar faktur pembelian - AI akan coba baca datanya. <strong>Selalu cek ulang hasilnya</strong> sebelum disimpan, karena AI bisa salah baca (tulisan tangan, foto buram, dsb).</p>
-            <input type="file" id="scanFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleScanFileSelected(event)">
+            <p style="font-size:12px;color:#7a8a9e;margin-bottom:14px;">Foto atau upload gambar faktur pembelian - boleh pilih <strong>lebih dari 1 foto sekaligus</strong> kalau 1 faktur difoto dalam beberapa potongan/halaman. AI akan coba baca datanya. <strong>Selalu cek ulang hasilnya</strong> sebelum disimpan, karena AI bisa salah baca (tulisan tangan, foto buram, dsb).</p>
+            <input type="file" id="scanFileInput" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleScanFileSelected(event)">
             <div onclick="document.getElementById('scanFileInput').click()" style="border:2px dashed #cbd5e1;border-radius:12px;padding:32px;text-align:center;cursor:pointer;color:#7a8a9e;">
                 <i class="fas fa-camera" style="font-size:32px;margin-bottom:10px;display:block;color:#2d6a9f;"></i>
-                Klik untuk ambil foto / pilih gambar faktur
+                Klik untuk ambil foto / pilih gambar faktur (bisa pilih beberapa sekaligus)
             </div>
-            <img id="scanPreviewImg" style="display:none;width:100%;border-radius:10px;margin-top:14px;max-height:240px;object-fit:contain;background:#f0f2f7;">
+            <div id="scanPreviewList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;"></div>
         </div>
 
         <div id="scanStepLoading" style="display:none;text-align:center;padding:30px 0;">
             <i class="fas fa-spinner fa-spin" style="font-size:28px;color:#2d6a9f;margin-bottom:12px;display:block;"></i>
-            <p style="font-size:13px;color:#7a8a9e;">AI sedang membaca faktur, mohon tunggu...</p>
+            <p style="font-size:13px;color:#7a8a9e;" id="scanLoadingText">AI sedang membaca faktur, mohon tunggu...</p>
         </div>
 
         <div id="scanStepReview" style="display:none;">
@@ -624,7 +624,8 @@
         <div id="scanStepError" style="display:none;text-align:center;padding:20px 0;">
             <i class="fas fa-circle-exclamation" style="font-size:28px;color:#dc3545;margin-bottom:10px;display:block;"></i>
             <p style="font-size:12px;color:#dc3545;margin-bottom:14px;white-space:pre-wrap;text-align:left;max-height:200px;overflow-y:auto;" id="scanErrorText"></p>
-            <button class="btn btn-outline" onclick="backToScanUpload()">Coba Lagi</button>
+            <button class="btn btn-primary" onclick="executeScanWithRetry()" style="margin-right:8px;"><i class="fas fa-rotate"></i> Coba Lagi (foto yang sama)</button>
+            <button class="btn btn-outline" onclick="backToScanUpload()">Pilih Foto Lain</button>
         </div>
     </div>
 </div>
@@ -883,7 +884,7 @@
     
     // TAMBAH ITEM
     function tambahItemDariMaster(obat) {
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercent = getPpnPercent();
         const hppPerItem = obat.harga_beli + (obat.harga_beli * ppnPercent / 100);
 
         // Harga Jual diambil dari Master Obat kalau sudah ada (bukan
@@ -1145,7 +1146,7 @@
     
     function recalculateItem(index) {
         if (index < 0 || index >= items.length) return;
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercent = getPpnPercent();
         const item = items[index];
         const jumlah = Number(item.jumlah) || 0;
         const hargaBeli = Number(item.harga_beli) || 0;
@@ -1277,7 +1278,7 @@
         // resmi tercocokkan ke sana (sama seperti tambah item manual &
         // pencocokan otomatis skor tinggi) - Margin % diturunkan
         // menyesuaikan dari situ.
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercent = getPpnPercent();
         const hppPerItem = (Number(item.harga_beli) || 0) + ((Number(item.harga_beli) || 0) * ppnPercent / 100);
         if (matched.harga_jual > 0 && hppPerItem > 0) {
             item.harga_jual = matched.harga_jual;
@@ -1304,7 +1305,7 @@
         if (!confirm(`Yakin tidak ada yang cocok di Master Obat, dan mau buat "${namaBaru}" sebagai obat baru?`)) return;
 
         const kodeBaru = 'OBT-' + Date.now();
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercent = getPpnPercent();
         const hppPerItem = item.harga_beli + (item.harga_beli * ppnPercent / 100);
         const obatBaruData = {
             kode_obat: kodeBaru,
@@ -1424,22 +1425,60 @@
         document.getElementById('scanStepReview').style.display = 'none';
         document.getElementById('scanStepError').style.display = 'none';
         document.getElementById('scanFileInput').value = '';
-        document.getElementById('scanPreviewImg').style.display = 'none';
+        document.getElementById('scanPreviewList').innerHTML = '';
+        scanImagesBase64 = [];
     };
 
+    // Menyimpan foto (base64) yang sedang diproses - dipakai lagi kalau
+    // tombol "Coba Lagi" ditekan, supaya tidak perlu pilih ulang fotonya.
+    let scanImagesBase64 = [];
+
     window.handleScanFileSelected = function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+        const files = Array.from(event.target.files || []);
+        if (files.length === 0) return;
 
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            const dataUrl = e.target.result;
-            document.getElementById('scanPreviewImg').src = dataUrl;
-            document.getElementById('scanPreviewImg').style.display = 'block';
+        const listEl = document.getElementById('scanPreviewList');
+        listEl.innerHTML = '';
+        scanImagesBase64 = [];
 
-            document.getElementById('scanStepUpload').style.display = 'none';
-            document.getElementById('scanStepLoading').style.display = 'block';
+        let loadedCount = 0;
+        files.forEach((file, i) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                scanImagesBase64[i] = e.target.result;
+                const thumb = document.createElement('img');
+                thumb.src = e.target.result;
+                thumb.style.cssText = 'width:70px;height:70px;object-fit:cover;border-radius:8px;background:#f0f2f7;border:1px solid #e8edf3;';
+                listEl.appendChild(thumb);
 
+                loadedCount++;
+                if (loadedCount === files.length) {
+                    // Semua foto selesai dibaca - langsung mulai scan.
+                    executeScanWithRetry();
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
+    // Coba scan sampai MAKS_PERCOBAAN kali kalau gagal (mis. Gemini
+    // kadang membalas respons yang bukan JSON valid krn gangguan
+    // sementara) - baru tampilkan error ke user kalau semua percobaan
+    // gagal. Ini dipanggil otomatis setelah foto dipilih, DAN dipanggil
+    // lagi kalau user tekan tombol "Coba Lagi" (pakai foto yg sama,
+    // tidak perlu pilih ulang).
+    const MAKS_PERCOBAAN_SCAN = 3;
+
+    window.executeScanWithRetry = async function() {
+        document.getElementById('scanStepUpload').style.display = 'none';
+        document.getElementById('scanStepError').style.display = 'none';
+        document.getElementById('scanStepLoading').style.display = 'block';
+
+        let lastError = null;
+        for (let percobaan = 1; percobaan <= MAKS_PERCOBAAN_SCAN; percobaan++) {
+            document.getElementById('scanLoadingText').textContent = percobaan === 1
+                ? 'AI sedang membaca faktur, mohon tunggu...'
+                : `Percobaan sebelumnya gagal, mencoba lagi... (${percobaan}/${MAKS_PERCOBAAN_SCAN})`;
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 const res = await fetch('/api/scan-invoice', {
@@ -1448,22 +1487,34 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${session?.access_token || ''}`
                     },
-                    body: JSON.stringify({ image_base64: dataUrl })
+                    body: JSON.stringify({ image_base64: scanImagesBase64.length === 1 ? scanImagesBase64[0] : scanImagesBase64 })
                 });
                 const result = await res.json();
                 if (!res.ok || result.error) {
                     const detailStr = result.detail ? ('\n\nDetail: ' + (typeof result.detail === 'string' ? result.detail : JSON.stringify(result.detail))) : '';
                     throw new Error((result.error || 'Gagal membaca faktur.') + detailStr);
                 }
+                // Berhasil - langsung tampilkan hasilnya, hentikan percobaan.
                 scanExtractedData = result.data;
                 showScanReview(scanExtractedData);
+                return;
             } catch (err) {
-                document.getElementById('scanStepLoading').style.display = 'none';
-                document.getElementById('scanStepError').style.display = 'block';
-                document.getElementById('scanErrorText').textContent = err.message || 'Terjadi kesalahan saat membaca faktur.';
+                lastError = err;
+                // Jangan ulangi lagi kalau errornya soal jatah habis/akses
+                // ditolak - itu tidak akan berubah walau dicoba berkali-kali.
+                if (err.message && (err.message.includes('jatah') || err.message.includes('Sesi login') || err.message.includes('tenant'))) {
+                    break;
+                }
+                if (percobaan < MAKS_PERCOBAAN_SCAN) {
+                    await new Promise(r => setTimeout(r, 1500));
+                }
             }
-        };
-        reader.readAsDataURL(file);
+        }
+
+        // Semua percobaan gagal - baru tampilkan error ke user.
+        document.getElementById('scanStepLoading').style.display = 'none';
+        document.getElementById('scanStepError').style.display = 'block';
+        document.getElementById('scanErrorText').textContent = (lastError?.message || 'Terjadi kesalahan saat membaca faktur.') + `\n\n(Sudah dicoba ${MAKS_PERCOBAAN_SCAN}x secara otomatis)`;
     };
 
     function showScanReview(data) {
@@ -1558,7 +1609,7 @@
             }
 
             const namaInputs = document.querySelectorAll('.scan-item-nama');
-            const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+            const ppnPercent = getPpnPercent();
             let jumlahDitambahkan = 0;
 
             for (const input of Array.from(namaInputs)) {
@@ -1681,7 +1732,7 @@
             }
             // HPP dasar (dari harga_beli + PPN) + porsi ongkir per unit.
             const hargaBeli = Number(it.harga_beli) || 0;
-            const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+            const ppnPercent = getPpnPercent();
             const hppDasar = hargaBeli + (hargaBeli * ppnPercent / 100);
             it.hpp = Math.round(hppDasar + it.ongkir_per_unit);
             // Harga Jual/Margin ikut menyesuaikan dgn HPP baru (yang sudah
@@ -1749,7 +1800,7 @@
         let totalOngkirTerpakai = 0;
         let totalHPP = 0;
         let totalJumlah = 0;
-        const ppnPercent = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercent = getPpnPercent();
         
         items.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
@@ -1910,7 +1961,7 @@
         let totalPPN = 0;
         let totalOngkirTerpakai = 0;
         let totalHPP = 0;
-        const ppnPercentSimpan = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercentSimpan = getPpnPercent();
         items.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
             const hargaBeliItem = Number(item.harga_beli) || 0;
@@ -1950,7 +2001,7 @@
             subtotal: totalSubtotal,
             diskon: totalDiskon,
             ppn: totalPPN,
-            ppn_persen: Number(document.getElementById('ppnPercent').value) || 11,
+            ppn_persen: getPpnPercent(),
             total: totalPembelian,
             // PENTING: item di memori (array `items`) bisa punya field
             // TAMBAHAN yang cuma dipakai buat kebutuhan tampilan/UI (mis.
@@ -2098,7 +2149,7 @@
         let totalDiskon = 0;
         let totalPPN = 0;
         let totalOngkirCetak = 0;
-        const ppnPercentCetak = Number(document.getElementById('ppnPercent').value) || 11;
+        const ppnPercentCetak = getPpnPercent();
         dataToPrint.forEach(item => {
             const jumlah = Number(item.jumlah) || 0;
             const hargaBeliItem = Number(item.harga_beli) || 0;
@@ -2261,6 +2312,19 @@
         input.select();
     };
 
+    // Ambil nilai PPN (%) dari field, dengan benar memperlakukan 0 sbg
+    // nilai valid yang sengaja diisi user - BUKAN dianggap "kosong" lalu
+    // diam-diam diganti default 11% (itu bug lama: `Number(x) || 11`
+    // salah krn 0 itu falsy di JS, jadi 0||11 hasilnya 11, bukan 0).
+    // Cuma kalau field-nya BENAR2 kosong (dikosongkan user) baru pakai
+    // default 11%.
+    function getPpnPercent() {
+        const raw = document.getElementById('ppnPercent').value;
+        if (raw === '' || raw === null) return 11;
+        const n = Number(raw);
+        return isNaN(n) ? 11 : n;
+    }
+
     function formatRupiah(value) {
         return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
     }
@@ -2299,7 +2363,7 @@
             document.getElementById('jenisPembelian').value = data.jenis || 'TUNAI';
             document.getElementById('pilihKas').value = data.kas || 'Kas Umum';
             document.getElementById('noFakturPajak').value = data.no_faktur_pajak || '';
-            document.getElementById('ppnPercent').value = data.ppn_persen || 11;
+            document.getElementById('ppnPercent').value = (data.ppn_persen === null || data.ppn_persen === undefined) ? 11 : data.ppn_persen;
             document.getElementById('ongkirFaktur').value = data.ongkir ? formatAngkaInput(data.ongkir) : '';
             toggleTopField();
             if (data.jenis === 'KREDIT') {

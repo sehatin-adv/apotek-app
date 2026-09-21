@@ -51,7 +51,9 @@ ATURAN PENTING:
 - no_batch dan tanggal_exp sering ada di kolom terpisah di faktur (kadang disingkat "No. Batch", "Batch/Lot", "ED", "Exp", "Kadaluwarsa") - baca dengan teliti kalau ada.
 - jenis_pembayaran dan top_hari: banyak PBF mencantumkan ini di bagian bawah/header faktur (contoh: "TOP: 30 Hari", "Jatuh Tempo: 15-01-2027", "Syarat Pembayaran: Kredit 30 Hari"). Kalau cuma ada TANGGAL jatuh tempo (bukan jumlah hari), boleh kosongkan top_hari (0) tapi jenis_pembayaran tetap "KREDIT".
 - ketentuan_retur: biasanya kalimat seperti "Barang yang sudah dibeli tidak dapat dikembalikan" atau "Retur diterima maksimal 7 hari dengan kondisi kemasan utuh" - salin persis, jangan diringkas/diparafrase.
-- Kalau gambar bukan faktur/nota sama sekali, atau benar-benar tidak bisa dibaca, kembalikan items sebagai array kosong [].`;
+- Kalau gambar bukan faktur/nota sama sekali, atau benar-benar tidak bisa dibaca, kembalikan items sebagai array kosong [].
+
+CATATAN KHUSUS KALAU ADA LEBIH DARI 1 GAMBAR: gambar-gambar itu adalah POTONGAN/HALAMAN dari SATU faktur yang sama (misal difoto terpisah karena fakturnya panjang) - gabungkan SEMUA item dari SEMUA gambar jadi SATU daftar "items" gabungan (jangan duplikat item yang sama kalau kebetulan ada baris yang tumpang tindih antar foto), dan ambil info header (nama_pbf, no_faktur, dst) dari gambar manapun yang memuatnya jelas.`;
 
 export async function onRequestPost(context) {
     const { request, env } = context;
@@ -67,6 +69,16 @@ export async function onRequestPost(context) {
         const body = await request.json().catch(() => null);
         if (!body || !body.image_base64) {
             return new Response(JSON.stringify({ error: 'Gambar faktur wajib dikirim (image_base64).' }), { status: 400, headers: CORS_HEADERS });
+        }
+        // image_base64 boleh 1 gambar (string) atau beberapa gambar
+        // sekaligus (array of string) - dipakai kalau 1 faktur difoto
+        // dalam beberapa potongan/halaman terpisah.
+        const imageList = Array.isArray(body.image_base64) ? body.image_base64 : [body.image_base64];
+        if (imageList.length === 0 || imageList.some(x => !x)) {
+            return new Response(JSON.stringify({ error: 'Gambar faktur wajib dikirim (image_base64).' }), { status: 400, headers: CORS_HEADERS });
+        }
+        if (imageList.length > 6) {
+            return new Response(JSON.stringify({ error: 'Maksimal 6 foto per faktur dalam satu kali scan.' }), { status: 400, headers: CORS_HEADERS });
         }
 
         // ============================================================
@@ -120,20 +132,24 @@ export async function onRequestPost(context) {
             }
         }
 
-        // image_base64 bisa datang dengan prefix "data:image/jpeg;base64,..." - buang prefix-nya
-        let mimeType = body.mime_type || 'image/jpeg';
-        let base64Data = body.image_base64;
-        const dataUrlMatch = base64Data.match(/^data:([^;]+);base64,(.+)$/);
-        if (dataUrlMatch) {
-            mimeType = dataUrlMatch[1];
-            base64Data = dataUrlMatch[2];
-        }
+        // image_base64 bisa datang dengan prefix "data:image/jpeg;base64,..." - buang prefix-nya.
+        // Diulang utk SETIAP gambar dalam imageList (1 atau lebih).
+        const imageParts = imageList.map(img => {
+            let mimeType = body.mime_type || 'image/jpeg';
+            let base64Data = img;
+            const dataUrlMatch = base64Data.match(/^data:([^;]+);base64,(.+)$/);
+            if (dataUrlMatch) {
+                mimeType = dataUrlMatch[1];
+                base64Data = dataUrlMatch[2];
+            }
+            return { inline_data: { mime_type: mimeType, data: base64Data } };
+        });
 
         const geminiBody = {
             contents: [{
                 parts: [
                     { text: EXTRACTION_PROMPT },
-                    { inline_data: { mime_type: mimeType, data: base64Data } }
+                    ...imageParts
                 ]
             }],
             generationConfig: {
