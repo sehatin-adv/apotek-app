@@ -309,8 +309,7 @@
                 <i class="fas fa-gear"></i> KELOLA APLIKASI
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
-            <div class="sub-menu">
-                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+            <div class="sub-menu">                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
                 <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
                 <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
                 <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
@@ -683,31 +682,31 @@
     async function checkAuth() {
         const session = localStorage.getItem('supabaseSession');
         if (!session) {
-            window.location.href = '/';
+            window.location.href = '/login.html';
             return false;
         }
         try {
             const { data, error } = await supabase.auth.getSession();
             if (error || !data?.session) {
                 localStorage.removeItem('supabaseSession');
-                window.location.href = '/';
+                window.location.href = '/login.html';
                 return false;
             }
             return true;
         } catch(e) {
             localStorage.removeItem('supabaseSession');
-            window.location.href = '/';
+            window.location.href = '/login.html';
             return false;
         }
     }
     
     if (!await checkAuth()) {
-        window.location.href = '/';
+        window.location.href = '/login.html';
     }
     
     // NAVIGATION
     window.navigate = function(page) { window.location.href = page; };
-    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
+    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/login.html'; };
     
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -916,6 +915,10 @@
             hpp: hppPerItem,
             margin_persen: marginDefault,
             harga_jual: hargaJualDefault,
+            // Ditandai manual kalau harga_jual-nya memang diambil dari
+            // Master Obat (bukan hasil default 25%) - supaya tidak ikut
+            // bergeser kalau baris lain diedit nanti.
+            _hargaJualManual: obat.harga_jual > 0,
             diskon_jual_persen: 0,
             tanggal_exp: '',
             no_batch: '',
@@ -1105,13 +1108,20 @@
                 if (idx >= 0 && idx < items.length) {
                     items[idx][field] = value;
                     // Kalau yang baru diubah itu HARGA JUAL langsung (bukan
-                    // margin), kosongkan dulu margin_persen supaya
-                    // recalculateItem() tahu harus MENURUNKAN margin dari
-                    // harga jual baru ini, bukan malah menimpa harga jual
-                    // dengan hasil hitungan dari margin lama (itu penyebab
-                    // "harga jual kembali ke semula" sebelumnya).
+                    // margin), tandai PERMANEN dgn _hargaJualManual (bukan
+                    // cuma margin_persen=0 seperti sebelumnya) - supaya
+                    // status "harga jual ini diisi manual" tidak hilang
+                    // begitu baris LAIN diedit dan memicu perhitungan ulang
+                    // ongkir/PPN utk semua baris (lihat terapkanOngkirSemuaItem).
+                    // margin_persen=0 dulu gampang tertimpa jadi angka lain
+                    // di proses itu, bikin Harga Jual ikut dihitung ulang
+                    // paksa dan bergeser sendiri walau baris ini tidak
+                    // disentuh user.
                     if (field === 'harga_jual') {
                         items[idx].margin_persen = 0;
+                        items[idx]._hargaJualManual = true;
+                    } else if (field === 'margin_persen') {
+                        items[idx]._hargaJualManual = false;
                     }
                     recalculateItem(idx);
                     renderItems();
@@ -1151,7 +1161,21 @@
         const hppPerItem = hargaBeli + (hargaBeli * ppnPercent / 100);
         let hargaJualFinal = 0;
         let marginFinal = marginPersen;
-        if (marginPersen > 0) {
+        // PAKAI _hargaJualManual (bukan cek marginPersen>0) supaya baris
+        // yang Harga Jual-nya sudah diisi manual tidak pernah dihitung
+        // ulang paksa dari margin di sini juga - fungsi ini ikut dipanggil
+        // utk SEMUA baris saat PPN diubah (recalculateAllItemsForPPN), jadi
+        // rawan kena masalah yang sama seperti terapkanOngkirSemuaItem().
+        if (item._hargaJualManual) {
+            hargaJualFinal = hargaJual;
+            if (hppPerItem > 0) {
+                marginFinal = Math.round(((hargaJualFinal - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+            }
+            if (diskonJualPersen > 0 && hargaJualFinal > 0) {
+                hargaJualFinal = Math.round(hargaJualFinal - (hargaJualFinal * diskonJualPersen / 100));
+                if (hppPerItem > 0) marginFinal = Math.round(((hargaJualFinal - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+            }
+        } else if (marginPersen > 0) {
             hargaJualFinal = Math.round(hppPerItem + (hppPerItem * marginPersen / 100));
             if (diskonJualPersen > 0 && hargaJualFinal > 0) {
                 hargaJualFinal = Math.round(hargaJualFinal - (hargaJualFinal * diskonJualPersen / 100));
@@ -1258,6 +1282,10 @@
         if (matched.harga_jual > 0 && hppPerItem > 0) {
             item.harga_jual = matched.harga_jual;
             item.margin_persen = Math.round(((item.harga_jual - hppPerItem) / hppPerItem) * 100 * 100) / 100;
+            // Tandai sama seperti edit manual - supaya Harga Jual dari
+            // Master Obat ini tidak ikut bergeser kalau nanti baris LAIN
+            // diedit dan memicu perhitungan ulang PPN/ongkir utk semua baris.
+            item._hargaJualManual = true;
         }
         renderItems();
         hitungTotal();
@@ -1594,6 +1622,11 @@
                     hpp: Math.round(hppPerItem),
                     margin_persen: marginDefault,
                     harga_jual: hargaJualDefault,
+                    // Ditandai manual kalau harga_jual-nya diambil dari
+                    // Master Obat (item berhasil dicocokkan & py harga
+                    // jual) - supaya tidak ikut bergeser kalau baris lain
+                    // diedit nanti.
+                    _hargaJualManual: !!(matched && matched.harga_jual > 0),
                     diskon_jual_persen: 0,
                     _fromScan: true,
                     tanggal_exp: tanggalEd,
@@ -1652,11 +1685,17 @@
             const hppDasar = hargaBeli + (hargaBeli * ppnPercent / 100);
             it.hpp = Math.round(hppDasar + it.ongkir_per_unit);
             // Harga Jual/Margin ikut menyesuaikan dgn HPP baru (yang sudah
-            // termasuk ongkir), sama seperti saat PPN berubah - kalau
-            // margin_persen sedang dipakai sbg acuan, hitung ulang harga
-            // jual dari situ; kalau harga_jual yg jadi acuan, turunkan
-            // margin barunya.
-            if (Number(it.margin_persen) > 0) {
+            // termasuk ongkir), sama seperti saat PPN berubah - PAKAI
+            // _hargaJualManual (bukan cek margin_persen>0) supaya baris yang
+            // Harga Jual-nya sudah diisi manual TIDAK PERNAH dihitung ulang
+            // paksa dari margin di proses ini, betapa pun sering baris lain
+            // diedit. Margin di baris itu cuma diturunkan (utk ditampilkan),
+            // tidak pernah dipakai balik utk menimpa Harga Jual-nya.
+            if (it._hargaJualManual) {
+                if (it.harga_jual > 0 && it.hpp > 0) {
+                    it.margin_persen = Math.round(((it.harga_jual - it.hpp) / it.hpp) * 100 * 100) / 100;
+                }
+            } else if (Number(it.margin_persen) > 0) {
                 it.harga_jual = Math.round(it.hpp + (it.hpp * Number(it.margin_persen) / 100));
             } else if (Number(it.harga_jual) > 0 && it.hpp > 0) {
                 it.margin_persen = Math.round(((it.harga_jual - it.hpp) / it.hpp) * 100 * 100) / 100;
@@ -1927,7 +1966,7 @@
             // (yang seharusnya UUID otomatis), bikin Postgres menolak
             // dengan error "invalid input syntax for type uuid". Field ini
             // WAJIB dibuang juga, sama seperti field UI-only lainnya.
-            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ongkir_per_unit, ...clean }) => ({
+            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ongkir_per_unit, _hargaJualManual, ...clean }) => ({
                 ...clean,
                 // Jaring pengaman terakhir sebelum kirim ke server. Harga
                 // Beli SENGAJA DIKECUALIKAN dari pembulatan - kolomnya

@@ -141,7 +141,7 @@
         </div>
 
         <div class="footer-nav">
-            <a href="/index.html">Beranda</a>
+            <a href="/">Beranda</a>
             <a href="/faq.html">FAQ</a>
             <a href="/kontak.html">Kontak</a>
         </div>
@@ -233,7 +233,12 @@
             errorText.style.display = 'block';
             return;
         }
-        if (!turnstileToken) {
+        // Verifikasi captcha di-skip kalau sedang di domain STAGING - server
+        // (register-interest.js) juga sudah diatur utk tidak mewajibkan
+        // token ini kalau DISABLE_TURNSTILE="true" di-set (cuma di
+        // wrangler-staging.toml, TIDAK PERNAH di produksi).
+        const isStagingDomain = window.location.hostname.includes('-staging.pages.dev') || window.location.hostname.includes('localhost');
+        if (!turnstileToken && !isStagingDomain) {
             errorText.textContent = '⚠️ Selesaikan dulu verifikasi keamanan di atas (centang "Saya bukan robot").';
             errorText.style.display = 'block';
             return;
@@ -264,7 +269,8 @@
             });
             const result = await res.json();
             if (!res.ok || result.error) {
-                throw new Error(result.error || 'Gagal mengirim pendaftaran.');
+                const detailDebug = result.debug_turnstile ? ('\n\nDetail: ' + JSON.stringify(result.debug_turnstile)) : '';
+                throw new Error((result.error || 'Gagal mengirim pendaftaran.') + detailDebug);
             }
             document.getElementById('formSection').style.display = 'none';
             document.getElementById('successSection').style.display = 'block';

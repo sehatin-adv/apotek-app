@@ -1,191 +1,231 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="/logo-icon.png">
-    <title>Login - Sehatin+</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script type="importmap">
-        {
-            "imports": {
-                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
-            }
-        }
-    </script>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',sans-serif; background:#0f1e2e; display:flex; justify-content:center; align-items:center; min-height:100vh; }
-        .login-container { background:white; border-radius:24px; padding:48px 40px; max-width:420px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-        .brand { text-align:center; margin-bottom:32px; }
-        .brand i { font-size:48px; color:#2d6a9f; }
-        .brand h1 { font-size:28px; color:#0f1e2e; margin-top:8px; }
-        .brand p { color:#7a8a9e; font-size:14px; }
-        .form-group { margin-bottom:16px; }
-        .form-group label { display:block; font-weight:600; font-size:13px; color:#34495e; margin-bottom:4px; }
-        .form-group input { width:100%; padding:12px 16px; border:2px solid #e8edf3; border-radius:12px; font-size:15px; transition:0.2s; }
-        .form-group input:focus { border-color:#2d6a9f; outline:none; }
-        .btn-login { width:100%; padding:14px; background:#2d6a9f; color:white; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; transition:0.2s; }
-        .btn-login:hover { background:#1a4a7a; }
-        .btn-login:disabled { opacity:0.6; cursor:not-allowed; }
-        .error { color:#dc3545; font-size:13px; text-align:center; margin-top:12px; display:none; }
-        .loading { display:none; text-align:center; margin-top:8px; }
-        .loading i { animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        .support-info { margin-top:24px; padding-top:16px; border-top:1px solid #e8edf3; font-size:12px; color:#7a8a9e; text-align:center; }
-        .support-info strong { color:#0f1e2e; }
-        .register-link { text-align:center; margin-top:12px; font-size:13px; }
-        .register-link a { color:#2d6a9f; text-decoration:none; font-weight:600; cursor:pointer; }
-        #registerForm { display:none; }
-        #loginForm { display:block; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sehatin+ — Aplikasi Kasir & Stok Apotek</title>
+  <meta name="description" content="Sehatin+ membantu apotek mengelola kasir, stok, pembelian, dan laporan dalam satu tempat." />
+  <style>
+    :root{
+      --green:#087a55;
+      --green-2:#15a36e;
+      --dark:#064f3d;
+      --text:#385a51;
+      --muted:#6d8881;
+      --mint:#effaf5;
+      --line:#d9eee6;
+      --white:#fff;
+      --shadow:0 18px 50px rgba(5,80,60,.12);
+      --radius:22px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text); background:#fff;
+      line-height:1.6;
+    }
+    a{text-decoration:none;color:inherit}
+    .container{width:min(1180px,92%);margin:auto}
+    header{
+      position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);
+      backdrop-filter:blur(12px);border-bottom:1px solid #edf5f1;
+    }
+    .nav{height:76px;display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:28px;color:var(--dark)}
+    .logo{
+      width:43px;height:43px;border-radius:13px;display:grid;place-items:center;
+      background:#ecfff5;border:1px solid #b8ebd2;
+    }
+    .logo svg{width:22px;height:22px}
+    .links{display:flex;gap:31px;font-size:14px;font-weight:650}
+    .actions{display:flex;gap:12px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      padding:13px 22px;border-radius:12px;border:1px solid var(--green);
+      font-weight:750;font-size:14px;cursor:pointer;transition:.2s ease;
+    }
+    .btn.outline{color:var(--green);background:#fff}.btn.outline:hover{background:var(--mint)}
+    .btn.primary{background:var(--green);color:#fff;box-shadow:0 10px 25px rgba(8,122,85,.18)}
+    .btn.primary:hover{transform:translateY(-1px);background:#066e4d}
+    .hero{padding:76px 0 70px;background:linear-gradient(180deg,#fff 0%,#fbfffd 100%);overflow:hidden}
+    .hero-grid{display:grid;grid-template-columns:1.03fr .97fr;gap:55px;align-items:center}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;background:#e8faf1;color:var(--green);
+      padding:8px 13px;border-radius:999px;font-weight:750;font-size:13px;
+    }
+    h1{font-size:58px;line-height:1.08;letter-spacing:-1.8px;color:var(--dark);margin:19px 0}
+    .hero p{font-size:18px;max-width:590px;color:#5d776f}
+    .hero-buttons{display:flex;gap:13px;margin-top:28px;flex-wrap:wrap}
+    .note{display:flex;gap:8px;align-items:center;font-size:13px;color:#70867f;margin-top:16px}
+    .mock-wrap{position:relative}
+    .glow{
+      position:absolute;inset:5% 2% 5% 0;background:radial-gradient(circle,#d9f6e7 0,#edf9f3 40%,transparent 72%);
+      border-radius:50%;filter:blur(3px);
+    }
+    .dashboard{
+      position:relative;background:#fff;border:1px solid #deede8;border-radius:24px;
+      box-shadow:var(--shadow);padding:13px;transform:rotate(-1.2deg);
+    }
+    .dash-top{display:flex;gap:8px;align-items:center;padding:7px 8px 13px}
+    .mini-logo{background:var(--green);color:#fff;border-radius:9px;padding:8px 12px;font-weight:800}
+    .search{flex:1;border:1px solid #e3eee9;border-radius:9px;padding:9px 12px;color:#9ab0a9;font-size:12px}
+    .dash-body{display:grid;grid-template-columns:110px 1fr;gap:11px}
+    .side{background:linear-gradient(180deg,#087a55,#075b42);border-radius:15px;padding:10px;color:#fff}
+    .side div{padding:10px 7px;font-size:11px;border-radius:8px;margin-bottom:3px}.side .active{background:#18a86e}
+    .card{border:1px solid #e4f0eb;border-radius:15px;padding:18px}
+    .medicine{display:flex;gap:15px;align-items:center}.medbox{width:67px;height:58px;border-radius:10px;background:#f5faf8;border:1px solid #dfebe6;display:grid;place-items:center;color:#0a73af;font-weight:800;font-size:12px}
+    .tag{display:inline-block;background:#dcf7e8;color:#25805b;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;padding-top:18px;border-top:1px solid #edf3f1}
+    .label{font-size:11px;color:#8ba39d}.value{font-weight:800;color:#123f34}
+    .floating{position:absolute;background:#fff;border:1px solid #dceee7;border-radius:13px;padding:12px 15px;box-shadow:0 12px 30px rgba(6,90,67,.12);font-size:12px;font-weight:700;color:#357263}
+    .float1{left:8%;bottom:8%}.float2{right:0;bottom:0}
+    section{padding:82px 0}
+    .soft{background:linear-gradient(180deg,#f5fcf8,#eefaf5)}
+    .section-head{text-align:center;max-width:780px;margin:0 auto 44px}
+    .section-head h2{font-size:39px;line-height:1.15;color:var(--dark);margin:13px 0}
+    .section-head p{color:#6a817a}
+    .problems{display:grid;grid-template-columns:repeat(4,1fr);gap:17px}
+    .problem,.feature{background:#fff;border:1px solid #deeee8;border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(8,90,67,.04)}
+    .icon{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:#eaf8f1;color:var(--green);margin-bottom:18px;flex-shrink:0}
+    .icon svg{width:22px;height:22px}
+    .icon.c-pink{background:#fde8ef;color:#d6407a}
+    .icon.c-blue{background:#e8f2fd;color:#1e7fd6}
+    .icon.c-orange{background:#fdf0e3;color:#d97a1f}
+    .icon.c-purple{background:#f1ecfc;color:#7c4fd6}
+    .problem h3,.feature h3{color:#124f41;font-size:17px;line-height:1.25;margin:0 0 10px}
+    .problem p,.feature p{font-size:13px;color:#6d817b;margin:0}
+    .features{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}
+    .feature{min-height:270px;position:relative;overflow:hidden}.feature .mini-visual{position:absolute;right:15px;bottom:10px;background:#f4fbf7;border:1px solid #dceee7;border-radius:12px;padding:10px;width:140px;font-size:10px;color:#50766b}
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+    .step{text-align:center;padding:26px}.num{width:48px;height:48px;border-radius:50%;margin:0 auto 14px;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800}
+    .why{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+    .why article{border-left:3px solid #26ad72;padding:5px 0 5px 18px}
+    .cta{padding:75px 0}.cta-box{background:linear-gradient(135deg,#0a7955,#0d9d68);border-radius:27px;color:#fff;padding:55px;text-align:center;box-shadow:var(--shadow)}.cta-box h2{font-size:40px;margin:0 0 10px}.cta-box p{opacity:.88}.cta-box .btn{background:#fff;color:var(--green);border-color:#fff;margin-top:17px}
+    details{background:#fff;border:1px solid #deeee8;border-radius:14px;padding:17px 19px;margin-bottom:12px}
+    summary{cursor:pointer;font-weight:750;color:#174f43}
+    footer{background:#063e32;color:#d6eee6;padding:55px 0 20px}.foot-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:45px}.foot-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:12px}.foot-grid a{display:block;margin:8px 0;color:#c5e4dc;font-size:14px}.copyright{border-top:1px solid rgba(255,255,255,.12);margin-top:35px;padding-top:18px;font-size:12px;color:#a8ccc1}
+    @media(max-width:950px){.links{display:none}.hero-grid{grid-template-columns:1fr}.problems{grid-template-columns:repeat(2,1fr)}.features{grid-template-columns:repeat(2,1fr)}.why,.steps{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr 1fr}h1{font-size:46px}}
+    @media(max-width:620px){.actions .outline{display:none}.nav{height:68px}.brand{font-size:22px}.hero{padding-top:48px}h1{font-size:38px}.hero p{font-size:16px}.problems,.features,.foot-grid{grid-template-columns:1fr}.section-head h2{font-size:31px}.cta-box{padding:38px 22px}.cta-box h2{font-size:31px}}
+  </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="brand">
-            <img src="/logo-full.png" alt="Sehatin+" style="max-width:200px;width:100%;height:auto;">
-            <p id="loginApotekName" style="margin-top:10px;font-weight:700;color:#0f1e2e;font-size:16px;">Apotek Saya</p>
-            <p>Apotek Management System</p>
-        </div>
-        <div id="loginForm">
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="email" placeholder="admin@apotek.com">
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="password" placeholder="Password">
-            </div>
-            <button class="btn-login" onclick="login()"><i class="fas fa-sign-in-alt"></i> Masuk</button>
-            <div id="loginError" class="error"></div>
-            <div class="loading" id="loadingIndicator"><i class="fas fa-spinner"></i> Memproses...</div>
-        </div>
-        <div class="register-link">
-            <a onclick="showForgotPassword()">Lupa Password?</a>
-        </div>
-        <div id="registerForm">
-            <div class="form-group">
-                <label>Email Akun Anda</label>
-                <input type="email" id="forgotEmail" placeholder="email@domain.com">
-            </div>
-            <p style="font-size:12px;color:#7a8a9e;margin-bottom:12px;">Kami akan kirim link reset password ke email ini. Cek juga folder Spam kalau tidak muncul di kotak masuk.</p>
-            <button class="btn-login" onclick="kirimResetPassword()"><i class="fas fa-paper-plane"></i> Kirim Link Reset</button>
-            <div id="registerError" class="error"></div>
-            <div id="forgotSuccess" class="error" style="display:none;background:#d4edda;color:#1e7e34;"></div>
-            <div style="text-align:center;margin-top:12px;">
-                <a onclick="showLogin()" style="color:#2d6a9f;cursor:pointer;">Kembali ke Login</a>
-            </div>
-        </div>
-        <div class="support-info">
-            Belum punya akun? <a href="/daftar.html" style="color:#28a745;font-weight:700;text-decoration:none;">Daftar Berlangganan</a>
-            <div style="margin-top:10px;">
-                Didukung oleh <strong>Sehatin+</strong>
-            </div>
-            <div style="margin-top:8px;">
-                <a href="/faq.html" style="color:#7a8a9e;text-decoration:none;margin:0 6px;">FAQ</a>·
-                <a href="/terms.html" style="color:#7a8a9e;text-decoration:none;margin:0 6px;">Syarat & Ketentuan</a>·
-                <a href="/refund-policy.html" style="color:#7a8a9e;text-decoration:none;margin:0 6px;">Kebijakan Refund</a>·
-                <a href="/kontak.html" style="color:#7a8a9e;text-decoration:none;margin:0 6px;">Kontak</a>
-            </div>
-        </div>
+<header>
+  <div class="container nav">
+    <a href="/" class="brand"><span class="logo"><img src="/logo-icon.png" alt="Sehatin+" style="width:100%;height:100%;object-fit:contain;"></span>Sehatin+</a>
+    <nav class="links">
+      <a href="#fitur">Fitur</a><a href="#cara">Cara Kerja</a><a href="#kenapa">Kenapa Sehatin+</a><a href="#faq">FAQ</a>
+    </nav>
+    <div class="actions"><a class="btn outline" href="/login.html">Masuk</a><a class="btn primary" href="#daftar">Coba Gratis</a></div>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <span class="eyebrow"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Aplikasi kasir & stok untuk apotek</span>
+      <h1>Kelola apotek Anda tanpa buku catatan yang tercecer</h1>
+      <p>Sehatin+ mengurus kasir, stok, dan faktur pembelian dalam satu tempat — supaya waktu Anda lebih banyak untuk pasien, bukan untuk menghitung ulang stok yang selisih.</p>
+      <div class="hero-buttons"><a class="btn primary" href="#daftar">Coba Gratis Sekarang →</a><a class="btn outline" href="#cara"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><polygon points="6 3 20 12 6 21 6 3"/></svg>Lihat Cara Kerja</a></div>
+      <div class="note">✓ &nbsp; Gratis untuk mulai. Tidak perlu kartu kredit.</div>
     </div>
-    
-    <script type="module">
-        import { supabase, signIn, resetPasswordForEmail } from './supabase.js';
-        import { applyBranding } from './branding.js';
-        applyBranding();
-        
-        window.login = async function() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const btn = document.querySelector('#loginForm .btn-login');
-            const errorEl = document.getElementById('loginError');
-            const loading = document.getElementById('loadingIndicator');
-            
-            if (!email || !password) {
-                errorEl.textContent = '❌ Email dan password wajib diisi!';
-                errorEl.style.display = 'block';
-                return;
-            }
-            
-            btn.disabled = true;
-            loading.style.display = 'block';
-            errorEl.style.display = 'none';
-            
-            const { data, error } = await signIn(email, password);
-            
-            btn.disabled = false;
-            loading.style.display = 'none';
-            
-            if (error) {
-                // Supabase kasih pesan teknis mentah ("Invalid login credentials")
-                // - diterjemahkan ke pesan yang jelas dalam Bahasa Indonesia.
-                if (error.message && error.message.toLowerCase().includes('invalid login credentials')) {
-                    errorEl.textContent = '❌ Email atau Kata Sandi Salah';
-                } else if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
-                    errorEl.textContent = '❌ Email belum dikonfirmasi. Cek kotak masuk email Anda.';
-                } else {
-                    errorEl.textContent = '❌ ' + error.message;
-                }
-                errorEl.style.display = 'block';
-            } else {
-                localStorage.setItem('supabaseSession', JSON.stringify(data.session));
-                window.location.href = '/dashboard.html';
-            }
-        };
-        
-        window.kirimResetPassword = async function() {
-            const email = document.getElementById('forgotEmail').value.trim();
-            const errorEl = document.getElementById('registerError');
-            const successEl = document.getElementById('forgotSuccess');
-            const btn = document.querySelector('#registerForm .btn-login');
-            errorEl.style.display = 'none';
-            successEl.style.display = 'none';
+    <div class="mock-wrap">
+      <div class="glow"></div>
+      <div class="dashboard">
+        <div class="dash-top"><div class="mini-logo"><img src="/logo-icon.png" alt="" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;">Sehatin+</div><div class="search">Cari obat, batch, atau transaksi...</div><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span></div>
+        <div class="dash-body">
+          <aside class="side"><div class="active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>Beranda</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>Kasir</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M4 19h16"/></svg>Pembelian</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>Stok</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>Laporan</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Tim</div><div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:5px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>Pengaturan</div></aside>
+          <div class="card">
+            <div class="medicine"><div class="medbox">AMOX<br>500mg</div><div><h3 style="margin:0;color:#124f41">Amoxicillin 500mg</h3><span class="tag">Aktif</span></div></div>
+            <div class="stats">
+              <div><div class="label">Stok saat ini</div><div class="value">142 Strip</div></div>
+              <div><div class="label">Kadaluarsa terdekat</div><div class="value">Mar 2027</div></div>
+              <div><div class="label">Harga jual</div><div class="value">Rp 2.500</div></div>
+              <div><div class="label">Terakhir diperbarui</div><div class="value">Hari ini, 09:14</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="floating float1">✓ &nbsp; Stok otomatis terupdate</div>
+      <div class="floating float2">▤ &nbsp; Tercatat rapi, bisa dicari kapan saja</div>
+    </div>
+  </div>
+</section>
 
-            if (!email) {
-                errorEl.textContent = '❌ Email wajib diisi!';
-                errorEl.style.display = 'block';
-                return;
-            }
+<section class="soft">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Masalah sehari-hari</span><h2>Kalau ini terasa familiar, Anda tidak sendirian</h2><p>Sebagian besar apotek masih mengandalkan catatan manual dan kalkulator — sampai satu hari selisihnya sudah terlalu besar untuk dilacak.</p></div>
+    <div class="problems">
+      <article class="problem"><div class="icon c-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><h3>Stok sering selisih tanpa tahu sebabnya</h3><p>Pencatatan manual gampang lupa dicatat, sekali saja terlewat, saldo stok jadi tidak bisa dipercaya.</p></article>
+      <article class="problem"><div class="icon c-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/><path d="M14 2v6h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></div><h3>Input faktur pembelian makan waktu berjam-jam</h3><p>Puluhan item per faktur, diketik ulang satu-satu dari kertas ke buku, tiap kali PBF datang.</p></article>
+      <article class="problem"><div class="icon c-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div><h3>Obat kadaluarsa baru ketahuan saat sudah terlambat</h3><p>Tanpa pengingat otomatis, obat mendekati ED sering baru disadari setelah jadi kerugian.</p></article>
+      <article class="problem"><div class="icon c-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></div><h3>Laporan bulanan dihitung ulang dari nol</h3><p>Laba rugi, rekap kas, dan pajak semua dikerjakan manual tiap akhir bulan, dari data yang tercecer.</p></article>
+    </div>
+  </div>
+</section>
 
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+<section id="fitur">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Fitur utama</span><h2>Semua yang dibutuhkan apotek, sudah tersambung satu sama lain</h2><p>Bukan kumpulan fitur terpisah — kasir, stok, dan pembelian saling memperbarui secara otomatis.</p></div>
+    <div class="features">
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg></div><h3>Kasir — Transaksi Cepat</h3><p>Jual bebas, resep, hingga racikan — stok berkurang otomatis begitu transaksi disimpan, tanpa hitung ulang manual.</p><div class="mini-visual">Transaksi<br>Rp 125.000<br>✓ Stok ter-update</div></article>
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg></div><h3>Pembelian — Scan Faktur dengan AI</h3><p>Foto faktur dari PBF, sistem baca dan isi datanya sendiri. Tidak perlu ketik ulang item satu per satu.</p><div class="mini-visual">Faktur #INV-1092<br>12 item terdeteksi<br>✓ Siap diproses</div></article>
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M12 14v3"/><path d="M10.5 15.5h3"/></svg></div><h3>Stok — Pelacakan Kadaluarsa</h3><p>Tahu persis batch mana yang mendekati ED, lengkap dengan estimasi nilai kerugian sebelum terlambat bertindak.</p><div class="mini-visual">Batch A12345<br>ED Mar 2027<br>Batch B67890</div></article>
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/><path d="M14 2v6h6"/><path d="M8 18v-2"/><path d="M12 18v-4"/><path d="M16 18v-6"/></svg></div><h3>Laporan — Otomatis, Tinggal Unduh</h3><p>Laba rugi, kartu stok, riwayat penjualan dan pembelian — semua terisi sendiri dari transaksi harian.</p><div class="mini-visual">Laporan Bulanan<br>Penjualan • Laba • Kas</div></article>
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.79 17 5 19 5a1 1 0 0 1 1 1Z"/></svg></div><h3>Tim — Hak Akses per Staf</h3><p>Atur siapa boleh buka halaman apa — kasir tidak perlu (dan tidak bisa) mengubah harga jual, misalnya.</p><div class="mini-visual">Admin — Semua akses<br>Apoteker — Terbatas<br>Kasir — Transaksi</div></article>
+      <article class="feature"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></div><h3>Stok Opname — Hitung Fisik, Selisih Otomatis Ketahuan</h3><p>Masukkan hasil hitung fisik, sistem langsung bandingkan dengan catatan dan tunjukkan selisihnya.</p><div class="mini-visual">Stok Sistem 100<br>Stok Fisik 98<br><b>Selisih -2</b></div></article>
+    </div>
+  </div>
+</section>
 
-            const { error } = await resetPasswordForEmail(email);
+<section class="soft" id="cara">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Mulai dalam 3 langkah</span><h2>Bisa langsung dipakai hari itu juga</h2><p>Tidak perlu instalasi atau pelatihan berhari-hari.</p></div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Daftarkan apotek Anda</h3><p>Isi data apotek, akun langsung aktif dan siap dipakai.</p></div>
+      <div class="step"><div class="num">2</div><h3>Pindahkan data obat</h3><p>Import dari Excel yang sudah ada, atau input manual dengan panduan langkah demi langkah.</p></div>
+      <div class="step"><div class="num">3</div><h3>Mulai transaksi</h3><p>Kasir, pembelian, dan laporan langsung berjalan sejak hari pertama.</p></div>
+    </div>
+  </div>
+</section>
 
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Link Reset';
+<section id="kenapa">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Kenapa Sehatin+</span><h2>Dibangun untuk cara kerja apotek, bukan disulap dari template umum</h2><p>Sehatin+ dirancang dari alur kerja apotek sehari-hari — bukan software toko kelontong yang ditambah-tambahkan fitur obat.</p></div>
+    <div class="why">
+      <article><h3>Paham istilah dan alur apotek</h3><p>FEFO, kartu stok, satuan konversi (box ke strip ke tablet) — semua sudah jadi bagian bawaan, bukan tambahan.</p></article>
+      <article><h3>Data tersimpan aman, bisa diakses kapan saja</h3><p>Semua transaksi tersimpan otomatis, bisa dibuka dari komputer atau HP tanpa perlu instalasi tambahan.</p></article>
+      <article><h3>Terus berkembang mengikuti kebutuhan nyata</h3><p>Fitur baru datang dari masukan apotek yang sudah memakainya, bukan asumsi di atas kertas.</p></article>
+    </div>
+  </div>
+</section>
 
-            // PENTING: jangan pernah kasih tahu kalau emailnya "tidak
-            // terdaftar" - itu bisa dipakai orang buat mengecek daftar
-            // email pengguna kita satu-satu (sama-sama tampilkan sukses,
-            // apapun hasilnya, ini praktik umum utk fitur reset password).
-            successEl.textContent = '✅ Kalau email ini terdaftar, link reset password sudah dikirim. Cek kotak masuk/spam.';
-            successEl.style.display = 'block';
-        };
+<section class="cta" id="daftar">
+  <div class="container"><div class="cta-box"><h2>Coba Sehatin+ di apotek Anda</h2><p>Gratis untuk mulai, tanpa kartu kredit, tanpa komitmen jangka panjang.</p><a class="btn" href="/daftar.html">Daftar Sekarang</a></div></div>
+</section>
 
-        window.showForgotPassword = function() {
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('registerForm').style.display = 'block';
-        };
-        
-        window.showLogin = function() {
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('registerForm').style.display = 'none';
-        };
-        
-        const session = localStorage.getItem('supabaseSession');
-        if (session) {
-            try {
-                const sessionData = JSON.parse(session);
-                if (sessionData && sessionData.expires_at > Date.now() / 1000) {
-                    window.location.href = '/dashboard.html';
-                }
-            } catch(e) {}
-        }
-        
-        document.addEventListener('keydown', e => { if(e.key === 'Enter') window.login(); });
-    </script>
+<section class="soft" id="faq">
+  <div class="container">
+    <div class="section-head"><span class="eyebrow">Pertanyaan umum</span><h2>Yang biasa ditanyakan sebelum mulai</h2></div>
+    <details><summary>Apakah data apotek saya aman?</summary><p>Ya. Setiap apotek punya ruang data terpisah yang tidak bisa diakses apotek lain, dan seluruh transaksi tersimpan otomatis setiap kali disimpan.</p></details>
+    <details><summary>Bisa dipakai di HP, atau harus komputer?</summary><p>Bisa keduanya. Sehatin+ berjalan lewat browser biasa, jadi bisa dibuka dari laptop, komputer kasir, maupun HP tanpa instalasi aplikasi tambahan.</p></details>
+    <details><summary>Data obat saya sudah ada di Excel, bagaimana pindahnya?</summary><p>Data Excel yang sudah ada bisa langsung diimpor lewat halaman Master Obat, dengan format yang dipandu di dalam aplikasi.</p></details>
+    <details><summary>Apakah ada biaya tersembunyi?</summary><p>Tidak. Anda bisa mulai mencoba secara gratis tanpa perlu memasukkan data kartu kredit terlebih dahulu.</p></details>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div><div class="foot-title"><img src="/logo-icon.png" alt="" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;">Sehatin+</div><div>Aplikasi kasir dan manajemen stok untuk apotek Indonesia.</div></div>
+      <div><div class="foot-title">Produk</div><a href="#fitur">Fitur</a><a href="#cara">Cara Kerja</a><a href="#faq">FAQ</a></div>
+      <div><div class="foot-title">Akun</div><a href="/login.html">Masuk</a><a href="/daftar.html">Daftar</a><a href="/kontak.html">Kontak</a><a href="/terms.html">Syarat & Ketentuan</a></div>
+    </div>
+    <div class="copyright">© 2026 Sehatin+. Seluruh hak cipta dilindungi.</div>
+  </div>
+</footer>
 </body>
 </html>

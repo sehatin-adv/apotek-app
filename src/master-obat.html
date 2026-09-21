@@ -250,8 +250,7 @@
                 <i class="fas fa-gear"></i> KELOLA APLIKASI
                 <i class="fas fa-chevron-down chevron"></i>
             </div>
-            <div class="sub-menu">
-                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
+            <div class="sub-menu">                <div class="menu-item" data-module="kelola_user" onclick="navigate('kelola-user.html')"><i class="fas fa-users"></i> Kelola User</div>
                 <div class="menu-item" data-module="pengaturan_apotek" onclick="navigate('pengaturan-apotek.html')"><i class="fas fa-store"></i> Identitas Apotek</div>
                 <div class="menu-item" data-module="reset_data" onclick="navigate('reset-data.html')"><i class="fas fa-trash"></i> Reset Data</div>
                 <div class="menu-item" data-module="audit_log" onclick="navigate('audit-log.html')"><i class="fas fa-history"></i> Audit Log</div>
@@ -427,6 +426,7 @@
 
 <script type="module">
     import { getObat, saveObat, deleteObat, getKategoriObat, addKategoriObat, deleteKategoriObat } from './database.js';
+    import { getCurrentUser } from './supabase.js';
     import { applyBranding } from './branding.js';
     applyBranding('Master Obat');
     import { enforcePermissions } from './permissions.js';
@@ -436,8 +436,8 @@
     // NAVIGATION
     // ============================================================
     window.navigate = function(page) { window.location.href = page; };
-    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; };
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
+    window.logout = function() { localStorage.removeItem('supabaseSession'); window.location.href = '/login.html'; };
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/login.html';
 
     window.toggleDropdown = function(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');
@@ -785,7 +785,6 @@
             showToast('❌ Gagal menyimpan data: ' + e.message, true);
         }
     };
-
     window.editObat = function(id) {
         const o = obatData.find(item => item.id === id);
         if (!o) return;
@@ -1092,6 +1091,18 @@
     // ============================================================
     document.addEventListener('DOMContentLoaded', async function() {
         loadKategoriObat();
+        // Perbaikan: sebelumnya nama user di sidebar TIDAK PERNAH diganti
+        // dari teks placeholder "admin" - bikin bingung seolah semua akun
+        // "jadi admin". Sekarang benar2 dimuat dari akun yang login.
+        (async () => {
+            try {
+                const user = await getCurrentUser();
+                if (user) {
+                    const namaTampil = user.user_metadata?.full_name || user.email || '-';
+                    document.getElementById('usernameDisplay').textContent = namaTampil;
+                }
+            } catch(e) { console.error('Error load user:', e); }
+        })();
         await loadObat();
         // Isi Kode Obat otomatis begitu halaman pertama kali dibuka (baru
         // ada gunanya setelah obatData selesai dimuat, supaya pengecekan

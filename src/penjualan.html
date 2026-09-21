@@ -148,8 +148,8 @@
 
 <script>
     function navigate(page) { window.location.href = page; }
-    function logout() { localStorage.removeItem('supabaseSession'); window.location.href = '/'; }
-    if (!localStorage.getItem('supabaseSession')) window.location.href = '/';
+    function logout() { localStorage.removeItem('supabaseSession'); window.location.href = '/login.html'; }
+    if (!localStorage.getItem('supabaseSession')) window.location.href = '/login.html';
     
     function toggleDropdown(el) {
         const subMenu = el.parentElement.querySelector('.sub-menu');

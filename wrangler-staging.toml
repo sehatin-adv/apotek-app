@@ -1,0 +1,31 @@
+name = "sehatin-app-staging"
+compatibility_date = "2024-12-18"
+pages_build_output_dir = "./dist"
+
+[vars]
+# GANTI 2 nilai di bawah ini dengan punya proyek Supabase STAGING yang
+# baru (bukan yang dipakai pelanggan sungguhan) - lihat panduan di
+# STAGING-SETUP.md untuk cara ambil nilainya.
+SUPABASE_URL = "https://GANTI-DENGAN-URL-PROJECT-STAGING.supabase.co"
+SUPABASE_ANON_KEY = "GANTI-DENGAN-ANON-KEY-PROJECT-STAGING"
+
+# Matikan verifikasi captcha (Turnstile) KHUSUS di staging - supaya tidak
+# perlu urus widget/domain Turnstile terpisah cuma buat uji coba. Baris
+# ini SENGAJA TIDAK ADA di wrangler.toml produksi - jangan disalin ke sana.
+DISABLE_TURNSTILE = "true"
+
+# ------------------------------------------------------------------
+# CATATAN: semua secret (SUPABASE_SERVICE_ROLE_KEY, PLATFORM_ADMIN_SECRET,
+# GEMINI_API_KEY, IPAYMU_*, dst) TETAP perlu di-set ULANG secara terpisah
+# khusus untuk proyek Cloudflare Pages staging ini - secret TIDAK ikut
+# tersalin otomatis dari proyek produksi. Jalankan perintah yang sama
+# seperti biasa, tapi pastikan sedang berada di folder/project staging:
+#
+#   npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name sehatin-app-staging
+#   npx wrangler pages secret put PLATFORM_ADMIN_SECRET --project-name sehatin-app-staging
+#   npx wrangler pages secret put GEMINI_API_KEY --project-name sehatin-app-staging
+#   (dst sesuai fitur yang mau dites di staging)
+#
+# Untuk staging, TIDAK WAJIB isi semua secret - cukup yang relevan
+# dengan fitur yang sedang Anda uji coba saat itu.
+# ------------------------------------------------------------------

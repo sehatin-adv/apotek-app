@@ -55,24 +55,32 @@ export async function onRequestPost(context) {
         // submit form ini berkali-kali. Token dari frontend dicek ulang
         // ke server Cloudflare (WAJIB dicek di server, tidak cukup cuma
         // widget-nya "tampil sukses" di sisi klien - itu bisa dipalsukan).
-        if (!env.TURNSTILE_SECRET_KEY) {
-            return new Response(JSON.stringify({ error: 'Server belum dikonfigurasi lengkap (Turnstile).' }), { status: 500, headers: CORS_HEADERS });
-        }
-        if (!turnstile_token) {
-            return new Response(JSON.stringify({ error: 'Verifikasi keamanan belum diselesaikan. Coba lagi.' }), { status: 400, headers: CORS_HEADERS });
-        }
-        const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                secret: env.TURNSTILE_SECRET_KEY,
-                response: turnstile_token,
-                remoteip: request.headers.get('CF-Connecting-IP') || ''
-            })
-        });
-        const turnstileData = await turnstileRes.json();
-        if (!turnstileData.success) {
-            return new Response(JSON.stringify({ error: 'Verifikasi keamanan gagal. Silakan coba lagi.' }), { status: 400, headers: CORS_HEADERS });
+        //
+        // KECUALI kalau DISABLE_TURNSTILE="true" di-set (HANYA dipasang di
+        // wrangler-staging.toml, TIDAK PERNAH di wrangler.toml produksi) -
+        // ini sengaja dibuat supaya staging bisa dites tanpa perlu widget
+        // Turnstile ekstra per-domain, tanpa mengurangi keamanan produksi
+        // sama sekali (produksi tidak punya var ini jadi tetap wajib cek).
+        if (env.DISABLE_TURNSTILE !== 'true') {
+            if (!env.TURNSTILE_SECRET_KEY) {
+                return new Response(JSON.stringify({ error: 'Server belum dikonfigurasi lengkap (Turnstile).' }), { status: 500, headers: CORS_HEADERS });
+            }
+            if (!turnstile_token) {
+                return new Response(JSON.stringify({ error: 'Verifikasi keamanan belum diselesaikan. Coba lagi.' }), { status: 400, headers: CORS_HEADERS });
+            }
+            const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    secret: env.TURNSTILE_SECRET_KEY,
+                    response: turnstile_token,
+                    remoteip: request.headers.get('CF-Connecting-IP') || ''
+                })
+            });
+            const turnstileData = await turnstileRes.json();
+            if (!turnstileData.success) {
+                return new Response(JSON.stringify({ error: 'Verifikasi keamanan gagal. Silakan coba lagi.', debug_turnstile: turnstileData['error-codes'] || turnstileData }), { status: 400, headers: CORS_HEADERS });
+            }
         }
 
         const serviceHeaders = {
@@ -90,6 +98,28 @@ export async function onRequestPost(context) {
         const data = await res.json();
         if (!res.ok) {
             return new Response(JSON.stringify({ error: 'Gagal menyimpan pendaftaran: ' + (data.message || JSON.stringify(data)) }), { status: 500, headers: CORS_HEADERS });
+        }
+
+        // Kirim notifikasi Telegram ke admin - pakai bot & secret yang sama
+        // dengan telegram-webhook.js. Sengaja tidak menghentikan proses
+        // (tidak di-"await" gagal = block response) kalau Telegram gagal
+        // terkirim - pendaftaran tetap harus dianggap SUKSES buat calon
+        // pelanggan meski notifikasinya kebetulan gagal terkirim.
+        if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_AUTHORIZED_USER_ID) {
+            const pesanTelegram =
+                `🔔 <b>Pendaftar Baru Sehatin+</b>\n\n` +
+                `🏥 Apotek: <b>${nama_apotek}</b>\n` +
+                `👤 PIC: ${nama_pic}\n` +
+                `📧 Email: ${email}\n` +
+                `📱 Telepon: ${telepon || '-'}\n` +
+                `📦 Paket diminati: ${paket_diminati || '-'}\n` +
+                (minta_demo ? `📅 Minta demo: ${tanggal_demo || '-'} ${waktu_demo || ''}\n` : '') +
+                (catatan ? `📝 Catatan: ${catatan}\n` : '');
+            fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: env.TELEGRAM_AUTHORIZED_USER_ID, text: pesanTelegram, parse_mode: 'HTML' })
+            }).catch(() => {});
         }
 
         return new Response(JSON.stringify({ data: { id: data[0]?.id } }), { headers: CORS_HEADERS });
