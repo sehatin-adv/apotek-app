@@ -1407,9 +1407,19 @@
         // (BOX). Konversi cuma mengubah item di faktur, jadi Master Obat
         // tertinggal di BOX. Di sini satuan Master ikut disamakan dengan
         // satuan jual hasil konversi.
-        sinkronSatuanMasterBaru(item, satuanKecil);
+        // Harga jual default Master baru tadi dihitung dari harga BOX + 25%,
+        // jadi harus dihitung ulang dari harga per satuan kecil. Kalau user
+        // belum mengisi Harga Jual manual, margin dikembalikan ke 25%
+        // (sama seperti saat obat dibuat) supaya recalculateItem menurunkan
+        // Harga Jual per satuan kecil. Harga Jual manual user dibiarkan.
+        if (item._obatBaruDariFaktur && !item._hargaJualManual) {
+            item.margin_persen = 25;
+        }
 
         recalculateItem(index);
+        // Sinkron ke Master SETELAH recalculateItem, karena harga jual per
+        // satuan kecil baru final di sini.
+        sinkronSatuanMasterBaru(item, satuanKecil);
         renderItems();
         hitungTotal();
         showToast(`✅ Dikonversi: ${item.jumlah_asli} ${item.satuan_asli} = ${item.jumlah} ${satuanKecil}`);
@@ -1423,10 +1433,20 @@
         const master = obatMaster.find(o => String(o.id) === String(item.obat_id));
         if (!master) return;
         master.satuan = satuanBaru;
+        // Harga Master ikut harga per satuan kecil hasil konversi (bukan
+        // harga per BOX lagi), supaya Kasir menjual dengan harga per sachet.
+        master.harga_beli = Number(item.harga_beli) || 0;
+        master.harga_jual = Math.round(Number(item.harga_jual) || 0);
         try {
             // Pakai saveObat (upsert utk baris LENGKAP, bukan update parsial)
             // supaya cache daftar obat di database.js ikut dibersihkan.
-            const { error } = await saveObat({ ...master });
+            let { error } = await saveObat({ ...master });
+            if (error) {
+                // Jaga-jaga kalau kolom harga_beli di tabel obat bertipe
+                // bilangan bulat dan menolak desimal: ulangi dengan dibulatkan.
+                master.harga_beli = Math.round(master.harga_beli);
+                ({ error } = await saveObat({ ...master }));
+            }
             if (error) throw error;
         } catch (e) {
             console.error('Gagal menyinkronkan satuan Master Obat:', e);
