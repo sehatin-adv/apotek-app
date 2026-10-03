@@ -1327,6 +1327,11 @@
             items[cocokkanTargetIndex].obat_id = obatBaruData.id;
             items[cocokkanTargetIndex].kode_obat = obatBaruData.kode_obat;
             items[cocokkanTargetIndex].nama_obat = obatBaruData.nama_obat;
+            // Tandai: Master Obat ini baru dibuat dari item faktur ini, jadi
+            // satuannya masih "pinjaman" dari satuan faktur (mis. BOX). Kalau
+            // user baru mengonversi SESUDAH ini, satuan Master harus ikut
+            // disinkronkan (lihat sinkronSatuanMasterBaru di terapkanKonversi).
+            items[cocokkanTargetIndex]._obatBaruDariFaktur = true;
             renderItems();
             hitungTotal();
             closeCocokkanMaster();
@@ -1397,11 +1402,37 @@
         item.satuan = satuanKecil;
         item._showKonversi = false;
 
+        // FIX BUG: kalau Master Obat item ini baru dibuat lewat "Tambah Obat
+        // Baru" SEBELUM konversi, satuannya waktu itu masih satuan faktur
+        // (BOX). Konversi cuma mengubah item di faktur, jadi Master Obat
+        // tertinggal di BOX. Di sini satuan Master ikut disamakan dengan
+        // satuan jual hasil konversi.
+        sinkronSatuanMasterBaru(item, satuanKecil);
+
         recalculateItem(index);
         renderItems();
         hitungTotal();
         showToast(`✅ Dikonversi: ${item.jumlah_asli} ${item.satuan_asli} = ${item.jumlah} ${satuanKecil}`);
     };
+    // Menyamakan satuan Master Obat yang BARU dibuat dari faktur ini dengan
+    // satuan jual hasil konversi. Hanya berlaku untuk obat baru buatan sesi
+    // ini (flag _obatBaruDariFaktur) - Master Obat lama yang sudah dicocokkan
+    // tidak pernah diubah satuannya dari sini.
+    async function sinkronSatuanMasterBaru(item, satuanBaru) {
+        if (!item._obatBaruDariFaktur || !item.obat_id) return;
+        const master = obatMaster.find(o => String(o.id) === String(item.obat_id));
+        if (!master) return;
+        master.satuan = satuanBaru;
+        try {
+            // Pakai saveObat (upsert utk baris LENGKAP, bukan update parsial)
+            // supaya cache daftar obat di database.js ikut dibersihkan.
+            const { error } = await saveObat({ ...master });
+            if (error) throw error;
+        } catch (e) {
+            console.error('Gagal menyinkronkan satuan Master Obat:', e);
+            showToast('⚠️ Satuan Master Obat gagal diperbarui otomatis: ' + e.message, true);
+        }
+    }
     window.batalKonversi = function(index) {
         items[index]._showKonversi = false;
         renderItems();
@@ -2017,7 +2048,7 @@
             // (yang seharusnya UUID otomatis), bikin Postgres menolak
             // dengan error "invalid input syntax for type uuid". Field ini
             // WAJIB dibuang juga, sama seperti field UI-only lainnya.
-            items: items.map(({ id, _fromScan, _showKonversi, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ongkir_per_unit, _hargaJualManual, ...clean }) => ({
+            items: items.map(({ id, _fromScan, _showKonversi, _obatBaruDariFaktur, satuan_asli, harga_beli_asli, jumlah_asli, konversi_qty, satuan_kecil_master, ongkir_per_unit, _hargaJualManual, ...clean }) => ({
                 ...clean,
                 // Jaring pengaman terakhir sebelum kirim ke server. Harga
                 // Beli SENGAJA DIKECUALIKAN dari pembulatan - kolomnya
