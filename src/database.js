@@ -986,6 +986,9 @@ export async function saveStokOpname(opnameData) {
 
         if (error) throw error;
 
+        const stokAkhirMap = {}; // kode_obat -> stok akhir di database (utk sinkron cache lokal)
+        let rpcTidakAda = false;
+
         for (const item of items) {
             if (item.kode_obat) {
                 const { data: obatData, error: obatError } = await supabase
@@ -995,17 +998,35 @@ export async function saveStokOpname(opnameData) {
                     .single();
 
                 if (!obatError && obatData) {
-                    const stokFisik = Number(item.stok_fisik) || 0;
                     const stokKadaluarsa = Number(item.stok_kadaluarsa) || 0;
-                    // Stok kadaluarsa otomatis dikeluarkan dari stok akhir yang
-                    // tersimpan - fisik ada di rak, tapi tidak layak jual lagi.
-                    const stokBaru = Math.max(0, stokFisik - stokKadaluarsa);
-                    const updatePayload = { stok: stokBaru };
-                    if (item.tanggal_exp) updatePayload.tanggal_exp = item.tanggal_exp;
-                    await supabase
-                        .from('obat')
-                        .update(updatePayload)
-                        .eq('id', obatData.id);
+                    // STOK DIUBAH DENGAN SELISIH, BUKAN DITIMPA ANGKA HASIL HITUNG.
+                    //   delta = (stok fisik - stok sistem saat item dihitung) - stok kadaluarsa
+                    // Jadi penjualan/pembelian yang terjadi setelah item itu
+                    // dihitung tidak hilang tertimpa. Stok kadaluarsa otomatis
+                    // dikeluarkan (fisik ada di rak tapi tidak layak jual).
+                    const delta = (Number(item.selisih) || 0) - stokKadaluarsa;
+                    let stokBaru = null;
+                    if (!rpcTidakAda) {
+                        // Atomik di database (lihat opname_adjust_stok.sql)
+                        const rpc = await supabase.rpc('opname_adjust_stok', { p_obat_id: String(obatData.id), p_delta: delta });
+                        if (!rpc.error && rpc.data !== null && rpc.data !== undefined) {
+                            const v = Number(Array.isArray(rpc.data) ? rpc.data[0] : rpc.data);
+                            if (!Number.isNaN(v)) stokBaru = v;
+                        } else if (rpc.error) {
+                            rpcTidakAda = true;
+                            console.warn('RPC opname_adjust_stok tidak tersedia, pakai cara baca-lalu-tulis. Jalankan opname_adjust_stok.sql di Supabase.', rpc.error);
+                        }
+                    }
+                    if (stokBaru === null) {
+                        // Cadangan kalau fungsi SQL belum dibuat: stok dibaca barusan
+                        // (jendela balapnya kecil) lalu ditambah delta.
+                        stokBaru = Math.max(0, (Number(obatData.stok) || 0) + delta);
+                        await supabase.from('obat').update({ stok: stokBaru }).eq('id', obatData.id);
+                    }
+                    if (item.tanggal_exp) {
+                        await supabase.from('obat').update({ tanggal_exp: item.tanggal_exp }).eq('id', obatData.id);
+                    }
+                    stokAkhirMap[item.kode_obat] = stokBaru;
 
                     // Rekonsiliasi Pelacakan Batch ED berdasarkan hasil hitung
                     // fisik Stok Opname - kalau ada rincian per-ED ("batches",
@@ -1057,7 +1078,7 @@ export async function saveStokOpname(opnameData) {
                             keterangan: 'Stok Opname (' + (item.selisih > 0 ? 'Lebih' : 'Kurang') + ')',
                             masuk: item.selisih > 0 ? item.selisih : 0,
                             keluar: item.selisih < 0 ? Math.abs(item.selisih) : 0,
-                            sisa_stok: stokFisik,
+                            sisa_stok: stokBaru + stokKadaluarsa, // stok setelah selisih, sebelum write-off kadaluarsa
                             tanggal_exp: item.tanggal_exp || null
                         });
 
@@ -1117,7 +1138,9 @@ export async function saveStokOpname(opnameData) {
         items.forEach(item => {
             const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
             if (obat) {
-                obat.stok = Math.max(0, (Number(item.stok_fisik) || 0) - (Number(item.stok_kadaluarsa) || 0));
+                obat.stok = (stokAkhirMap[item.kode_obat] !== undefined)
+                    ? stokAkhirMap[item.kode_obat]
+                    : Math.max(0, (Number(obat.stok) || 0) + (Number(item.selisih) || 0) - (Number(item.stok_kadaluarsa) || 0));
             }
         });
         localStorage.setItem('obat', JSON.stringify(obatLocal));
@@ -1148,7 +1171,7 @@ export async function saveStokOpname(opnameData) {
             opnameData.items.forEach(item => {
                 const obat = obatLocal.find(o => o.kode_obat === item.kode_obat);
                 if (obat) {
-                    obat.stok = Math.max(0, (Number(item.stok_fisik) || 0) - (Number(item.stok_kadaluarsa) || 0));
+                    obat.stok = Math.max(0, (Number(obat.stok) || 0) + (Number(item.selisih) || 0) - (Number(item.stok_kadaluarsa) || 0));
                 }
             });
             localStorage.setItem('obat', JSON.stringify(obatLocal));
